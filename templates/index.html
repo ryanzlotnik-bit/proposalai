@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}ProposalAI — Win More Jobs with AI-Powered Proposals{% endblock %}
+
+{% block content %}
+
+<!-- Hero -->
+<section class="bg-white">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 text-center">
+    <div class="inline-flex items-center gap-2 bg-blue-50 text-blue-700 text-sm font-medium px-4 py-1.5 rounded-full mb-6">
+      <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+      Built for HVAC, Plumbing, Electrical, Roofing & more
+    </div>
+    <h1 class="text-5xl sm:text-6xl font-extrabold text-gray-900 leading-tight mb-6">
+      Win More Jobs.<br />
+      <span class="text-blue-600">Professional Proposals<br />in 60 Seconds.</span>
+    </h1>
+    <p class="text-xl text-gray-500 max-w-2xl mx-auto mb-10">
+      Stop losing bids to contractors who look more professional. ProposalAI turns your job details
+      into a polished, client-ready proposal instantly — no Word docs, no guesswork.
+    </p>
+    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+      <a href="{{ url_for('register') }}"
+         class="bg-blue-600 text-white font-semibold px-8 py-4 rounded-xl hover:bg-blue-700 transition text-lg shadow-lg shadow-blue-200">
+        Start Free — 3 Proposals on Us
+      </a>
+      <a href="{{ url_for('pricing') }}"
+         class="bg-gray-100 text-gray-700 font-semibold px-8 py-4 rounded-xl hover:bg-gray-200 transition text-lg">
+        See Pricing
+      </a>
+    </div>
+    <p class="text-sm text-gray-400 mt-4">No credit card required · Cancel anytime</p>
+  </div>
+</section>
+
+<!-- Social Proof Strip -->
+<section class="bg-gray-50 border-y border-gray-200 py-6">
+  <div class="max-w-4xl mx-auto px-4 flex flex-wrap justify-center gap-8 text-center">
+    <div>
+      <p class="text-3xl font-bold text-gray-900">60s</p>
+      <p class="text-sm text-gray-500">Avg. proposal time</p>
+    </div>
+    <div class="hidden sm:block w-px bg-gray-300"></div>
+    <div>
+      <p class="text-3xl font-bold text-gray-900">$0</p>
+      <p class="text-sm text-gray-500">To get started</p>
+    </div>
+    <div class="hidden sm:block w-px bg-gray-300"></div>
+    <div>
+      <p class="text-3xl font-bold text-gray-900">100%</p>
+      <p class="text-sm text-gray-500">Professional output</p>
+    </div>
+    <div class="hidden sm:block w-px bg-gray-300"></div>
+    <div>
+      <p class="text-3xl font-bold text-gray-900">AI</p>
+      <p class="text-sm text-gray-500">Powered by Claude</p>
+    </div>
+  </div>
+</section>
+
+<!-- How It Works -->
+<section class="py-20 bg-white">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-14">
+      <h2 class="text-3xl font-bold text-gray-900">How it works</h2>
+      <p class="text-gray-500 mt-3">Three steps to a proposal that wins the job</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {% for step in [
+        ('1', 'Fill in the job details', 'Enter the client name, job type, materials, labor hours, and any notes. Takes under 2 minutes.', 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z'),
+        ('2', 'AI writes your proposal', 'Our AI generates a detailed scope of work, materials list, pricing, timeline, and professional language — instantly.', 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z'),
+        ('3', 'Send it & close the deal', 'Print, email, or share the proposal directly. Mark it accepted when the client signs off.', 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'),
+      ] %}
+      <div class="bg-gray-50 rounded-2xl p-8 text-center">
+        <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ step[3] }}"/>
+          </svg>
+        </div>
+        <div class="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">Step {{ step[0] }}</div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ step[1] }}</h3>
+        <p class="text-gray-500 text-sm">{{ step[2] }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="py-20 bg-gray-50">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-14">
+      <h2 class="text-3xl font-bold text-gray-900">Everything you need to close more jobs</h2>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for f in [
+        ('AI-Written Scope of Work', 'Detailed, professional language that shows clients exactly what they are getting.'),
+        ('Auto-Calculated Pricing', 'Enter your labor rate and hours — AI builds a complete cost breakdown.'),
+        ('Materials List', 'Itemized parts and materials with quantities and costs, automatically organized.'),
+        ('Payment Terms & Warranty', 'Standard contractor terms included automatically. Edit if needed.'),
+        ('Proposal Tracking', 'Mark proposals as Sent, Accepted, or Declined. Always know your pipeline.'),
+        ('Print-Ready Format', 'Clean, professional layout. One click to print or save as PDF from your browser.'),
+      ] %}
+      <div class="bg-white rounded-xl p-6 border border-gray-200">
+        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
+          <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <h3 class="font-semibold text-gray-900 mb-1">{{ f[0] }}</h3>
+        <p class="text-sm text-gray-500">{{ f[1] }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- Testimonial -->
+<section class="py-20 bg-blue-600">
+  <div class="max-w-3xl mx-auto px-4 text-center">
+    <svg class="w-10 h-10 text-blue-300 mx-auto mb-6" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/>
+    </svg>
+    <p class="text-2xl font-medium text-white leading-relaxed mb-8">
+      "I used to spend 30–45 minutes writing proposals. Now I do it in 60 seconds and they look
+      10x more professional. I've won 3 extra jobs this month just because my proposals came back same-day."
+    </p>
+    <div>
+      <p class="font-semibold text-white">Mike R.</p>
+      <p class="text-blue-200 text-sm">HVAC Contractor · Chicago, IL</p>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="py-20 bg-white">
+  <div class="max-w-2xl mx-auto px-4 text-center">
+    <h2 class="text-3xl font-bold text-gray-900 mb-4">Start winning more jobs today</h2>
+    <p class="text-gray-500 mb-8">Your first 3 proposals are completely free. No credit card needed.</p>
+    <a href="{{ url_for('register') }}"
+       class="bg-blue-600 text-white font-semibold px-10 py-4 rounded-xl hover:bg-blue-700 transition text-lg shadow-lg shadow-blue-200 inline-block">
+      Create Your Free Account
+    </a>
+  </div>
+</section>
+
+{% endblock %}

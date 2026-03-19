@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — ProposalAI{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">My Proposals</h1>
+      <p class="text-gray-500 text-sm mt-1">
+        {% if current_user.is_subscribed %}
+          {{ current_user.plan|capitalize }} Plan · Unlimited proposals
+        {% else %}
+          Free Trial · {{ proposals|length }} / 3 proposals used
+        {% endif %}
+      </p>
+    </div>
+    <div class="flex items-center gap-3">
+      {% if not current_user.is_subscribed %}
+        <a href="{{ url_for('pricing') }}"
+           class="text-sm font-medium text-blue-600 hover:underline">Upgrade for unlimited</a>
+      {% endif %}
+      <a href="{{ url_for('generate') }}"
+         class="bg-blue-600 text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-blue-700 transition">
+        + New Proposal
+      </a>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+    {% set total = proposals|length %}
+    {% set sent = proposals|selectattr('status','eq','sent')|list|length %}
+    {% set accepted = proposals|selectattr('status','eq','accepted')|list|length %}
+    {% set total_value = proposals|sum(attribute='grand_total') %}
+    {% for label, value in [('Total Proposals', total), ('Sent', sent), ('Accepted', accepted), ('Pipeline Value', '$' + '{:,.0f}'.format(total_value))] %}
+    <div class="bg-white rounded-xl border border-gray-200 p-5 text-center">
+      <p class="text-2xl font-bold text-gray-900">{{ value }}</p>
+      <p class="text-xs text-gray-500 mt-1">{{ label }}</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Trial banner -->
+  {% if not current_user.is_subscribed and proposals|length >= 3 %}
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-center justify-between gap-4">
+    <div>
+      <p class="font-semibold text-amber-800">You've used all 3 free proposals</p>
+      <p class="text-sm text-amber-600">Upgrade to Starter ($49/mo) to generate unlimited proposals.</p>
+    </div>
+    <a href="{{ url_for('pricing') }}"
+       class="bg-amber-500 text-white text-sm font-semibold px-5 py-2 rounded-lg hover:bg-amber-600 transition whitespace-nowrap">
+      Upgrade Now
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- Proposals Table -->
+  {% if proposals %}
+  <div class="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-200">
+        <tr>
+          <th class="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Proposal</th>
+          <th class="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden sm:table-cell">Client</th>
+          <th class="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider hidden md:table-cell">Job Type</th>
+          <th class="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
+          <th class="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+          <th class="text-left px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for p in proposals %}
+        <tr class="hover:bg-gray-50 transition">
+          <td class="px-6 py-4">
+            <p class="font-semibold text-gray-900">{{ p.proposal_number }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ p.formatted_date }}</p>
+          </td>
+          <td class="px-6 py-4 hidden sm:table-cell">
+            <p class="font-medium text-gray-800">{{ p.client_name }}</p>
+            <p class="text-xs text-gray-400">{{ p.client_address[:40] + '...' if p.client_address|length > 40 else p.client_address }}</p>
+          </td>
+          <td class="px-6 py-4 hidden md:table-cell text-gray-600">{{ p.job_type }}</td>
+          <td class="px-6 py-4 font-semibold text-gray-900">${{ '{:,.0f}'.format(p.grand_total) }}</td>
+          <td class="px-6 py-4">
+            <select onchange="updateStatus({{ p.id }}, this.value)"
+              class="text-xs font-medium px-3 py-1.5 rounded-lg border cursor-pointer
+                {% if p.status == 'accepted' %}bg-green-50 border-green-200 text-green-700
+                {% elif p.status == 'sent' %}bg-blue-50 border-blue-200 text-blue-700
+                {% elif p.status == 'declined' %}bg-red-50 border-red-200 text-red-700
+                {% else %}bg-gray-50 border-gray-200 text-gray-600{% endif %}">
+              <option value="draft" {% if p.status == 'draft' %}selected{% endif %}>Draft</option>
+              <option value="sent" {% if p.status == 'sent' %}selected{% endif %}>Sent</option>
+              <option value="accepted" {% if p.status == 'accepted' %}selected{% endif %}>Accepted</option>
+              <option value="declined" {% if p.status == 'declined' %}selected{% endif %}>Declined</option>
+            </select>
+          </td>
+          <td class="px-6 py-4">
+            <div class="flex items-center gap-2">
+              <a href="{{ url_for('view_proposal', proposal_id=p.id) }}"
+                 class="text-blue-600 hover:text-blue-800 font-medium">View</a>
+              <span class="text-gray-300">|</span>
+              <form method="POST" action="{{ url_for('delete_proposal', proposal_id=p.id) }}"
+                    onsubmit="return confirm('Delete this proposal?')" class="inline">
+                <button type="submit" class="text-red-500 hover:text-red-700 font-medium">Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% else %}
+  <!-- Empty state -->
+  <div class="bg-white rounded-2xl border border-gray-200 border-dashed py-20 text-center">
+    <div class="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+      <svg class="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+    </div>
+    <h3 class="text-lg font-semibold text-gray-900 mb-2">No proposals yet</h3>
+    <p class="text-gray-500 text-sm mb-6">Generate your first proposal in under 60 seconds.</p>
+    <a href="{{ url_for('generate') }}"
+       class="bg-blue-600 text-white font-semibold px-6 py-3 rounded-xl hover:bg-blue-700 transition">
+      Generate First Proposal
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateStatus(proposalId, status) {
+  fetch(`/proposal/${proposalId}/status`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status })
+  }).then(r => r.json()).then(() => window.location.reload());
+}
+</script>
+{% endblock %}

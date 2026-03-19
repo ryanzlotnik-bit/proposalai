@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Pricing — ProposalAI{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-16">
+
+  <div class="text-center mb-12">
+    <h1 class="text-4xl font-bold text-gray-900">Simple, transparent pricing</h1>
+    <p class="text-gray-500 mt-3 text-lg">Start free. Upgrade when you're ready to win more jobs.</p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+    <!-- Free Trial -->
+    <div class="bg-white rounded-2xl border border-gray-200 p-8">
+      <div class="mb-6">
+        <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Free Trial</p>
+        <div class="flex items-end gap-1">
+          <span class="text-5xl font-extrabold text-gray-900">$0</span>
+        </div>
+        <p class="text-gray-500 text-sm mt-2">3 proposals included</p>
+      </div>
+      <ul class="space-y-3 mb-8">
+        {% for f in ['3 AI-generated proposals','Professional PDF layout','Print & email sharing','Proposal status tracking'] %}
+        <li class="flex items-center gap-2 text-sm text-gray-600">
+          <svg class="w-4 h-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+          </svg>
+          {{ f }}
+        </li>
+        {% endfor %}
+      </ul>
+      {% if current_user.is_authenticated %}
+        <div class="bg-gray-100 text-gray-500 text-sm text-center font-medium py-3 rounded-xl">Current Plan</div>
+      {% else %}
+        <a href="{{ url_for('register') }}"
+           class="block w-full text-center bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-200 transition text-sm">
+          Start Free
+        </a>
+      {% endif %}
+    </div>
+
+    <!-- Starter -->
+    <div class="bg-blue-600 rounded-2xl p-8 relative">
+      <div class="absolute -top-3 left-1/2 -translate-x-1/2">
+        <span class="bg-amber-400 text-amber-900 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Most Popular</span>
+      </div>
+      <div class="mb-6">
+        <p class="text-sm font-semibold text-blue-200 uppercase tracking-wider mb-2">Starter</p>
+        <div class="flex items-end gap-1">
+          <span class="text-5xl font-extrabold text-white">$49</span>
+          <span class="text-blue-200 mb-2">/month</span>
+        </div>
+        <p class="text-blue-200 text-sm mt-2">Up to 30 proposals/month</p>
+      </div>
+      <ul class="space-y-3 mb-8">
+        {% for f in ['30 AI proposals per month','Everything in Free','Priority AI generation','Custom company branding','Email support'] %}
+        <li class="flex items-center gap-2 text-sm text-white">
+          <svg class="w-4 h-4 text-blue-200 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+          </svg>
+          {{ f }}
+        </li>
+        {% endfor %}
+      </ul>
+      {% if current_user.is_authenticated %}
+        <form method="POST" action="{{ url_for('create_checkout_session') }}">
+          <input type="hidden" name="plan" value="starter" />
+          <button type="submit"
+            class="w-full bg-white text-blue-700 font-semibold py-3 rounded-xl hover:bg-blue-50 transition text-sm">
+            Upgrade to Starter
+          </button>
+        </form>
+      {% else %}
+        <a href="{{ url_for('register') }}"
+           class="block w-full text-center bg-white text-blue-700 font-semibold py-3 rounded-xl hover:bg-blue-50 transition text-sm">
+          Get Started
+        </a>
+      {% endif %}
+    </div>
+
+    <!-- Pro -->
+    <div class="bg-white rounded-2xl border border-gray-200 p-8">
+      <div class="mb-6">
+        <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Pro</p>
+        <div class="flex items-end gap-1">
+          <span class="text-5xl font-extrabold text-gray-900">$99</span>
+          <span class="text-gray-400 mb-2">/month</span>
+        </div>
+        <p class="text-gray-500 text-sm mt-2">Unlimited proposals</p>
+      </div>
+      <ul class="space-y-3 mb-8">
+        {% for f in ['Unlimited proposals','Everything in Starter','Multi-user (up to 3 seats)','White-label branding','Priority support','Monthly usage report'] %}
+        <li class="flex items-center gap-2 text-sm text-gray-600">
+          <svg class="w-4 h-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+          </svg>
+          {{ f }}
+        </li>
+        {% endfor %}
+      </ul>
+      {% if current_user.is_authenticated %}
+        <form method="POST" action="{{ url_for('create_checkout_session') }}">
+          <input type="hidden" name="plan" value="pro" />
+          <button type="submit"
+            class="w-full bg-gray-900 text-white font-semibold py-3 rounded-xl hover:bg-gray-800 transition text-sm">
+            Upgrade to Pro
+          </button>
+        </form>
+      {% else %}
+        <a href="{{ url_for('register') }}"
+           class="block w-full text-center bg-gray-900 text-white font-semibold py-3 rounded-xl hover:bg-gray-800 transition text-sm">
+          Get Started
+        </a>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- FAQ -->
+  <div class="mt-16 max-w-2xl mx-auto">
+    <h2 class="text-xl font-bold text-gray-900 text-center mb-8">Common questions</h2>
+    <div class="space-y-4">
+      {% for q, a in [
+        ('Do I need a credit card to sign up?', 'No. Your first 3 proposals are completely free, no payment info needed.'),
+        ('Can I cancel anytime?', 'Yes. Cancel your subscription anytime from your account settings. No long-term contracts.'),
+        ('What if I need more than 30 proposals on Starter?', 'Upgrade to Pro for unlimited proposals. Or contact us — we can accommodate high-volume needs.'),
+        ('Will my proposals look professional?', 'Yes. Every proposal is formatted with a clean, professional layout with your company name, scope of work, materials list, pricing, terms, and signature line.'),
+      ] %}
+      <div class="bg-gray-50 rounded-xl p-5">
+        <h3 class="font-semibold text-gray-900 mb-2">{{ q }}</h3>
+        <p class="text-gray-600 text-sm">{{ a }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

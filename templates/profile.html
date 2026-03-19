@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Profile — ProposalAI{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-10">
+
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold text-gray-900">Profile & Company Settings</h1>
+    <p class="text-gray-500 text-sm mt-1">This information appears on every proposal you generate.</p>
+  </div>
+
+  <form method="POST" action="{{ url_for('profile') }}" class="space-y-6">
+
+    <div class="bg-white rounded-2xl border border-gray-200 p-6">
+      <h2 class="text-base font-semibold text-gray-900 mb-5">Your Information</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
+          <input type="text" name="name" value="{{ current_user.name }}"
+            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+          <input type="text" name="company_name" value="{{ current_user.company_name }}"
+            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Smith HVAC Services" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Your Trade</label>
+          <select name="trade_type"
+            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            {% for t in ['HVAC','Plumbing','Electrical','Roofing','Landscaping','General Contractor','Painting','Flooring','Pest Control','Other'] %}
+            <option value="{{ t }}" {% if current_user.trade_type == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+          <input type="text" name="phone" value="{{ current_user.phone }}"
+            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="(555) 867-5309" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">License Number</label>
+          <input type="text" name="license_number" value="{{ current_user.license_number }}"
+            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="IL-HVAC-12345" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Website</label>
+          <input type="text" name="website" value="{{ current_user.website }}"
+            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="www.smithhvac.com" />
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Business Address</label>
+          <input type="text" name="address" value="{{ current_user.address }}"
+            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="456 Industrial Blvd, Chicago, IL 60601" />
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-gray-50 rounded-xl border border-gray-200 p-4 flex items-center justify-between">
+      <div>
+        <p class="text-sm font-semibold text-gray-700">Current Plan</p>
+        <p class="text-xs text-gray-500 mt-0.5">
+          {% if current_user.is_subscribed %}
+            {{ current_user.plan|capitalize }} — Unlimited proposals
+          {% else %}
+            Free Trial — {{ current_user.proposal_count }}/3 proposals used
+          {% endif %}
+        </p>
+      </div>
+      {% if not current_user.is_subscribed %}
+      <a href="{{ url_for('pricing') }}" class="text-sm font-semibold text-blue-600 hover:underline">Upgrade</a>
+      {% endif %}
+    </div>
+
+    <div class="flex justify-end">
+      <button type="submit"
+        class="bg-blue-600 text-white font-semibold px-6 py-2.5 rounded-xl hover:bg-blue-700 transition text-sm">
+        Save Changes
+      </button>
+    </div>
+
+  </form>
+</div>
+{% endblock %}
