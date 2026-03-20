@@ -24,7 +24,7 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access that page.'
 
-stripe.api_key = os.getenv('STRIPE_SECRET_KEY', '')
+stripe.api_key = ''.join(os.getenv('STRIPE_SECRET_KEY', '').split())
 
 TRIAL_PROPOSAL_LIMIT = 3
 
@@ -384,8 +384,8 @@ def pricing():
 @login_required
 def create_checkout_session():
     plan = request.form.get('plan', 'starter')
-    price_id = os.getenv('STRIPE_STARTER_PRICE_ID') if plan == 'starter' \
-        else os.getenv('STRIPE_PRO_PRICE_ID')
+    price_id = ''.join((os.getenv('STRIPE_STARTER_PRICE_ID') or '').split()) if plan == 'starter' \
+        else ''.join((os.getenv('STRIPE_PRO_PRICE_ID') or '').split())
 
     if not price_id:
         flash('Stripe is not yet configured. Add your Stripe keys to .env to enable billing.', 'warning')
