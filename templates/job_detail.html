@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block title %}Job #{{ job.id }} — CloseTheJob{% endblock %}
+
+{% block head %}
+<style>
+  .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .photo-card {
+    position: relative; background: var(--surface-2); border: 1px solid var(--border);
+    overflow: hidden; aspect-ratio: 4/3;
+  }
+  .photo-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-badge {
+    position: absolute; top: 8px; left: 8px;
+    font-size: 10px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.08em; padding: 3px 8px; text-transform: uppercase;
+  }
+  .badge-before { background: rgba(96,165,250,0.9); color: #fff; }
+  .badge-after  { background: rgba(74,222,128,0.9); color: #000; }
+  .photo-del {
+    position: absolute; top: 6px; right: 6px;
+    background: rgba(0,0,0,0.6); border: none; color: #fff; cursor: pointer;
+    width: 24px; height: 24px; font-size: 14px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .photo-card:hover .photo-del { opacity: 1; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:800px;margin:0 auto;padding:40px 24px;">
+
+  <!-- Back -->
+  {% if job.client_id %}
+  <a href="{{ url_for('client_detail', client_id=job.client_id) }}" style="font-size:12px;color:var(--text-muted);text-decoration:none;font-family:'JetBrains Mono',monospace;display:inline-flex;align-items:center;gap:6px;margin-bottom:20px;transition:color 0.15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">← {{ job.client_name }}</a>
+  {% else %}
+  <a href="{{ url_for('dashboard') }}" style="font-size:12px;color:var(--text-muted);text-decoration:none;font-family:'JetBrains Mono',monospace;display:inline-flex;align-items:center;gap:6px;margin-bottom:20px;transition:color 0.15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">← DASHBOARD</a>
+  {% endif %}
+
+  <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">// Job Documentation</div>
+  <h1 class="font-display" style="font-size:clamp(32px,5vw,52px);line-height:1;color:var(--text);margin-bottom:6px;">{{ job.job_type or 'Closed Job' }}</h1>
+  <div style="font-size:13px;color:var(--text-muted);margin-bottom:32px;">{{ job.client_name }} · {{ job.completed_date.strftime('%B %d, %Y') }} · <span style="color:var(--green);font-weight:600;">${{ "{:,.2f}".format(job.revenue) }}</span></div>
+
+  <!-- Completion Summary -->
+  <div class="ctj-card" style="margin-bottom:24px;padding:24px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--orange);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">// Completion Summary</div>
+        <div style="font-size:12px;color:var(--text-muted);">Included on the invoice PDF when generated.</div>
+      </div>
+      <button type="button" id="gen-summary-btn" onclick="generateSummary()" class="btn-orange" style="padding:9px 18px;font-size:12px;border:none;cursor:pointer;">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        <span id="gen-summary-text">{{ 'Regenerate' if job.completion_summary else 'Generate with AI' }}</span>
+      </button>
+    </div>
+    <div id="summary-display" style="min-height:60px;">
+      {% if job.completion_summary %}
+      <p style="font-size:14px;color:var(--text);line-height:1.7;margin:0;" id="summary-text">{{ job.completion_summary }}</p>
+      {% else %}
+      <p style="font-size:13px;color:var(--text-muted);font-style:italic;margin:0;" id="summary-text">No summary yet. Upload photos and click "Generate with AI" to create one.</p>
+      {% endif %}
+    </div>
+    <div id="summary-error" style="display:none;font-size:12px;color:var(--red);margin-top:8px;font-family:'JetBrains Mono',monospace;"></div>
+  </div>
+
+  <!-- Photo Upload -->
+  <div class="ctj-card" style="margin-bottom:24px;padding:24px;">
+    <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--orange);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:16px;">// Before / After Photos</div>
+
+    <!-- Upload zone -->
+    <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+      <label style="flex:1;min-width:160px;">
+        <div style="padding:14px 16px;border:1px dashed rgba(96,165,250,0.5);background:rgba(96,165,250,0.04);cursor:pointer;text-align:center;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='rgba(96,165,250,0.5)'">
+          <div style="font-size:11px;color:var(--blue);font-family:'JetBrains Mono',monospace;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">+ Before Photo</div>
+          <div style="font-size:11px;color:var(--text-muted);">Click to upload</div>
+        </div>
+        <input type="file" accept="image/*" style="display:none;" onchange="uploadPhoto(this,'before')">
+      </label>
+      <label style="flex:1;min-width:160px;">
+        <div style="padding:14px 16px;border:1px dashed rgba(74,222,128,0.5);background:rgba(74,222,128,0.04);cursor:pointer;text-align:center;transition:border-color 0.15s;" onmouseover="this.style.borderColor='var(--green)'" onmouseout="this.style.borderColor='rgba(74,222,128,0.5)'">
+          <div style="font-size:11px;color:var(--green);font-family:'JetBrains Mono',monospace;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">+ After Photo</div>
+          <div style="font-size:11px;color:var(--text-muted);">Click to upload</div>
+        </div>
+        <input type="file" accept="image/*" style="display:none;" onchange="uploadPhoto(this,'after')">
+      </label>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:20px;font-family:'JetBrains Mono',monospace;">Max 8MB per photo · JPEG, PNG, HEIC</div>
+
+    <!-- Photo grid -->
+    <div id="photo-grid" class="photo-grid">
+      {% for p in job.photos %}
+      <div class="photo-card" id="photo-{{ p.id }}">
+        <img src="{{ url_for('serve_job_photo', job_id=job.id, photo_id=p.id) }}" alt="{{ p.photo_type }} photo" loading="lazy">
+        <span class="photo-badge badge-{{ p.photo_type }}">{{ p.photo_type }}</span>
+        <button class="photo-del" onclick="deletePhoto({{ p.id }})" title="Remove">×</button>
+      </div>
+      {% endfor %}
+    </div>
+    <div id="upload-status" style="font-size:12px;color:var(--text-muted);margin-top:10px;font-family:'JetBrains Mono',monospace;display:none;"></div>
+  </div>
+
+  <!-- Job Info -->
+  <div class="ctj-card" style="padding:24px;">
+    <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:16px;">// Job Details</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;">
+      <div>
+        <div style="font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Revenue</div>
+        <div style="font-size:18px;font-weight:700;color:var(--green);">${{ "{:,.2f}".format(job.revenue) }}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Completed</div>
+        <div style="font-size:14px;color:var(--text);">{{ job.completed_date.strftime('%b %d, %Y') }}</div>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Invoice</div>
+        <div style="font-size:14px;color:{{ 'var(--green)' if job.invoice_sent else 'var(--text-muted)' }};">{{ 'Sent' if job.invoice_sent else 'Not sent' }}</div>
+      </div>
+    </div>
+    {% if job.description %}
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+      <div style="font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Description</div>
+      <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">{{ job.description }}</div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const JOB_ID = {{ job.id }};
+
+async function uploadPhoto(input, photoType) {
+  if (!input.files || !input.files[0]) return;
+  const statusEl = document.getElementById('upload-status');
+  statusEl.textContent = 'Uploading...';
+  statusEl.style.display = 'block';
+  const fd = new FormData();
+  fd.append('photo', input.files[0]);
+  fd.append('photo_type', photoType);
+  try {
+    const resp = await fetch(`/jobs/${JOB_ID}/photos`, { method: 'POST', body: fd });
+    const data = await resp.json();
+    if (data.error) { statusEl.textContent = 'Error: ' + data.error; return; }
+    // Add to grid
+    const grid = document.getElementById('photo-grid');
+    const card = document.createElement('div');
+    card.className = 'photo-card';
+    card.id = 'photo-' + data.id;
+    card.innerHTML = `
+      <img src="${data.url}" alt="${data.photo_type} photo" loading="lazy">
+      <span class="photo-badge badge-${data.photo_type}">${data.photo_type}</span>
+      <button class="photo-del" onclick="deletePhoto(${data.id})" title="Remove">×</button>`;
+    grid.appendChild(card);
+    statusEl.textContent = 'Photo uploaded.';
+    setTimeout(() => statusEl.style.display = 'none', 2000);
+  } catch(e) {
+    statusEl.textContent = 'Upload failed.';
+  }
+  input.value = '';
+}
+
+async function deletePhoto(photoId) {
+  if (!confirm('Remove this photo?')) return;
+  const resp = await fetch(`/jobs/${JOB_ID}/photos/${photoId}/delete`, { method: 'POST' });
+  const data = await resp.json();
+  if (data.ok) {
+    const el = document.getElementById('photo-' + photoId);
+    if (el) el.remove();
+  }
+}
+
+async function generateSummary() {
+  const btn = document.getElementById('gen-summary-btn');
+  const btnText = document.getElementById('gen-summary-text');
+  const errEl = document.getElementById('summary-error');
+  const displayEl = document.getElementById('summary-text');
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btnText.textContent = 'Writing...';
+  try {
+    const resp = await fetch(`/jobs/${JOB_ID}/generate-summary`, { method: 'POST' });
+    const data = await resp.json();
+    if (data.error) {
+      errEl.textContent = 'Error: ' + data.error;
+      errEl.style.display = 'block';
+      return;
+    }
+    displayEl.textContent = data.summary;
+    displayEl.style.fontStyle = 'normal';
+    displayEl.style.color = 'var(--text)';
+    btnText.textContent = 'Regenerate';
+  } catch(e) {
+    errEl.textContent = 'Request failed.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
+{% endblock %}

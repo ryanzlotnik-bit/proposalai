@@ -91,6 +91,20 @@
   </div>
 
   {% if clients %}
+
+  <!-- Rebook Due banner -->
+  {% if rebook_due %}
+  <div style="padding:14px 20px;background:rgba(248,113,113,0.07);border:1px solid rgba(248,113,113,0.25);margin-bottom:24px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:200px;">
+      <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--red);text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:3px;">{{ rebook_due|length }} client{% if rebook_due|length != 1 %}s{% endif %} due for rebook</div>
+      <div style="font-size:12px;color:var(--text-muted);">
+        {% for c in rebook_due[:4] %}{{ c.name }}{% if not loop.last %}, {% endif %}{% endfor %}{% if rebook_due|length > 4 %} + {{ rebook_due|length - 4 }} more{% endif %}
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">Click a client card to send a follow-up</div>
+  </div>
+  {% endif %}
+
   <!-- Search -->
   <div style="margin-bottom:24px;max-width:400px;">
     <div class="search-wrap">
@@ -102,13 +116,30 @@
   <!-- Client grid -->
   <div class="client-grid" id="client-grid">
     {% for c in clients %}
+    {% set cd = client_data.get(c.id, {}) %}
+    {% set rb = cd.get('rebook', {}) %}
+    {% set rb_status = rb.get('status', 'no_history') %}
     <a href="{{ url_for('client_detail', client_id=c.id) }}" class="client-card" data-name="{{ c.name|lower }}" data-email="{{ c.email|lower }}">
-      <div class="client-name">{{ c.name }}</div>
+      {% if rb_status == 'due' %}
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--red);"></div>
+      {% elif rb_status == 'follow_up' %}
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--orange);"></div>
+      {% endif %}
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px;">
+        <div class="client-name">{{ c.name }}</div>
+        {% if rb_status == 'due' %}
+        <span style="font-size:9px;font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--red);background:rgba(248,113,113,0.12);padding:2px 7px;border-radius:2px;white-space:nowrap;flex-shrink:0;">REBOOK DUE</span>
+        {% elif rb_status == 'follow_up' %}
+        <span style="font-size:9px;font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--orange);background:rgba(249,115,22,0.1);padding:2px 7px;border-radius:2px;white-space:nowrap;flex-shrink:0;">FOLLOW UP</span>
+        {% endif %}
+      </div>
       {% if c.email %}<div class="client-meta">{{ c.email }}</div>{% endif %}
       {% if c.phone %}<div class="client-meta">{{ c.phone }}</div>{% endif %}
       <div class="client-stats">
-        <div class="client-stat"><span>{{ c.proposals|length }}</span> proposal{% if c.proposals|length != 1 %}s{% endif %}</div>
-        <div class="client-stat"><span>{{ c.jobs|length }}</span> job{% if c.jobs|length != 1 %}s{% endif %}</div>
+        <div class="client-stat"><span>{{ cd.get('job_count', 0) }}</span> job{% if cd.get('job_count', 0) != 1 %}s{% endif %}</div>
+        {% if cd.get('revenue', 0) > 0 %}
+        <div class="client-stat"><span>${{ "{:,.0f}".format(cd.get('revenue', 0)) }}</span> lifetime</div>
+        {% endif %}
         {% if c.scheduled_jobs %}
         <div class="client-stat"><span>{{ c.scheduled_jobs|selectattr('status','eq','scheduled')|list|length }}</span> upcoming</div>
         {% endif %}

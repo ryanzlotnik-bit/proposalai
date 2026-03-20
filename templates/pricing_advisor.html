@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Pricing Advisor — CloseTheJob{% endblock %}
+
+{% block content %}
+<div style="max-width:700px;margin:0 auto;padding:40px 24px;">
+
+  <a href="{{ url_for('dashboard') }}" style="font-size:12px;color:var(--text-muted);text-decoration:none;font-family:'JetBrains Mono',monospace;display:inline-flex;align-items:center;gap:6px;margin-bottom:20px;transition:color 0.15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">← DASHBOARD</a>
+
+  <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">// AI Pricing Advisor</div>
+  <h1 class="font-display" style="font-size:clamp(36px,5vw,56px);line-height:1;color:var(--text);margin-bottom:8px;">Are You<br>Charging Enough?</h1>
+  <p style="color:var(--text-muted);font-size:14px;margin-bottom:36px;">Get market rate benchmarks for any service. See where you stand and how much you could be leaving on the table.</p>
+
+  <form method="POST" id="advisor-form" style="margin-bottom:40px;">
+    <div class="ctj-card" style="padding:28px;margin-bottom:2px;">
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="grid-column:1/-1;">
+          <label class="ctj-label">Service to Check <span style="color:var(--orange);">*</span></label>
+          <input type="text" name="service" required class="ctj-input" value="{{ form_data.get('service','') }}" placeholder="e.g. Water heater installation, AC tune-up, Roof repair" />
+        </div>
+        <div>
+          <label class="ctj-label">Your Current Price ($)</label>
+          <input type="number" name="current_price" min="0" step="1" class="ctj-input" value="{{ form_data.get('current_price','') }}" placeholder="e.g. 350" />
+          <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Leave blank to just see market rates.</p>
+        </div>
+        <div>
+          <label class="ctj-label">Your ZIP Code</label>
+          <input type="text" name="zip_code" class="ctj-input" value="{{ form_data.get('zip_code','') }}" placeholder="e.g. 60614" maxlength="10" />
+          <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Improves regional accuracy.</p>
+        </div>
+        <div style="grid-column:1/-1;">
+          <label class="ctj-label">Trade Type</label>
+          <input type="text" name="trade" class="ctj-input" value="{{ form_data.get('trade', trade) }}" placeholder="e.g. HVAC, Plumbing, Electrical" />
+        </div>
+      </div>
+
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;">
+      <button type="submit" id="submit-btn" class="btn-orange" style="padding:14px 32px;font-size:14px;border:none;cursor:pointer;">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Check My Pricing
+      </button>
+    </div>
+  </form>
+
+  <!-- Loading overlay -->
+  <div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(12,12,12,0.96);z-index:2000;flex-direction:column;align-items:center;justify-content:center;gap:28px;">
+    <div style="font-family:'Bebas Neue',cursive;font-size:64px;color:var(--orange);line-height:1;letter-spacing:0.04em;">Checking<br>Market Rates.</div>
+    <div style="display:flex;gap:8px;">
+      <div class="ldot"></div><div class="ldot"></div><div class="ldot"></div>
+    </div>
+  </div>
+  <style>
+  .ldot{width:10px;height:10px;background:var(--orange);border-radius:50%;animation:ldotB 1s ease-in-out infinite;}
+  .ldot:nth-child(2){animation-delay:0.15s;}.ldot:nth-child(3){animation-delay:0.3s;}
+  @keyframes ldotB{0%,80%,100%{transform:scale(0.6);opacity:0.4;}40%{transform:scale(1);opacity:1;}}
+  </style>
+
+  {% if result %}
+  <!-- Results -->
+  <div>
+    <div style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--orange);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:16px;">// Market Rate Analysis — {{ form_data.get('service','') }}</div>
+
+    <!-- Price range bar -->
+    <div class="ctj-card" style="padding:28px;margin-bottom:2px;">
+      <div style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:20px;">Market Rate Range ({{ result.unit }})</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);margin-bottom:20px;">
+        <div style="background:var(--surface-2);padding:16px 20px;text-align:center;">
+          <div style="font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Low End</div>
+          <div class="font-display" style="font-size:28px;color:var(--text);line-height:1;">${{ "{:,.0f}".format(result.low) }}</div>
+        </div>
+        <div style="background:var(--surface);padding:16px 20px;text-align:center;border-top:2px solid var(--orange);">
+          <div style="font-size:10px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Typical</div>
+          <div class="font-display" style="font-size:32px;color:var(--orange);line-height:1;">${{ "{:,.0f}".format(result.mid) }}</div>
+        </div>
+        <div style="background:var(--surface-2);padding:16px 20px;text-align:center;">
+          <div style="font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Premium</div>
+          <div class="font-display" style="font-size:28px;color:var(--text);line-height:1;">${{ "{:,.0f}".format(result.high) }}</div>
+        </div>
+      </div>
+
+      {% if form_data.get('current_price') and result.positioning != 'unknown' %}
+      {% set gap = result.gap_dollars %}
+      {% if result.positioning == 'below' %}
+      <div style="padding:14px 18px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);display:flex;align-items:center;gap:12px;">
+        <svg width="16" height="16" fill="none" stroke="var(--red)" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--red);">You're priced ${{ "{:,.0f}".format(gap|abs) }} below the typical rate</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Your price: ${{ form_data.get('current_price') }} · Typical market: ${{ "{:,.0f}".format(result.mid) }}</div>
+        </div>
+      </div>
+      {% elif result.positioning == 'above' %}
+      <div style="padding:14px 18px;background:rgba(74,222,128,0.07);border:1px solid rgba(74,222,128,0.25);display:flex;align-items:center;gap:12px;">
+        <svg width="16" height="16" fill="none" stroke="var(--green)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--green);">You're priced above market — strong positioning</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Your price: ${{ form_data.get('current_price') }} · Typical market: ${{ "{:,.0f}".format(result.mid) }}</div>
+        </div>
+      </div>
+      {% else %}
+      <div style="padding:14px 18px;background:rgba(249,115,22,0.07);border:1px solid rgba(249,115,22,0.25);display:flex;align-items:center;gap:12px;">
+        <svg width="16" height="16" fill="none" stroke="var(--orange)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--orange);">You're right at market rate</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Your price: ${{ form_data.get('current_price') }} · Typical market: ${{ "{:,.0f}".format(result.mid) }}</div>
+        </div>
+      </div>
+      {% endif %}
+      {% endif %}
+    </div>
+
+    <!-- Insight -->
+    <div class="ctj-card" style="padding:24px;margin-bottom:2px;">
+      <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">AI Insight</div>
+      <p style="font-size:14px;color:var(--text);line-height:1.7;margin:0;">{{ result.insight }}</p>
+    </div>
+
+    <!-- Premium factors -->
+    {% if result.premium_factors %}
+    <div class="ctj-card" style="padding:24px;">
+      <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">Factors That Justify Charging More</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        {% for factor in result.premium_factors %}
+        <div style="display:flex;align-items:flex-start;gap:10px;">
+          <span style="color:var(--green);font-size:14px;flex-shrink:0;margin-top:1px;">✓</span>
+          <span style="font-size:13px;color:var(--text-muted);">{{ factor }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div style="margin-top:24px;padding:14px 18px;background:var(--surface);border:1px solid var(--border);">
+      <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">Market rate data is AI-estimated based on industry knowledge and is for guidance only. Actual rates vary by local market, experience level, and job complexity.</div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('advisor-form').addEventListener('submit', function() {
+  document.getElementById('loading-overlay').style.display = 'flex';
+  document.getElementById('submit-btn').disabled = true;
+});
+</script>
+{% endblock %}

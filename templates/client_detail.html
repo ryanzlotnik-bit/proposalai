@@ -105,7 +105,7 @@
   </div>
 
   <!-- Summary stats -->
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);margin-bottom:32px;">
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);margin-bottom:{% if jobs and rebook.status != 'no_history' %}16{% else %}32{% endif %}px;">
     <div style="background:var(--surface);padding:20px 24px;">
       <div class="font-display" style="font-size:36px;color:var(--orange);line-height:1;">{{ proposals|length }}</div>
       <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">Proposals</div>
@@ -115,10 +115,41 @@
       <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">Closed Jobs</div>
     </div>
     <div style="background:var(--surface);padding:20px 24px;">
-      <div class="font-display" style="font-size:28px;color:var(--text);line-height:1;"><span style="font-size:20px;">$</span>{{ "{:,.0f}".format(jobs|sum(attribute='revenue')) }}</div>
-      <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">Total Revenue</div>
+      <div class="font-display" style="font-size:28px;color:var(--text);line-height:1;"><span style="font-size:18px;">$</span>{{ "{:,.0f}".format(total_revenue) }}</div>
+      <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">Lifetime Value</div>
+    </div>
+    <div style="background:var(--surface);padding:20px 24px;">
+      <div class="font-display" style="font-size:28px;color:var(--text);line-height:1;"><span style="font-size:18px;">$</span>{{ "{:,.0f}".format(avg_job_value) }}</div>
+      <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">Avg Job Value</div>
     </div>
   </div>
+
+  <!-- Rebook intelligence panel -->
+  {% if jobs and rebook.status != 'no_history' %}
+  {% set rb_color = 'var(--green)' if rebook.status == 'fresh' else ('var(--orange)' if rebook.status == 'follow_up' else 'var(--red)') %}
+  {% set rb_label = 'Good standing' if rebook.status == 'fresh' else ('Follow up soon' if rebook.status == 'follow_up' else 'Due for rebook') %}
+  <div style="padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-top:2px solid {{ rb_color }};margin-bottom:32px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:200px;">
+      <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Rebook Intelligence</div>
+      <div style="font-size:14px;font-weight:600;color:{{ rb_color }};">{{ rb_label }}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+        Last: {{ rebook.last_type }}
+        {% if rebook.days_since is not none %} · {{ rebook.days_since }} days ago{% endif %}
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:80px;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;">
+        <div style="width:{{ rebook.score }}%;height:100%;background:{{ rb_color }};border-radius:3px;transition:width 0.5s;"></div>
+      </div>
+      <span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:{{ rb_color }};">{{ rebook.score }}%</span>
+    </div>
+    {% if rebook.status in ('follow_up', 'due') and client.email %}
+    <a href="mailto:{{ client.email }}?subject=Following up on your recent {{ rebook.last_type }}&body=Hi {{ client.name }},%0A%0AJust wanted to check in — is everything still working well from your recent {{ rebook.last_type }}?%0A%0AThanks," class="btn-orange" style="font-size:12px;padding:8px 16px;text-decoration:none;">
+      Send Follow-Up →
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
 
   <!-- Proposals -->
   {% if proposals %}
@@ -158,7 +189,7 @@
     <div style="overflow-x:auto;">
       <table class="data-table">
         <thead><tr>
-          <th>Job Type</th><th>Revenue</th><th>Completed</th><th>Invoice</th>
+          <th>Job Type</th><th>Revenue</th><th>Completed</th><th>Invoice</th><th></th>
         </tr></thead>
         <tbody>
           {% for j in jobs %}
@@ -172,6 +203,11 @@
               {% else %}
                 <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);">—</span>
               {% endif %}
+            </td>
+            <td>
+              <a href="{{ url_for('job_detail', job_id=j.id) }}" style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-decoration:none;transition:color 0.15s;" onmouseover="this.style.color='var(--orange)'" onmouseout="this.style.color='var(--text-muted)'">
+                {% if j.photos %}📷 {{ j.photos|length }}{% else %}Photos →{% endif %}
+              </a>
             </td>
           </tr>
           {% endfor %}

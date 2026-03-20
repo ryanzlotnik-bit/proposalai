@@ -247,9 +247,11 @@ class Job(db.Model):
     payment_reminder_sent_at = db.Column(db.DateTime, nullable=True)
     review_sent_at = db.Column(db.DateTime, nullable=True)
     notes = db.Column(db.Text, default='')
+    completion_summary = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     job_expenses = db.relationship('Expense', backref='job', lazy=True)
     job_tips = db.relationship('Tip', backref='job', lazy=True)
+    photos = db.relationship('JobPhoto', backref='job_ref', lazy=True, cascade='all, delete-orphan')
 
     @property
     def tip_total(self):
@@ -262,6 +264,17 @@ class Job(db.Model):
     @property
     def net(self):
         return self.revenue + self.tip_total - self.expense_total
+
+
+class JobPhoto(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    photo_type = db.Column(db.String(10), default='before')  # before / after
+    filename = db.Column(db.String(200), default='')
+    file_data = db.Column(db.LargeBinary, nullable=False)
+    mime_type = db.Column(db.String(50), default='image/jpeg')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class Expense(db.Model):
@@ -377,6 +390,32 @@ def get_owner_user():
     if owner_id == current_user.id:
         return current_user
     return User.query.get(owner_id)
+
+
+REBOOK_INTERVALS = {
+    'AC Installation': 365, 'AC Repair': 365, 'Furnace Installation': 365,
+    'Furnace Repair': 365, 'Duct Work': 730, 'Water Heater Installation': 3650,
+    'Pipe Replacement': 1825, 'Plumbing Repair': 730, 'Drain Cleaning': 365,
+    'Electrical Panel Upgrade': 3650, 'Outlet Installation': 1825, 'Wiring': 1825,
+    'Lighting Installation': 1825, 'Roof Replacement': 7300, 'Roof Repair': 1825,
+    'Gutter Installation': 1825, 'Landscaping': 30, 'Lawn Care': 14,
+    'Tree Removal': 365, 'Painting — Interior': 1825, 'Painting — Exterior': 1825,
+    'Flooring': 3650, 'Tile Work': 3650, 'Drywall': 1825,
+    'General Construction': 1825, 'Remodel': 3650,
+    'Pressure Washing': 365, 'Window Washing': 90, 'Epoxy Flooring': 3650,
+}
+
+
+def compute_rebook(jobs):
+    """Return dict with score (0-100), status, days_since_last, last_job_type."""
+    if not jobs:
+        return {'score': 0, 'status': 'no_history', 'days_since': None, 'last_type': None}
+    latest = max(jobs, key=lambda j: j.completed_date)
+    days_since = (date.today() - latest.completed_date).days
+    interval = REBOOK_INTERVALS.get(latest.job_type, 365)
+    score = min(int((days_since / interval) * 100), 100)
+    status = 'fresh' if score < 40 else ('follow_up' if score < 70 else 'due')
+    return {'score': score, 'status': status, 'days_since': days_since, 'last_type': latest.job_type}
 
 
 def generate_proposal_number():
@@ -780,11 +819,12 @@ def generate_invoice_pdf(job, user):
 
     pdf.set_y(box_y + 40)
 
-    # ── Description ────────────────────────────────────────────────────────────
-    if job.description:
+    # ── Description / Completion Summary ───────────────────────────────────────
+    desc_text = (job.completion_summary or job.description or '').strip()
+    if desc_text:
         pdf.set_font('Helvetica', '', 10)
         pdf.set_text_color(60, 60, 60)
-        pdf.multi_cell(W, 5, job.description[:300], ln=True)
+        pdf.multi_cell(W, 5, desc_text[:500], ln=True)
         pdf.ln(4)
 
     # ── Line items table ───────────────────────────────────────────────────────
@@ -2389,13 +2429,173 @@ def stripe_webhook():
     return jsonify({'received': True})
 
 
+# ─── Job Detail + Photos ───────────────────────────────────────────────────────
+
+@app.route('/jobs/<int:job_id>')
+@login_required
+def job_detail(job_id):
+    j = Job.query.get_or_404(job_id)
+    if j.user_id != uid():
+        flash('Access denied.', 'error')
+        return redirect(url_for('dashboard'))
+    return render_template('job_detail.html', job=j)
+
+
+@app.route('/jobs/<int:job_id>/photos/<int:photo_id>')
+@login_required
+def serve_job_photo(job_id, photo_id):
+    from flask import Response
+    p = JobPhoto.query.get_or_404(photo_id)
+    if p.user_id != uid():
+        return '', 403
+    return Response(p.file_data, mimetype=p.mime_type)
+
+
+@app.route('/jobs/<int:job_id>/photos', methods=['POST'])
+@login_required
+def upload_job_photo(job_id):
+    j = Job.query.get_or_404(job_id)
+    if j.user_id != uid():
+        return jsonify({'error': 'Access denied'}), 403
+    f = request.files.get('photo')
+    if not f or not f.filename:
+        return jsonify({'error': 'No file provided'}), 400
+    photo_type = request.form.get('photo_type', 'before')
+    mime = f.mimetype or 'image/jpeg'
+    data = f.read()
+    if len(data) > 8 * 1024 * 1024:
+        return jsonify({'error': 'File too large (max 8MB)'}), 400
+    p = JobPhoto(job_id=job_id, user_id=uid(), photo_type=photo_type,
+                 filename=f.filename, file_data=data, mime_type=mime)
+    db.session.add(p)
+    db.session.commit()
+    return jsonify({'id': p.id, 'photo_type': p.photo_type,
+                    'url': url_for('serve_job_photo', job_id=job_id, photo_id=p.id)})
+
+
+@app.route('/jobs/<int:job_id>/photos/<int:photo_id>/delete', methods=['POST'])
+@login_required
+def delete_job_photo(job_id, photo_id):
+    p = JobPhoto.query.get_or_404(photo_id)
+    if p.user_id != uid():
+        return jsonify({'error': 'Access denied'}), 403
+    db.session.delete(p)
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@app.route('/jobs/<int:job_id>/generate-summary', methods=['POST'])
+@login_required
+def generate_job_summary(job_id):
+    j = Job.query.get_or_404(job_id)
+    if j.user_id != uid():
+        return jsonify({'error': 'Access denied'}), 403
+    photo_count = len(j.photos)
+    before_count = sum(1 for p in j.photos if p.photo_type == 'before')
+    after_count = sum(1 for p in j.photos if p.photo_type == 'after')
+    prompt = f"""You are an expert trade contractor writing a professional job completion summary for an invoice.
+
+Job Details:
+- Job Type: {j.job_type or 'Trade Services'}
+- Description: {j.description or 'N/A'}
+- Revenue: ${j.revenue:,.2f}
+- Completed: {j.completed_date.strftime('%B %d, %Y')}
+- Photos Uploaded: {before_count} before, {after_count} after
+- Notes: {j.notes or 'None'}
+
+Write a 2-3 sentence professional job completion summary. Write it from the contractor's perspective in past tense. Be specific about what was done, mention before/after conditions if photos are present, and end with a quality assurance statement. Keep it factual and professional — suitable for an invoice.
+
+Return ONLY the summary text, no quotes, no labels."""
+    api_key = ''.join(os.getenv('ANTHROPIC_API_KEY', '').split())
+    try:
+        resp = http_requests.post(
+            'https://api.anthropic.com/v1/messages',
+            headers={'x-api-key': api_key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'},
+            json={'model': 'claude-sonnet-4-6', 'max_tokens': 300,
+                  'messages': [{'role': 'user', 'content': prompt}]},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        summary = resp.json()['content'][0]['text'].strip()
+        j.completion_summary = summary
+        db.session.commit()
+        return jsonify({'summary': summary})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ─── Pricing Advisor ────────────────────────────────────────────────────────────
+
+@app.route('/pricing-advisor', methods=['GET', 'POST'])
+@login_required
+def pricing_advisor():
+    result = None
+    form_data = {}
+    if request.method == 'POST':
+        service = request.form.get('service', '').strip()
+        current_price = request.form.get('current_price', '').strip()
+        zip_code = request.form.get('zip_code', '').strip()
+        trade = request.form.get('trade', current_user.trade_type or 'General Contractor')
+        form_data = {'service': service, 'current_price': current_price, 'zip_code': zip_code, 'trade': trade}
+        if service:
+            prompt = f"""You are a trade industry pricing expert. Give a contractor specific, actionable market rate guidance.
+
+Contractor Info:
+- Trade: {trade}
+- Service: {service}
+- Their Current Price: {('$' + current_price) if current_price else 'Not provided'}
+- Location ZIP: {zip_code or 'Not provided (use national averages)'}
+
+Provide market rate benchmarking in this exact JSON format (no markdown):
+{{
+  "low": <number — low end of typical market rate for this service>,
+  "mid": <number — middle/typical market rate>,
+  "high": <number — premium/high end market rate>,
+  "unit": "per job" or "per hour" or "per sq ft" etc — whichever is most natural for this service,
+  "positioning": "below" or "at" or "above" — where their current price sits vs market (only if current price was provided, else "unknown"),
+  "gap_dollars": <number — how many dollars below/above mid they are, 0 if unknown>,
+  "insight": "2-3 sentences of specific, actionable pricing advice for this contractor. Mention regional factors if the ZIP was provided. Be direct about whether they should raise prices and by how much.",
+  "premium_factors": ["factor 1 that justifies charging more", "factor 2", "factor 3"]
+}}"""
+            api_key = ''.join(os.getenv('ANTHROPIC_API_KEY', '').split())
+            try:
+                resp = http_requests.post(
+                    'https://api.anthropic.com/v1/messages',
+                    headers={'x-api-key': api_key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json'},
+                    json={'model': 'claude-sonnet-4-6', 'max_tokens': 600,
+                          'messages': [{'role': 'user', 'content': prompt}]},
+                    timeout=30,
+                )
+                resp.raise_for_status()
+                raw = resp.json()['content'][0]['text'].strip()
+                if raw.startswith('```'):
+                    raw = raw.split('```')[1]
+                    if raw.startswith('json'):
+                        raw = raw[4:]
+                result = json.loads(raw)
+            except Exception as e:
+                flash(f'Could not get pricing data: {str(e)}', 'error')
+    return render_template('pricing_advisor.html', result=result, form_data=form_data,
+                           trade=current_user.trade_type or 'General Contractor')
+
+
 # ─── Client CRM ────────────────────────────────────────────────────────────────
 
 @app.route('/clients')
 @login_required
 def clients():
     all_clients = Client.query.filter_by(user_id=uid()).order_by(Client.name).all()
-    return render_template('clients.html', clients=all_clients)
+    client_data = {}
+    for c in all_clients:
+        c_jobs = Job.query.filter_by(user_id=uid(), client_id=c.id).all()
+        rb = compute_rebook(c_jobs)
+        client_data[c.id] = {
+            'revenue': sum(j.revenue for j in c_jobs),
+            'job_count': len(c_jobs),
+            'rebook': rb,
+        }
+    rebook_due = [c for c in all_clients if client_data[c.id]['rebook']['status'] == 'due']
+    return render_template('clients.html', clients=all_clients, client_data=client_data, rebook_due=rebook_due)
 
 
 @app.route('/clients/add', methods=['POST'])
@@ -2429,7 +2629,11 @@ def client_detail(client_id):
     proposals = Proposal.query.filter_by(user_id=uid(), client_id=client_id).order_by(Proposal.created_at.desc()).all()
     jobs = Job.query.filter_by(user_id=uid(), client_id=client_id).order_by(Job.completed_date.desc()).all()
     scheduled = ScheduledJob.query.filter_by(user_id=uid(), client_id=client_id).order_by(ScheduledJob.scheduled_date.desc()).all()
-    return render_template('client_detail.html', client=c, proposals=proposals, jobs=jobs, scheduled=scheduled)
+    total_revenue = sum(j.revenue for j in jobs)
+    avg_job_value = total_revenue / len(jobs) if jobs else 0
+    rebook = compute_rebook(jobs)
+    return render_template('client_detail.html', client=c, proposals=proposals, jobs=jobs, scheduled=scheduled,
+                           total_revenue=total_revenue, avg_job_value=avg_job_value, rebook=rebook)
 
 
 @app.route('/clients/<int:client_id>/edit', methods=['POST'])
@@ -2668,6 +2872,7 @@ with app.app_context():
         'ALTER TABLE proposal ADD COLUMN deposit_token VARCHAR(64)',
         'ALTER TABLE proposal ADD COLUMN deposit_paid_at DATETIME',
         'ALTER TABLE proposal ADD COLUMN template_id INTEGER',
+        'ALTER TABLE job ADD COLUMN completion_summary TEXT DEFAULT \'\'',
     ]
     for _sql in _migrations:
         try:
