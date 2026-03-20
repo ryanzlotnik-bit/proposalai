@@ -159,6 +159,7 @@ class Proposal(db.Model):
     status = db.Column(db.String(50), default='draft')  # draft, sent, accepted, declined
     public_token = db.Column(db.String(64), unique=True, nullable=True)
     accepted_at = db.Column(db.DateTime, nullable=True)
+    reminder_sent_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     linked_jobs = db.relationship('Job', backref='proposal', lazy=True)
 
@@ -207,6 +208,8 @@ class Job(db.Model):
     completed_date = db.Column(db.Date, nullable=False)
     invoice_sent = db.Column(db.Boolean, default=False)
     invoice_sent_at = db.Column(db.DateTime, nullable=True)
+    pay_token = db.Column(db.String(64), unique=True, nullable=True)
+    paid_at = db.Column(db.DateTime, nullable=True)
     notes = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     job_expenses = db.relationship('Expense', backref='job', lazy=True)
@@ -385,6 +388,89 @@ def auto_invoice_past_scheduled_jobs(user_id):
             send_invoice_email(job, user)
 
 
+def auto_send_followup_reminders(user_id):
+    """Send a follow-up nudge email for proposals that have been 'sent' for 3+ days with no response."""
+    cutoff = datetime.utcnow() - timedelta(days=3)
+    stale = Proposal.query.filter(
+        Proposal.user_id == user_id,
+        Proposal.status == 'sent',
+        Proposal.created_at <= cutoff,
+        Proposal.reminder_sent_at == None,
+        Proposal.client_email != '',
+        Proposal.client_email != None,
+    ).all()
+    for p in stale:
+        send_followup_reminder(p.id, user_id)
+
+
+def send_followup_reminder(proposal_id, user_id):
+    """Send a follow-up reminder email to the client for a pending proposal."""
+    if not app.config.get('MAIL_USERNAME'):
+        return
+
+    def do_send():
+        with app.app_context():
+            p = Proposal.query.get(proposal_id)
+            u = User.query.get(user_id)
+            if not p or not u or not p.client_email:
+                return
+            if p.status != 'sent' or p.reminder_sent_at:
+                return  # already responded or already nudged
+
+            company = u.company_name or u.name
+            base_url = os.getenv('APP_URL', '').rstrip('/')
+            proposal_link = f"{base_url}/p/{p.public_token}" if base_url and p.public_token else None
+
+            subject = f"Following up on your {p.job_type} proposal — {company}"
+            link_btn = f'<p style="text-align:center;margin-bottom:24px;"><a href="{proposal_link}" style="display:inline-block;background:#F97316;color:#fff;font-size:14px;font-weight:700;padding:12px 28px;text-decoration:none;letter-spacing:0.04em;">REVIEW PROPOSAL →</a></p>' if proposal_link else ''
+            phone_line = f'<br />{u.phone}' if u.phone else ''
+            address_line = f'  ·  {u.address}' if u.address else ''
+            html_body = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:'DM Sans',Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;max-width:600px;">
+<tr><td style="background:#1a1a1a;padding:0;">
+  <div style="background:#F97316;text-align:center;padding:14px 28px;">
+    <span style="font-family:'Bebas Neue',Arial,sans-serif;font-size:24px;color:#fff;letter-spacing:0.06em;">{company}</span>
+  </div>
+</td></tr>
+<tr><td style="padding:32px;">
+  <p style="font-size:16px;font-weight:700;color:#111;margin-bottom:8px;">Hi {p.client_name},</p>
+  <p style="font-size:14px;color:#444;line-height:1.6;margin-bottom:20px;">
+    I wanted to follow up on the {p.job_type} proposal I sent over (#{p.proposal_number}).
+    Just checking in to see if you had a chance to review it or if you have any questions.
+  </p>
+  <table style="background:#f9f9f9;border:1px solid #eee;width:100%;margin-bottom:24px;">
+    <tr><td style="padding:16px;">
+      <div style="font-size:11px;font-weight:700;color:#F97316;text-transform:uppercase;margin-bottom:6px;">Proposal Summary</div>
+      <div style="font-size:13px;font-weight:700;color:#111;">#{p.proposal_number} — {p.job_type}</div>
+      <div style="font-size:13px;color:#555;margin-top:4px;">Total Estimate: <strong>${p.grand_total:,.2f}</strong></div>
+    </td></tr>
+  </table>
+  {link_btn}
+  <p style="font-size:13px;color:#444;line-height:1.6;">
+    Happy to answer any questions or adjust anything to better fit your needs. Just reply to this email.
+  </p>
+  <p style="font-size:13px;color:#666;margin-top:20px;">Thanks,<br /><strong>{u.name}</strong><br />{company}{phone_line}</p>
+</td></tr>
+<tr><td style="background:#1a1a1a;padding:12px 28px;text-align:center;">
+  <p style="font-size:10px;color:#666;margin:0;">{company}{address_line}</p>
+</td></tr>
+</table></td></tr></table>
+</body></html>"""
+
+            try:
+                from flask_mail import Message as MailMessage
+                msg = MailMessage(subject=subject, recipients=[p.client_email], html=html_body)
+                mail.send(msg)
+                p.reminder_sent_at = datetime.utcnow()
+                db.session.commit()
+            except Exception:
+                pass
+
+    threading.Thread(target=do_send, daemon=True).start()
+
+
 def generate_invoice_pdf(job, user):
     """Generate a PDF invoice and return bytes."""
     company = user.company_name or user.name
@@ -536,10 +622,11 @@ def _build_mime_invoice(job, user, html_body, pdf_bytes):
     return msg, subject
 
 
-def _build_invoice_html(job, user):
+def _build_invoice_html(job, user, pay_url=None):
     company = user.company_name or user.name
     invoice_num = f"INV-{job.id:04d}"
     completed = job.completed_date.strftime('%B %d, %Y')
+    pay_btn = f'<p style="text-align:center;margin:24px 0 8px;"><a href="{pay_url}" style="display:inline-block;background:#F97316;color:#fff;font-size:15px;font-weight:800;padding:14px 36px;text-decoration:none;letter-spacing:0.05em;border-radius:2px;">PAY ONLINE →</a></p><p style="text-align:center;font-size:11px;color:#999;margin-bottom:20px;">Secure payment powered by Stripe</p>' if pay_url else ''
     return f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f4f4f4;font-family:'Helvetica Neue',Arial,sans-serif;">
@@ -584,7 +671,8 @@ def _build_invoice_html(job, user):
     <td style="padding:11px 12px;font-size:13px;font-weight:700;color:#fff;text-align:right;">${job.revenue:,.2f}</td></tr>
   </table>
   {'<p style="font-size:11px;color:#888;font-style:italic;">Notes: '+job.notes+'</p>' if job.notes else ''}
-  <p style="font-size:12px;color:#666;margin-top:20px;">Please find your invoice attached as a PDF. Thank you for your business!</p>
+  {pay_btn}
+  <p style="font-size:12px;color:#666;margin-top:{'8px' if pay_url else '20px'};">Please find your invoice attached as a PDF. Thank you for your business!</p>
 </td></tr>
 <tr><td style="background:#1a1a1a;padding:14px 32px;text-align:center;">
   <p style="font-size:10px;color:#666;margin:0;">Thank you for your business · {company}</p>
@@ -611,13 +699,20 @@ def send_invoice_email(job, user):
             if not j or not u:
                 return
 
+            # Generate pay token (lazy)
+            if not j.pay_token:
+                j.pay_token = secrets.token_urlsafe(20)
+                db.session.commit()
+            base_url = os.getenv('APP_URL', '').rstrip('/')
+            pay_url = f"{base_url}/invoice/{j.pay_token}" if base_url and stripe.api_key else None
+
             # Generate PDF (non-fatal if it fails)
             try:
                 pdf_bytes = generate_invoice_pdf(j, u)
             except Exception:
                 pdf_bytes = None
 
-            html_body = _build_invoice_html(j, u)
+            html_body = _build_invoice_html(j, u, pay_url=pay_url)
             invoice_num = f"INV-{j.id:04d}"
             company = u.company_name or u.name
             subject = f"Invoice {invoice_num} — {company}"
@@ -876,6 +971,7 @@ def logout():
 @login_required
 def dashboard():
     auto_invoice_past_scheduled_jobs(current_user.id)
+    auto_send_followup_reminders(current_user.id)
     today = date.today()
 
     proposals = Proposal.query.filter_by(user_id=current_user.id)\
@@ -1161,6 +1257,21 @@ def delete_proposal(proposal_id):
     db.session.commit()
     flash('Proposal deleted.', 'success')
     return redirect(url_for('dashboard'))
+
+
+@app.route('/proposal/<int:proposal_id>/nudge', methods=['POST'])
+@login_required
+def nudge_proposal(proposal_id):
+    proposal = Proposal.query.get_or_404(proposal_id)
+    if proposal.user_id != current_user.id:
+        return jsonify({'error': 'Access denied'}), 403
+    if not proposal.client_email:
+        return jsonify({'error': 'No client email'}), 400
+    # Reset so it sends even if auto already fired
+    proposal.reminder_sent_at = None
+    db.session.commit()
+    send_followup_reminder(proposal.id, current_user.id)
+    return jsonify({'ok': True})
 
 
 @app.route('/proposal/<int:proposal_id>/close')
@@ -1524,6 +1635,55 @@ def delete_scheduled_job(sj_id):
     return redirect(url_for('schedule'))
 
 
+# ─── Invoice Payments ──────────────────────────────────────────────────────────
+
+@app.route('/invoice/<token>')
+def invoice_view(token):
+    job = Job.query.filter_by(pay_token=token).first_or_404()
+    user = User.query.get_or_404(job.user_id)
+    return render_template('invoice_pay.html', job=job, user=user,
+                           stripe_key=os.getenv('STRIPE_PUBLISHABLE_KEY', ''),
+                           stripe_enabled=bool(stripe.api_key))
+
+
+@app.route('/invoice/<token>/pay', methods=['POST'])
+def invoice_pay(token):
+    job = Job.query.filter_by(pay_token=token).first_or_404()
+    user = User.query.get_or_404(job.user_id)
+    if job.paid_at:
+        return redirect(url_for('invoice_view', token=token))
+    if not stripe.api_key:
+        return redirect(url_for('invoice_view', token=token))
+    company = user.company_name or user.name
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {'name': f"{job.job_type or 'Professional Services'} — {company}"},
+                    'unit_amount': max(50, int(round(job.revenue * 100))),
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            customer_email=job.client_email or None,
+            success_url=url_for('invoice_success', token=token, _external=True),
+            cancel_url=url_for('invoice_view', token=token, _external=True),
+            metadata={'job_id': job.id, 'type': 'invoice'},
+        )
+        return redirect(session.url)
+    except Exception as e:
+        return redirect(url_for('invoice_view', token=token))
+
+
+@app.route('/invoice/<token>/success')
+def invoice_success(token):
+    job = Job.query.filter_by(pay_token=token).first_or_404()
+    user = User.query.get_or_404(job.user_id)
+    return render_template('invoice_success.html', job=job, user=user)
+
+
 # ─── Stripe ────────────────────────────────────────────────────────────────────
 
 @app.route('/create-checkout-session', methods=['POST'])
@@ -1621,6 +1781,16 @@ def stripe_webhook():
             user.plan = 'trial'
             user.subscription_status = 'cancelled'
             db.session.commit()
+
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        if session.get('metadata', {}).get('type') == 'invoice':
+            job_id = session['metadata'].get('job_id')
+            if job_id:
+                job = Job.query.get(int(job_id))
+                if job and not job.paid_at:
+                    job.paid_at = datetime.utcnow()
+                    db.session.commit()
 
     return jsonify({'received': True})
 
@@ -1791,6 +1961,9 @@ with app.app_context():
         'ALTER TABLE job ADD COLUMN invoice_sent_at DATETIME',
         'ALTER TABLE scheduled_job ADD COLUMN client_id INTEGER',
         'ALTER TABLE scheduled_job ADD COLUMN google_event_id VARCHAR(200)',
+        'ALTER TABLE proposal ADD COLUMN reminder_sent_at DATETIME',
+        'ALTER TABLE job ADD COLUMN pay_token VARCHAR(64)',
+        'ALTER TABLE job ADD COLUMN paid_at DATETIME',
     ]
     for _sql in _migrations:
         try:

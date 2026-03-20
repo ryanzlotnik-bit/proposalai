@@ -311,9 +311,14 @@
         </div>
         {% if proposals %}
         {% for p in proposals[:6] %}
+        {% set days_old = (today - p.created_at.date()).days %}
+        {% set is_stale = p.status == 'sent' and days_old >= 5 %}
         <a href="{{ url_for('view_proposal', proposal_id=p.id) }}" class="prop-row">
           <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:600;color:var(--text);">{{ p.client_name }}</div>
+            <div style="font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px;">
+              {{ p.client_name }}
+              {% if is_stale %}<span style="font-size:9px;font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--orange);background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.25);padding:2px 6px;letter-spacing:0.06em;">{{ days_old }}D NO REPLY</span>{% endif %}
+            </div>
             <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">{{ p.job_type }} · {{ p.formatted_date }}</div>
           </div>
           <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
@@ -424,12 +429,17 @@
         {% endfor %}
       </div>
       {% for p in proposals %}
-      <div style="display:grid;grid-template-columns:140px 1fr 130px 100px 120px 90px;padding:0 16px;border-bottom:1px solid var(--border);transition:background 0.1s;" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='transparent'">
+      {% set days_old = (today - p.created_at.date()).days %}
+      {% set is_stale = p.status == 'sent' and days_old >= 5 %}
+      <div style="display:grid;grid-template-columns:140px 1fr 130px 100px 120px 90px;padding:0 16px;border-bottom:1px solid var(--border);transition:background 0.1s;{% if is_stale %}border-left:2px solid rgba(249,115,22,0.4);{% endif %}" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='transparent'">
         <div style="padding:14px 8px;display:flex;align-items:center;">
           <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);">{{ p.proposal_number }}</span>
         </div>
         <div style="padding:14px 8px;display:flex;flex-direction:column;justify-content:center;">
-          <span style="font-size:13px;font-weight:600;color:var(--text);">{{ p.client_name }}</span>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:13px;font-weight:600;color:var(--text);">{{ p.client_name }}</span>
+            {% if is_stale %}<span style="font-size:9px;font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--orange);background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.25);padding:2px 6px;letter-spacing:0.06em;">{{ days_old }}D NO REPLY</span>{% endif %}
+          </div>
           <span style="font-size:11px;color:var(--text-muted);margin-top:2px;">{{ p.job_type }}</span>
         </div>
         <div style="padding:14px 8px;display:flex;align-items:center;">

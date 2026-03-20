@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invoice — {{ user.company_name or user.name }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #f5f5f5; font-family: 'DM Sans', sans-serif; color: #111; min-height: 100vh; display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; }
+    .card { background: #fff; max-width: 560px; width: 100%; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: #1a1a1a; padding: 20px 28px; display: flex; justify-content: space-between; align-items: center; }
+    .header-company { font-size: 16px; font-weight: 700; color: #fff; }
+    .header-trade { font-size: 11px; color: #777; margin-top: 2px; }
+    .title-bar { background: #F97316; padding: 12px 28px; display: flex; justify-content: space-between; align-items: center; }
+    .title-bar span { font-family: 'Bebas Neue', cursive; font-size: 22px; color: #fff; letter-spacing: 0.06em; }
+    .title-bar .inv-num { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: rgba(255,255,255,0.85); font-weight: 600; }
+    .body { padding: 28px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+    .info-box { border: 1px solid #e8e8e8; }
+    .info-box-head { background: #F97316; color: #fff; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; padding: 5px 10px; }
+    .info-box-body { padding: 12px; }
+    .info-line { font-size: 12px; color: #444; margin-bottom: 3px; }
+    .info-line strong { color: #111; }
+    .amount-row { background: #F97316; color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .amount-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+    .amount-value { font-family: 'Bebas Neue', cursive; font-size: 32px; letter-spacing: 0.04em; }
+    .pay-btn { display: block; width: 100%; background: #111; color: #fff; border: none; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 700; padding: 16px; cursor: pointer; letter-spacing: 0.04em; transition: background 0.15s; margin-bottom: 12px; }
+    .pay-btn:hover { background: #222; }
+    .paid-badge { text-align: center; padding: 20px; background: #f0fdf4; border: 1px solid #bbf7d0; margin-bottom: 12px; }
+    .paid-badge .check { font-size: 32px; margin-bottom: 6px; }
+    .paid-badge p { font-size: 14px; font-weight: 700; color: #15803d; }
+    .paid-badge small { font-size: 12px; color: #166534; }
+    .secure { text-align: center; font-size: 11px; color: #999; font-family: 'JetBrains Mono', monospace; }
+    .footer { background: #1a1a1a; padding: 12px 28px; text-align: center; }
+    .footer p { font-size: 10px; color: #555; font-family: 'JetBrains Mono', monospace; }
+    @media (max-width: 480px) { .info-grid { grid-template-columns: 1fr; } body { padding: 0; } .card { box-shadow: none; } }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <div>
+      <div class="header-company">{{ user.company_name or user.name }}</div>
+      <div class="header-trade">{{ user.trade_type }}{% if user.license_number %} · Lic #{{ user.license_number }}{% endif %}</div>
+    </div>
+    {% if user.phone %}<div style="font-size:12px;color:#888;">{{ user.phone }}</div>{% endif %}
+  </div>
+  <div class="title-bar">
+    <span>Invoice</span>
+    <span class="inv-num">INV-{{ '%04d' % job.id }}</span>
+  </div>
+  <div class="body">
+    <div class="info-grid">
+      <div class="info-box">
+        <div class="info-box-head">Billed To</div>
+        <div class="info-box-body">
+          <div class="info-line"><strong>{{ job.client_name }}</strong></div>
+          {% if job.client_email %}<div class="info-line">{{ job.client_email }}</div>{% endif %}
+          {% if job.client_phone %}<div class="info-line">{{ job.client_phone }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="info-box">
+        <div class="info-box-head">Details</div>
+        <div class="info-box-body">
+          <div class="info-line"><strong>{{ job.job_type or 'Professional Services' }}</strong></div>
+          <div class="info-line">Completed {{ job.completed_date.strftime('%B %d, %Y') }}</div>
+          {% if job.description %}<div class="info-line" style="margin-top:4px;font-size:11px;color:#666;">{{ job.description[:80] }}{% if job.description|length > 80 %}…{% endif %}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="amount-row">
+      <span class="amount-label">{% if job.paid_at %}Amount Paid{% else %}Total Due{% endif %}</span>
+      <span class="amount-value">${{ '{:,.2f}'.format(job.revenue) }}</span>
+    </div>
+
+    {% if job.paid_at %}
+    <div class="paid-badge">
+      <div class="check">✓</div>
+      <p>Payment Received</p>
+      <small>Paid {{ job.paid_at.strftime('%B %d, %Y') }}</small>
+    </div>
+    {% elif stripe_enabled %}
+    <form method="POST" action="{{ url_for('invoice_pay', token=job.pay_token) }}">
+      <button type="submit" class="pay-btn">Pay ${{ '{:,.2f}'.format(job.revenue) }} Online →</button>
+    </form>
+    <p class="secure">🔒 Secure payment via Stripe — card info never touches this server</p>
+    {% else %}
+    <p style="text-align:center;font-size:13px;color:#555;padding:12px 0;">Contact {{ user.name }} to arrange payment.</p>
+    {% endif %}
+  </div>
+  <div class="footer">
+    <p>{{ user.company_name or user.name }}{% if user.address %} · {{ user.address }}{% endif %}</p>
+  </div>
+</div>
+</body>
+</html>
