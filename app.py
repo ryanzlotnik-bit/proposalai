@@ -15,7 +15,7 @@ import email.utils
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from dotenv import load_dotenv
 from fpdf import FPDF
 import json
@@ -275,6 +275,29 @@ def generate_proposal_number():
     today = date.today()
     rand = ''.join(random.choices(string.digits, k=4))
     return f"P-{today.strftime('%Y%m')}-{rand}"
+
+
+def parse_timeline_date(timeline_str, base_date=None):
+    """Best-effort parse of a timeline string into a date. Defaults to base+7 days."""
+    import re
+    if base_date is None:
+        base_date = date.today()
+    if not timeline_str:
+        return base_date + timedelta(days=7)
+    s = timeline_str.lower()
+    m = re.search(r'(\d+)\s*(?:-\s*\d+)?\s*day', s)
+    if m:
+        return base_date + timedelta(days=int(m.group(1)))
+    m = re.search(r'(\d+)\s*week', s)
+    if m:
+        return base_date + timedelta(weeks=int(m.group(1)))
+    if 'next week' in s:
+        return base_date + timedelta(days=7)
+    if 'next month' in s:
+        return base_date + timedelta(days=30)
+    if 'tomorrow' in s:
+        return base_date + timedelta(days=1)
+    return base_date + timedelta(days=7)
 
 
 def build_monthly_chart_data(user_id, months=12):
@@ -837,9 +860,44 @@ def logout():
 @login_required
 def dashboard():
     auto_invoice_past_scheduled_jobs(current_user.id)
+    today = date.today()
+
     proposals = Proposal.query.filter_by(user_id=current_user.id)\
         .order_by(Proposal.created_at.desc()).all()
-    return render_template('dashboard.html', proposals=proposals)
+
+    # Revenue this month
+    month_start = date(today.year, today.month, 1)
+    revenue_mtd = db.session.query(db.func.sum(Job.revenue)).filter(
+        Job.user_id == current_user.id,
+        Job.completed_date >= month_start,
+        Job.completed_date <= today,
+    ).scalar() or 0
+
+    # Upcoming scheduled jobs
+    upcoming_jobs = ScheduledJob.query.filter(
+        ScheduledJob.user_id == current_user.id,
+        ScheduledJob.status == 'scheduled',
+        ScheduledJob.scheduled_date >= today,
+    ).order_by(ScheduledJob.scheduled_date).limit(8).all()
+
+    today_jobs = [j for j in upcoming_jobs if j.scheduled_date == today]
+
+    clients_count = Client.query.filter_by(user_id=current_user.id).count()
+
+    # Pipeline: sum of sent proposals
+    sent_proposals = [p for p in proposals if p.status == 'sent']
+    pipeline_value = sum(p.grand_total for p in sent_proposals)
+
+    return render_template('dashboard.html',
+        proposals=proposals,
+        upcoming_jobs=upcoming_jobs,
+        today_jobs=today_jobs,
+        revenue_mtd=revenue_mtd,
+        clients_count=clients_count,
+        sent_proposals=sent_proposals,
+        pipeline_value=pipeline_value,
+        today=today,
+    )
 
 
 @app.route('/cost-templates/add', methods=['POST'])
@@ -987,20 +1045,39 @@ def generate():
             clients = Client.query.filter_by(user_id=current_user.id).order_by(Client.name).all()
             return render_template('generate.html', form_data=job_data, cost_templates=cost_templates, allowed_job_types=current_user.allowed_job_types, clients=clients)
 
-        # Handle client linking / saving
-        client_id = request.form.get('client_id', '').strip()
-        linked_client_id = int(client_id) if client_id.isdigit() else None
-        if not linked_client_id and request.form.get('save_client'):
-            new_client = Client(
-                user_id=current_user.id,
-                name=job_data['client_name'],
-                email=job_data['client_email'],
-                phone=job_data['client_phone'],
-                address=job_data['client_address'],
-            )
-            db.session.add(new_client)
-            db.session.flush()
-            linked_client_id = new_client.id
+        # Auto-upsert client in CRM — find by email, then name, else create new
+        client_id_form = request.form.get('client_id', '').strip()
+        linked_client_id = int(client_id_form) if client_id_form.isdigit() else None
+        if not linked_client_id and job_data['client_name']:
+            existing = None
+            if job_data['client_email']:
+                existing = Client.query.filter_by(
+                    user_id=current_user.id, email=job_data['client_email']
+                ).first()
+            if not existing:
+                existing = Client.query.filter(
+                    Client.user_id == current_user.id,
+                    db.func.lower(Client.name) == job_data['client_name'].lower()
+                ).first()
+            if existing:
+                linked_client_id = existing.id
+                if job_data['client_email'] and not existing.email:
+                    existing.email = job_data['client_email']
+                if job_data['client_phone'] and not existing.phone:
+                    existing.phone = job_data['client_phone']
+                if job_data['client_address'] and not existing.address:
+                    existing.address = job_data['client_address']
+            else:
+                new_client = Client(
+                    user_id=current_user.id,
+                    name=job_data['client_name'],
+                    email=job_data['client_email'],
+                    phone=job_data['client_phone'],
+                    address=job_data['client_address'],
+                )
+                db.session.add(new_client)
+                db.session.flush()
+                linked_client_id = new_client.id
 
         proposal = Proposal(
             user_id=current_user.id,
@@ -1096,9 +1173,29 @@ def public_proposal_respond(token):
     if proposal.status in ('accepted', 'declined'):
         return redirect(url_for('public_proposal', token=token))
     proposal.status = action
+    new_sj_id = None
     if action == 'accepted':
         proposal.accepted_at = datetime.utcnow()
+        sched_date = parse_timeline_date(proposal.timeline, date.today())
+        sj = ScheduledJob(
+            user_id=proposal.user_id,
+            client_id=proposal.client_id,
+            client_name=proposal.client_name,
+            client_email=proposal.client_email,
+            client_phone=proposal.client_phone,
+            job_type=proposal.job_type,
+            description=proposal.job_description,
+            scheduled_date=sched_date,
+            estimated_revenue=proposal.grand_total,
+            invoice_on_complete=True,
+            notes=f"From proposal {proposal.proposal_number}",
+        )
+        db.session.add(sj)
+        db.session.flush()
+        new_sj_id = sj.id
     db.session.commit()
+    if new_sj_id:
+        push_to_google_calendar(proposal.user_id, new_sj_id)
     user = User.query.get(proposal.user_id)
     # Notify contractor
     def notify():

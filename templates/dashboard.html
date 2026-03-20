@@ -1,116 +1,461 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — CloseTheJob{% endblock %}
 
+{% block head %}
+<style>
+  .stat-tile {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 22px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-tile::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .stat-tile.orange::after { background: var(--orange); }
+  .stat-tile.green::after  { background: var(--green); }
+  .stat-tile.blue::after   { background: var(--blue); }
+  .stat-tile.muted::after  { background: var(--border-bright); }
+
+  .stat-value {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 44px;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .stat-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+  .panel-head {
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .panel-link {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--orange);
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    transition: opacity 0.15s;
+  }
+  .panel-link:hover { opacity: 0.7; }
+
+  .job-row {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background 0.1s;
+  }
+  .job-row:last-child { border-bottom: none; }
+  .job-row:hover { background: rgba(249,115,22,0.03); }
+  .job-date-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 4px 8px;
+    min-width: 52px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .job-date-badge.today {
+    background: rgba(249,115,22,0.12);
+    color: var(--orange);
+    border: 1px solid rgba(249,115,22,0.3);
+  }
+  .job-date-badge.soon {
+    background: var(--surface-2);
+    color: var(--text-muted);
+    border: 1px solid var(--border-bright);
+  }
+
+  .prop-row {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    transition: background 0.1s;
+  }
+  .prop-row:last-child { border-bottom: none; }
+  .prop-row:hover { background: rgba(249,115,22,0.03); }
+
+  .action-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+  }
+  .action-tile {
+    background: var(--surface);
+    padding: 18px 20px;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: background 0.15s;
+    cursor: pointer;
+    border: none;
+    width: 100%;
+    text-align: left;
+  }
+  .action-tile:hover { background: var(--surface-2); }
+  .action-icon {
+    width: 34px;
+    height: 34px;
+    background: var(--orange-dim);
+    border: 1px solid rgba(249,115,22,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--orange);
+    flex-shrink: 0;
+    clip-path: polygon(0 0, 90% 0, 100% 10%, 100% 100%, 10% 100%, 0 90%);
+  }
+  .action-label { font-size: 13px; font-weight: 600; color: var(--text); }
+  .action-sub { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+  .today-banner {
+    background: rgba(249,115,22,0.06);
+    border: 1px solid rgba(249,115,22,0.2);
+    border-left: 3px solid var(--orange);
+    padding: 14px 20px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .pulse-dot {
+    width: 8px; height: 8px;
+    background: var(--orange);
+    border-radius: 50%;
+    flex-shrink: 0;
+    animation: ldotBounce 2s infinite;
+  }
+  @keyframes ldotBounce {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .empty-state {
+    padding: 32px 18px;
+    text-align: center;
+  }
+  .empty-state p { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div style="max-width:1280px;margin:0 auto;padding:40px 24px;">
 
   <!-- Header -->
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:40px;flex-wrap:wrap;">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:32px;flex-wrap:wrap;">
     <div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">// Your workspace</div>
-      <h1 class="font-display" style="font-size:56px;color:var(--text);line-height:1;">{{ current_user.name.split()[0] }}'s<br />Proposals.</h1>
-      <p style="color:var(--text-muted);font-size:13px;margin-top:8px;font-family:'JetBrains Mono',monospace;">
-        {% if current_user.is_subscribed %}
-          PLAN: {{ current_user.plan.upper() }} · UNLIMITED
-        {% else %}
-          TRIAL · {{ proposals|length }}/3 PROPOSALS USED
-        {% endif %}
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">// Command Center</div>
+      <h1 class="font-display" style="font-size:clamp(40px,5vw,60px);color:var(--text);line-height:1;">{{ current_user.name.split()[0] }}'s<br />Business.</h1>
+      <p style="color:var(--text-muted);font-size:12px;margin-top:8px;font-family:'JetBrains Mono',monospace;">
+        {{ today.strftime('%A, %B %d').upper() }} ·
+        {% if current_user.is_subscribed %}{{ current_user.plan.upper() }} PLAN
+        {% else %}TRIAL · {{ proposals|length }}/3 PROPOSALS{% endif %}
       </p>
     </div>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
       {% if not current_user.is_subscribed %}
-        <a href="{{ url_for('pricing') }}" style="font-size:12px;color:var(--orange);text-decoration:none;border:1px solid rgba(249,115,22,0.3);padding:8px 14px;font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;">
-          UPGRADE →
-        </a>
+      <a href="{{ url_for('pricing') }}" style="font-size:11px;color:var(--orange);text-decoration:none;border:1px solid rgba(249,115,22,0.3);padding:8px 14px;font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;">UPGRADE →</a>
       {% endif %}
-      <a href="{{ url_for('generate') }}" class="btn-orange" style="padding:12px 24px;font-size:13px;">
-        + New Proposal
-      </a>
+      <a href="{{ url_for('generate') }}" class="btn-orange" style="padding:11px 22px;font-size:13px;">+ New Proposal</a>
     </div>
   </div>
 
-  <!-- Stats -->
-  {% set total = proposals|length %}
-  {% set sent = proposals|selectattr('status','eq','sent')|list|length %}
-  {% set accepted = proposals|selectattr('status','eq','accepted')|list|length %}
-  {% set total_value = proposals|sum(attribute='grand_total') %}
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--border);margin-bottom:40px;">
-    {% for label, value, sub in [
-      ('Total Proposals', total, 'all time'),
-      ('Sent', sent, 'awaiting response'),
-      ('Accepted', accepted, 'won'),
-      ('Pipeline Value', '$' + '{:,.0f}'.format(total_value), 'total estimates'),
-    ] %}
-    <div style="background:var(--surface);padding:24px 28px;">
-      <div class="font-display" style="font-size:48px;color:var(--text);line-height:1;">{{ value }}</div>
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-top:6px;">{{ label }}</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:2px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.06em;">{{ sub }}</div>
-    </div>
-    {% endfor %}
-  </div>
-
-  <!-- Trial warning -->
-  {% if not current_user.is_subscribed and proposals|length >= 3 %}
-  <div style="background:rgba(249,115,22,0.06);border:1px solid rgba(249,115,22,0.25);border-left:3px solid var(--orange);padding:16px 20px;margin-bottom:28px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
+  <!-- Today alert -->
+  {% if today_jobs %}
+  <div class="today-banner">
+    <div class="pulse-dot"></div>
     <div>
-      <p style="font-weight:600;color:var(--text);font-size:14px;">Trial limit reached</p>
-      <p style="font-size:13px;color:var(--text-muted);margin-top:2px;">Upgrade to Starter ($49/mo) for unlimited proposals.</p>
+      <span style="font-size:13px;font-weight:600;color:var(--orange);">{{ today_jobs|length }} job{% if today_jobs|length != 1 %}s{% endif %} today</span>
+      <span style="font-size:13px;color:var(--text);margin-left:8px;">—</span>
+      {% for j in today_jobs[:3] %}
+      <span style="font-size:13px;color:var(--text);margin-left:6px;">{{ j.client_name }}{% if j.job_type %} ({{ j.job_type }}){% endif %}{% if not loop.last %},{% endif %}</span>
+      {% endfor %}
     </div>
-    <a href="{{ url_for('pricing') }}" class="btn-orange" style="padding:10px 20px;font-size:13px;">Upgrade Now</a>
+    <a href="{{ url_for('schedule') }}" style="margin-left:auto;font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-decoration:none;flex-shrink:0;">VIEW →</a>
   </div>
   {% endif %}
 
-  <!-- Proposals -->
-  {% if proposals %}
-  <div style="border:1px solid var(--border);">
-    <!-- Table header -->
-    <div style="display:grid;grid-template-columns:140px 1fr 140px 100px 120px 100px;gap:0;background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;">
-      {% for col in ['Proposal #', 'Client / Job', 'Date', 'Total', 'Status', 'Actions'] %}
-      <div style="padding:12px 8px;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;">{{ col }}</div>
-      {% endfor %}
+  <!-- Trial warning -->
+  {% if not current_user.is_subscribed and proposals|length >= 3 %}
+  <div style="background:rgba(249,115,22,0.06);border:1px solid rgba(249,115,22,0.25);border-left:3px solid var(--orange);padding:14px 20px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
+    <div>
+      <p style="font-weight:600;color:var(--text);font-size:13px;">Trial limit reached</p>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">Upgrade to Starter ($49/mo) for unlimited proposals and all features.</p>
     </div>
+    <a href="{{ url_for('pricing') }}" class="btn-orange" style="padding:9px 18px;font-size:12px;">Upgrade Now</a>
+  </div>
+  {% endif %}
 
-    {% for p in proposals %}
-    <div style="display:grid;grid-template-columns:140px 1fr 140px 100px 120px 100px;gap:0;padding:0 20px;border-bottom:1px solid var(--border);transition:background 0.1s;" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='transparent'">
-      <div style="padding:16px 8px;display:flex;align-items:center;">
-        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--orange);">{{ p.proposal_number }}</span>
-      </div>
-      <div style="padding:16px 8px;display:flex;flex-direction:column;justify-content:center;">
-        <span style="font-size:14px;font-weight:600;color:var(--text);">{{ p.client_name }}</span>
-        <span style="font-size:12px;color:var(--text-muted);margin-top:2px;">{{ p.job_type }}</span>
-      </div>
-      <div style="padding:16px 8px;display:flex;align-items:center;">
-        <span style="font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">{{ p.created_at.strftime('%b %d, %Y') }}</span>
-      </div>
-      <div style="padding:16px 8px;display:flex;align-items:center;">
-        <span style="font-size:14px;font-weight:700;color:var(--text);">${{ '{:,.0f}'.format(p.grand_total) }}</span>
-      </div>
-      <div style="padding:16px 8px;display:flex;align-items:center;">
-        <select onchange="updateStatus({{ p.id }}, this.value)"
-          style="background:var(--surface-2);border:1px solid var(--border-bright);color:var(--text);font-size:11px;padding:4px 8px;font-family:'JetBrains Mono',monospace;cursor:pointer;outline:none;text-transform:uppercase;letter-spacing:0.06em;appearance:none;-webkit-appearance:none;">
-          <option value="draft" {% if p.status == 'draft' %}selected{% endif %}>DRAFT</option>
-          <option value="sent" {% if p.status == 'sent' %}selected{% endif %}>SENT</option>
-          <option value="accepted" {% if p.status == 'accepted' %}selected{% endif %}>ACCEPTED</option>
-          <option value="declined" {% if p.status == 'declined' %}selected{% endif %}>DECLINED</option>
-        </select>
-      </div>
-      <div style="padding:16px 8px;display:flex;align-items:center;gap:12px;">
-        <a href="{{ url_for('view_proposal', proposal_id=p.id) }}" style="font-size:12px;color:var(--orange);text-decoration:none;font-weight:600;font-family:'JetBrains Mono',monospace;">VIEW</a>
-        <form method="POST" action="{{ url_for('delete_proposal', proposal_id=p.id) }}" onsubmit="return confirm('Delete this proposal?')" style="display:inline;">
-          <button type="submit" style="background:none;border:none;font-size:12px;color:var(--text-muted);cursor:pointer;font-family:'JetBrains Mono',monospace;padding:0;transition:color 0.15s;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-muted)'">DEL</button>
-        </form>
-      </div>
+  <!-- Stats strip -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1px;background:var(--border);margin-bottom:28px;">
+    <div class="stat-tile green">
+      <div class="stat-value" style="color:var(--green);">${{ "{:,.0f}".format(revenue_mtd) }}</div>
+      <div class="stat-label">Revenue MTD</div>
+      <div class="stat-sub">{{ today.strftime('%B') }}</div>
     </div>
-    {% endfor %}
+    <div class="stat-tile orange">
+      <div class="stat-value" style="color:var(--orange);">{{ upcoming_jobs|length }}</div>
+      <div class="stat-label">Upcoming Jobs</div>
+      <div class="stat-sub">next 8 scheduled</div>
+    </div>
+    <div class="stat-tile blue">
+      <div class="stat-value" style="color:var(--blue);">{{ sent_proposals|length }}</div>
+      <div class="stat-label">Proposals Sent</div>
+      <div class="stat-sub">awaiting response</div>
+    </div>
+    <div class="stat-tile muted">
+      <div class="stat-value" style="color:var(--text);">{{ clients_count }}</div>
+      <div class="stat-label">Contacts</div>
+      <div class="stat-sub">in CRM</div>
+    </div>
+    <div class="stat-tile orange">
+      <div class="stat-value" style="color:var(--orange);">${{ "{:,.0f}".format(pipeline_value) }}</div>
+      <div class="stat-label">Pipeline</div>
+      <div class="stat-sub">open proposal value</div>
+    </div>
+    {% set accepted_total = proposals|selectattr('status','eq','accepted')|list|sum(attribute='grand_total') %}
+    <div class="stat-tile green">
+      <div class="stat-value" style="color:var(--green);">${{ "{:,.0f}".format(accepted_total) }}</div>
+      <div class="stat-label">Won All Time</div>
+      <div class="stat-sub">accepted proposals</div>
+    </div>
   </div>
 
-  {% else %}
-  <!-- Empty state -->
-  <div style="border:1px dashed var(--border-bright);padding:80px 40px;text-align:center;">
-    <div class="font-display" style="font-size:96px;color:var(--border-bright);line-height:1;margin-bottom:16px;">0</div>
-    <p style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:8px;">No proposals yet</p>
-    <p style="font-size:14px;color:var(--text-muted);margin-bottom:28px;">Generate your first proposal in under 60 seconds.</p>
-    <a href="{{ url_for('generate') }}" class="btn-orange" style="padding:12px 28px;font-size:14px;">Generate First Proposal</a>
+  <!-- Main grid: jobs + proposals left, actions right -->
+  <div style="display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start;">
+
+    <!-- Left column -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Upcoming jobs -->
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">Upcoming Jobs</span>
+          <a href="{{ url_for('schedule') }}" class="panel-link">View All →</a>
+        </div>
+        {% if upcoming_jobs %}
+        {% for j in upcoming_jobs %}
+        {% set days = (j.scheduled_date.toordinal() - today.toordinal()) %}
+        <div class="job-row">
+          <div class="job-date-badge {% if days == 0 %}today{% else %}soon{% endif %}">
+            {% if days == 0 %}TODAY
+            {% elif days == 1 %}TMR
+            {% else %}{{ j.scheduled_date.strftime('%b %d') }}{% endif %}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ j.client_name }}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">{{ j.job_type or 'Job' }}{% if j.description %} · {{ j.description[:50] }}{% endif %}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:13px;font-weight:700;color:var(--green);">${{ "{:,.0f}".format(j.estimated_revenue) }}</div>
+            {% if days > 0 and days <= 3 %}
+            <div style="font-size:10px;color:var(--orange);font-family:'JetBrains Mono',monospace;">in {{ days }}d</div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state">
+          <p>No upcoming jobs scheduled.</p>
+          <a href="{{ url_for('schedule') }}" class="btn-ghost" style="font-size:12px;padding:7px 16px;">+ Schedule Job</a>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Recent proposals -->
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">Recent Proposals</span>
+          <a href="{{ url_for('dashboard') }}#all-proposals" class="panel-link">View All →</a>
+        </div>
+        {% if proposals %}
+        {% for p in proposals[:6] %}
+        <a href="{{ url_for('view_proposal', proposal_id=p.id) }}" class="prop-row">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);">{{ p.client_name }}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">{{ p.job_type }} · {{ p.formatted_date }}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+            <span style="font-size:13px;font-weight:700;color:var(--text);">${{ "{:,.0f}".format(p.grand_total) }}</span>
+            <span class="badge badge-{{ p.status }}">{{ p.status }}</span>
+          </div>
+        </a>
+        {% endfor %}
+        {% if proposals|length > 6 %}
+        <div style="padding:10px 18px;text-align:center;">
+          <a href="#all-proposals" style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-decoration:none;">↓ {{ proposals|length - 6 }} more below</a>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state">
+          <p>No proposals yet. Generate your first one in 60 seconds.</p>
+          <a href="{{ url_for('generate') }}" class="btn-orange" style="font-size:12px;padding:9px 18px;">+ New Proposal</a>
+        </div>
+        {% endif %}
+      </div>
+
+    </div>
+
+    <!-- Right column: actions + pipeline -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Quick actions -->
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">Quick Actions</span></div>
+        <div class="action-grid">
+          <a href="{{ url_for('generate') }}" class="action-tile">
+            <div class="action-icon">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            </div>
+            <div><div class="action-label">Proposal</div><div class="action-sub">AI-generated</div></div>
+          </a>
+          <a href="{{ url_for('schedule') }}" class="action-tile" onclick="setTimeout(()=>document.getElementById('scheduleModal')?.classList.add('active'),100)">
+            <div class="action-icon">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            </div>
+            <div><div class="action-label">Schedule</div><div class="action-sub">Book a job</div></div>
+          </a>
+          <a href="{{ url_for('financials') }}" class="action-tile">
+            <div class="action-icon">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            </div>
+            <div><div class="action-label">Financials</div><div class="action-sub">P&amp;L + charts</div></div>
+          </a>
+          <a href="{{ url_for('clients') }}" class="action-tile">
+            <div class="action-icon">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+            </div>
+            <div><div class="action-label">Clients</div><div class="action-sub">{{ clients_count }} saved</div></div>
+          </a>
+        </div>
+      </div>
+
+      <!-- Pipeline by status -->
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">Proposal Pipeline</span></div>
+        <div style="padding:14px 18px;display:flex;flex-direction:column;gap:10px;">
+          {% set counts = {'draft': 0, 'sent': 0, 'accepted': 0, 'declined': 0} %}
+          {% set values = {'draft': 0, 'sent': 0, 'accepted': 0, 'declined': 0} %}
+          {% for p in proposals %}
+            {% if p.status in counts %}
+              {% set _ = counts.update({p.status: counts[p.status] + 1}) %}
+              {% set _ = values.update({p.status: values[p.status] + p.grand_total}) %}
+            {% endif %}
+          {% endfor %}
+          {% for status, color in [('accepted','var(--green)'),('sent','var(--blue)'),('draft','var(--text-muted)'),('declined','var(--red)')] %}
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:{{ color }};flex-shrink:0;"></span>
+            <span style="font-size:12px;color:var(--text-muted);text-transform:capitalize;flex:1;font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;">{{ status }}</span>
+            <span style="font-size:12px;color:var(--text);font-weight:600;">{{ counts[status] }}</span>
+            <span style="font-size:11px;color:var(--text-muted);">${{ "{:,.0f}".format(values[status]) }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Links -->
+      <div class="panel">
+        <div class="panel-head"><span class="panel-title">Tools</span></div>
+        <div style="padding:8px 0;">
+          {% for label, url in [('Generate Proposal', url_for('generate')), ('Job Schedule', url_for('schedule')), ('Financials & P&L', url_for('financials')), ('Client CRM', url_for('clients')), ('Profile & Settings', url_for('profile'))] %}
+          <a href="{{ url }}" style="display:flex;align-items:center;justify-content:space-between;padding:9px 18px;text-decoration:none;transition:background 0.1s;" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='transparent'">
+            <span style="font-size:13px;color:var(--text);">{{ label }}</span>
+            <span style="color:var(--text-dim);font-size:14px;">→</span>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- All proposals (below fold) -->
+  {% if proposals %}
+  <div id="all-proposals" style="margin-top:32px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">All Proposals ({{ proposals|length }})</div>
+      <a href="{{ url_for('generate') }}" class="btn-orange" style="padding:8px 18px;font-size:12px;">+ New Proposal</a>
+    </div>
+    <div style="border:1px solid var(--border);">
+      <div style="display:grid;grid-template-columns:140px 1fr 130px 100px 120px 90px;background:var(--surface);border-bottom:1px solid var(--border);padding:0 16px;">
+        {% for col in ['#', 'Client / Job', 'Date', 'Total', 'Status', ''] %}
+        <div style="padding:10px 8px;font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;">{{ col }}</div>
+        {% endfor %}
+      </div>
+      {% for p in proposals %}
+      <div style="display:grid;grid-template-columns:140px 1fr 130px 100px 120px 90px;padding:0 16px;border-bottom:1px solid var(--border);transition:background 0.1s;" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='transparent'">
+        <div style="padding:14px 8px;display:flex;align-items:center;">
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);">{{ p.proposal_number }}</span>
+        </div>
+        <div style="padding:14px 8px;display:flex;flex-direction:column;justify-content:center;">
+          <span style="font-size:13px;font-weight:600;color:var(--text);">{{ p.client_name }}</span>
+          <span style="font-size:11px;color:var(--text-muted);margin-top:2px;">{{ p.job_type }}</span>
+        </div>
+        <div style="padding:14px 8px;display:flex;align-items:center;">
+          <span style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">{{ p.created_at.strftime('%b %d, %Y') }}</span>
+        </div>
+        <div style="padding:14px 8px;display:flex;align-items:center;">
+          <span style="font-size:13px;font-weight:700;color:var(--text);">${{ '{:,.0f}'.format(p.grand_total) }}</span>
+        </div>
+        <div style="padding:14px 8px;display:flex;align-items:center;">
+          <select onchange="updateStatus({{ p.id }}, this.value)"
+            style="background:var(--surface-2);border:1px solid var(--border-bright);color:var(--text);font-size:10px;padding:4px 8px;font-family:'JetBrains Mono',monospace;cursor:pointer;outline:none;text-transform:uppercase;letter-spacing:0.06em;appearance:none;-webkit-appearance:none;">
+            <option value="draft" {% if p.status == 'draft' %}selected{% endif %}>DRAFT</option>
+            <option value="sent" {% if p.status == 'sent' %}selected{% endif %}>SENT</option>
+            <option value="accepted" {% if p.status == 'accepted' %}selected{% endif %}>ACCEPTED</option>
+            <option value="declined" {% if p.status == 'declined' %}selected{% endif %}>DECLINED</option>
+          </select>
+        </div>
+        <div style="padding:14px 8px;display:flex;align-items:center;gap:10px;">
+          <a href="{{ url_for('view_proposal', proposal_id=p.id) }}" style="font-size:11px;color:var(--orange);text-decoration:none;font-weight:600;font-family:'JetBrains Mono',monospace;">VIEW</a>
+          <form method="POST" action="{{ url_for('delete_proposal', proposal_id=p.id) }}" onsubmit="return confirm('Delete this proposal?')" style="display:inline;">
+            <button type="submit" style="background:none;border:none;font-size:11px;color:var(--text-muted);cursor:pointer;font-family:'JetBrains Mono',monospace;padding:0;transition:color 0.15s;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-muted)'">DEL</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
   </div>
   {% endif %}
 
