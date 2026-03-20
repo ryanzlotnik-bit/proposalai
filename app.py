@@ -24,7 +24,6 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access that page.'
 
-anthropic_client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
 stripe.api_key = os.getenv('STRIPE_SECRET_KEY', '')
 
 TRIAL_PROPOSAL_LIMIT = 3
@@ -123,6 +122,7 @@ def generate_proposal_number():
 
 
 def call_claude_for_proposal(job_data, user_data):
+    anthropic_client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
     prompt = f"""You are an expert proposal writer for trade contractors. Generate a detailed, professional job proposal in JSON format.
 
 Contractor:
