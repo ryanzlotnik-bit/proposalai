@@ -7,74 +7,176 @@
     background: #fff;
     color: #111;
     font-family: 'DM Sans', sans-serif;
+    max-width: 780px;
+    margin: 0 auto;
   }
-  .proposal-header {
-    background: #111;
-    color: #fff;
-    padding: 40px 48px;
+  .prop-header {
+    background: #1a1a1a;
+    padding: 0;
   }
-  .proposal-body { padding: 40px 48px; }
-  .prop-label {
-    font-size: 9px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: #999;
-    margin-bottom: 4px;
-    font-family: 'JetBrains Mono', monospace;
-  }
-  .prop-val { font-size: 14px; color: #111; line-height: 1.5; }
-  .prop-section-title {
-    font-family: 'Bebas Neue', cursive;
-    font-size: 22px;
-    color: #111;
-    letter-spacing: 0.04em;
-    padding-bottom: 8px;
-    border-bottom: 2px solid #111;
-    margin-bottom: 16px;
-  }
-  .scope-item {
+  .prop-header-top {
     display: flex;
-    gap: 10px;
-    align-items: flex-start;
-    font-size: 13px;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 28px;
+    background: #1a1a1a;
+  }
+  .prop-header-title {
+    background: #F97316;
+    text-align: center;
+    padding: 14px 28px;
+  }
+  .prop-header-title h1 {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 28px;
+    color: #fff;
+    letter-spacing: 0.06em;
+    margin: 0;
+  }
+  .prop-body { padding: 24px 28px; }
+
+  /* Info boxes */
+  .info-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .info-box {
+    border: 1px solid #ddd;
+  }
+  .info-box-header {
+    background: #F97316;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .info-box-body { padding: 10px; }
+  .info-row-item {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 4px;
+    font-size: 12px;
+    margin-bottom: 4px;
     color: #333;
-    padding: 6px 0;
-    border-bottom: 1px solid #F0F0F0;
+  }
+  .info-row-item span:first-child { font-weight: 600; color: #111; }
+
+  /* Description */
+  .section-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #111;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #ddd;
+  }
+  .description-text {
+    font-size: 12px;
+    color: #444;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+
+  /* Table */
+  .estimate-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-bottom: 20px;
+  }
+  .estimate-table th {
+    background: #F97316;
+    color: #fff;
+    font-weight: 700;
+    padding: 7px 10px;
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .estimate-table th:last-child { text-align: right; }
+  .estimate-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid #eee;
+    color: #333;
+    vertical-align: top;
+  }
+  .estimate-table td:last-child { text-align: right; font-weight: 600; }
+  .estimate-table td:nth-child(2), .estimate-table td:nth-child(3) { text-align: center; color: #555; }
+  .section-row td {
+    background: #f5f5f5;
+    font-weight: 700;
+    color: #111;
+    padding: 5px 10px;
+    border-bottom: 1px solid #ddd;
+  }
+  .total-row td {
+    background: #F97316;
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 8px 10px;
+    border: none;
+  }
+  .total-row td:last-child { text-align: right; }
+
+  /* Bottom section */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #ddd;
+  }
+  .terms-title { font-size: 13px; font-weight: 700; color: #111; margin-bottom: 8px; }
+  .terms-item {
+    font-size: 11px;
+    color: #444;
+    margin-bottom: 4px;
+    padding-left: 12px;
+    position: relative;
     line-height: 1.5;
   }
-  .scope-dot { width: 6px; height: 6px; background: #F97316; flex-shrink: 0; margin-top: 5px; }
-  .mat-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .mat-table th { text-align: right; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #999; padding: 8px 12px; background: #F8F8F8; font-family: 'JetBrains Mono', monospace; }
-  .mat-table th:first-child { text-align: left; }
-  .mat-table td { padding: 10px 12px; text-align: right; border-bottom: 1px solid #F0F0F0; color: #333; }
-  .mat-table td:first-child { text-align: left; color: #111; font-weight: 500; }
-  .total-row { display: flex; justify-content: space-between; align-items: baseline; }
-  .total-row.grand { border-top: 2px solid #111; padding-top: 12px; margin-top: 4px; }
-  .total-label { font-size: 13px; color: #666; }
-  .total-val { font-size: 14px; color: #111; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
-  .total-row.grand .total-label { font-size: 15px; font-weight: 700; color: #111; font-family: 'Bebas Neue', cursive; letter-spacing: 0.04em; font-size: 20px; }
-  .total-row.grand .total-val { font-size: 24px; font-weight: 700; color: #F97316; }
-  .sig-line { border-bottom: 1px solid #999; height: 40px; margin-bottom: 6px; }
-  .sig-label { font-size: 10px; color: #999; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.06em; }
-  .closing-box { background: #F8F8F8; border-left: 3px solid #F97316; padding: 16px 20px; }
+  .terms-item::before { content: '•'; position: absolute; left: 0; color: #F97316; }
+
+  /* Signature */
+  .sig-area { text-align: center; }
+  .sig-line { border-bottom: 1px solid #999; margin: 32px 0 6px; }
+  .sig-name { font-size: 12px; font-weight: 600; color: #111; }
+
+  /* Footer */
+  .prop-footer {
+    background: #1a1a1a;
+    color: #aaa;
+    text-align: center;
+    font-size: 11px;
+    padding: 10px 20px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
   @media print {
     nav, footer, .no-print { display: none !important; }
     body { background: white !important; }
-    .proposal-wrapper { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
-    .proposal-doc { box-shadow: none !important; }
+    .proposal-wrapper { padding: 0 !important; }
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="no-print" style="max-width:960px;margin:0 auto;padding:24px 24px 0;">
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
-    <a href="{{ url_for('dashboard') }}" style="font-size:12px;color:var(--text-muted);text-decoration:none;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:6px;">← DASHBOARD</a>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+
+<!-- Controls -->
+<div class="no-print" style="max-width:780px;margin:0 auto;padding:20px 24px 0;">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+    <a href="{{ url_for('dashboard') }}" style="font-size:12px;color:var(--text-muted);text-decoration:none;font-family:'JetBrains Mono',monospace;">← DASHBOARD</a>
+    <div style="display:flex;gap:8px;">
       {% if proposal.client_email %}
-      <a href="mailto:{{ proposal.client_email }}?subject=Proposal {{ proposal.proposal_number }}&body=Please find your proposal attached."
-         style="font-size:12px;color:var(--text-muted);border:1px solid var(--border-bright);padding:8px 16px;text-decoration:none;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:6px;transition:color 0.15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">
+      <a href="https://mail.google.com/mail/?view=cm&to={{ proposal.client_email }}&su=Proposal {{ proposal.proposal_number }} — {{ user.company_name or user.name }}&body=Hi {{ proposal.client_name }},%0A%0APlease find your proposal for the {{ proposal.job_type }} project at {{ proposal.client_address }}.%0A%0AProposal %23: {{ proposal.proposal_number }}%0ATotal Estimate: ${{ '{:,.2f}'.format(proposal.grand_total) }}%0A%0APlease review and sign to confirm. Don't hesitate to reach out with any questions.%0A%0ABest,%0A{{ user.name }}%0A{{ user.company_name }}%0A{{ user.phone }}" target="_blank"
+         style="font-size:12px;color:var(--text-muted);border:1px solid var(--border-bright);padding:8px 16px;text-decoration:none;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:6px;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">
         EMAIL CLIENT
       </a>
       {% endif %}
@@ -86,188 +188,125 @@
 </div>
 
 <!-- Proposal Document -->
-<div class="proposal-wrapper" style="max-width:960px;margin:0 auto;padding:0 24px 60px;">
-<div class="proposal-doc" style="box-shadow:0 4px 60px rgba(0,0,0,0.5);">
+<div class="proposal-wrapper" style="padding:0 24px 60px;">
+<div class="proposal-doc" style="box-shadow:0 2px 40px rgba(0,0,0,0.4);">
 
   <!-- Header -->
-  <div class="proposal-header">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;">
+  <div class="prop-header">
+    <div class="prop-header-top">
       <div>
-        <div style="font-family:'Bebas Neue',cursive;font-size:32px;color:#fff;line-height:1;margin-bottom:4px;">{{ user.company_name or user.name }}</div>
-        <div style="font-size:13px;color:#888;margin-bottom:12px;">{{ user.trade_type }}</div>
-        {% if user.phone %}<div style="font-size:13px;color:#aaa;">{{ user.phone }}</div>{% endif %}
-        {% if user.license_number %}<div style="font-size:12px;color:#666;">LIC #{{ user.license_number }}</div>{% endif %}
-        {% if user.address %}<div style="font-size:12px;color:#666;margin-top:4px;">{{ user.address }}</div>{% endif %}
+        <div style="font-size:16px;font-weight:700;color:#fff;">{{ user.company_name or user.name }}</div>
+        <div style="font-size:11px;color:#888;margin-top:2px;">{{ user.trade_type }}{% if user.license_number %} · Lic #{{ user.license_number }}{% endif %}</div>
       </div>
       <div style="text-align:right;">
-        <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace;margin-bottom:4px;">Proposal</div>
-        <div style="font-family:'Bebas Neue',cursive;font-size:48px;color:#F97316;line-height:1;letter-spacing:0.04em;">{{ proposal.proposal_number }}</div>
-        <div style="font-size:12px;color:#888;margin-top:6px;font-family:'JetBrains Mono',monospace;">{{ proposal.formatted_date }}</div>
-        <div style="font-size:11px;color:#555;margin-top:2px;font-family:'JetBrains Mono',monospace;">Valid: {{ proposal.content.get('validity_period','30 days') }}</div>
+        <div style="font-size:11px;color:#888;">Date: {{ proposal.formatted_date }}</div>
+        {% if user.phone %}<div style="font-size:11px;color:#888;margin-top:2px;">{{ user.phone }}</div>{% endif %}
       </div>
     </div>
-    <!-- Orange accent line -->
-    <div style="height:2px;background:linear-gradient(90deg,#F97316,transparent);margin-top:28px;"></div>
+    <div class="prop-header-title">
+      <h1>{{ proposal.job_type }} Estimate</h1>
+    </div>
   </div>
 
-  <div class="proposal-body">
+  <div class="prop-body">
 
-    <!-- Prepared For -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-bottom:36px;padding-bottom:28px;border-bottom:1px solid #EBEBEB;">
-      <div>
-        <div class="prop-label">Prepared For</div>
-        <div style="font-size:18px;font-weight:700;color:#111;margin-bottom:6px;">{{ proposal.client_name }}</div>
-        {% if proposal.client_address %}<div class="prop-val" style="color:#555;">{{ proposal.client_address }}</div>{% endif %}
-        {% if proposal.client_phone %}<div class="prop-val" style="color:#555;">{{ proposal.client_phone }}</div>{% endif %}
-        {% if proposal.client_email %}<div class="prop-val" style="color:#555;">{{ proposal.client_email }}</div>{% endif %}
+    <!-- Customer Info + Reference -->
+    <div class="info-row">
+      <div class="info-box">
+        <div class="info-box-header">Customer Information</div>
+        <div class="info-box-body">
+          <div class="info-row-item"><span>Name:</span><span>{{ proposal.client_name }}</span></div>
+          {% if proposal.client_address %}<div class="info-row-item"><span>Address:</span><span>{{ proposal.client_address }}</span></div>{% endif %}
+          {% if proposal.client_email %}<div class="info-row-item"><span>Email:</span><span>{{ proposal.client_email }}</span></div>{% endif %}
+          {% if proposal.client_phone %}<div class="info-row-item"><span>Phone:</span><span>{{ proposal.client_phone }}</span></div>{% endif %}
+        </div>
       </div>
+      <div class="info-box">
+        <div class="info-box-header">Reference Number: {{ proposal.proposal_number }}</div>
+        <div class="info-box-body">
+          <div class="info-row-item"><span>Date:</span><span>{{ proposal.formatted_date }}</span></div>
+          <div class="info-row-item"><span>Valid:</span><span>{{ proposal.content.get('validity_period','30 days') }}</span></div>
+          {% if proposal.timeline %}<div class="info-row-item"><span>Timeline:</span><span>{{ proposal.timeline }}</span></div>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Job Description -->
+    <div class="section-label">Job Description:</div>
+    <div class="description-text">{{ proposal.content.get('executive_summary', proposal.job_description) }}</div>
+
+    <!-- Estimate Table -->
+    <table class="estimate-table">
+      <thead>
+        <tr>
+          <th style="width:45%;">Description</th>
+          <th style="width:15%;text-align:center;">Quantity</th>
+          <th style="width:20%;text-align:center;">Rate / Unit</th>
+          <th style="width:20%;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Materials -->
+        {% if proposal.content.get('materials_list') and proposal.content.get('materials_list')|length > 0 %}
+        <tr class="section-row"><td colspan="4">Materials:</td></tr>
+        {% for mat in proposal.content.get('materials_list', []) %}
+        <tr>
+          <td style="padding-left:20px;">• {{ mat.get('name','') }}</td>
+          <td style="text-align:center;">{{ mat.get('quantity','') }} {{ mat.get('unit','') }}</td>
+          <td style="text-align:center;">${{ '{:,.2f}'.format(mat.get('unit_cost',0)) }}/{{ mat.get('unit','ea') }}</td>
+          <td>${{ '{:,.2f}'.format(mat.get('total',0)) }}</td>
+        </tr>
+        {% endfor %}
+        {% endif %}
+
+        <!-- Labor -->
+        {% if proposal.content.get('labor_description') %}
+        <tr class="section-row"><td colspan="4">Labor:</td></tr>
+        <tr>
+          <td style="padding-left:20px;">• {{ proposal.content.get('labor_description') }}</td>
+          <td style="text-align:center;">{{ proposal.content.get('labor_hours', proposal.labor_hours) }} hours</td>
+          <td style="text-align:center;">${{ '{:,.0f}'.format(proposal.content.get('labor_rate', proposal.labor_rate)) }}/hour</td>
+          <td>${{ '{:,.2f}'.format(proposal.content.get('labor_total', proposal.labor_hours * proposal.labor_rate)) }}</td>
+        </tr>
+        {% endif %}
+
+        <!-- Total -->
+        <tr class="total-row">
+          <td colspan="3">Total Estimate</td>
+          <td>${{ '{:,.2f}'.format(proposal.grand_total) }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Terms + Signature -->
+    <div class="bottom-grid">
       <div>
-        <div class="prop-label">Job Type</div>
-        <div style="font-size:16px;font-weight:600;color:#111;margin-bottom:12px;">{{ proposal.job_type }}</div>
-        {% if proposal.content.get('project_timeline') %}
-        <div class="prop-label">Timeline</div>
-        <div class="prop-val" style="color:#555;">{{ proposal.content.get('project_timeline') }}</div>
+        <div class="terms-title">Terms and Conditions:</div>
+        {% if proposal.content.get('payment_terms') %}
+        <div class="terms-item">{{ proposal.content.get('payment_terms') }}</div>
+        {% endif %}
+        {% if proposal.content.get('warranty_terms') %}
+        <div class="terms-item">{{ proposal.content.get('warranty_terms') }}</div>
+        {% endif %}
+        {% if proposal.content.get('closing_statement') %}
+        <div class="terms-item">{{ proposal.content.get('closing_statement') }}</div>
         {% endif %}
       </div>
-    </div>
-
-    <!-- Executive Summary -->
-    {% if proposal.content.get('executive_summary') %}
-    <div style="margin-bottom:32px;">
-      <div class="prop-section-title">Project Overview</div>
-      <p style="font-size:14px;color:#444;line-height:1.7;">{{ proposal.content.get('executive_summary') }}</p>
-    </div>
-    {% endif %}
-
-    <!-- Scope of Work -->
-    {% if proposal.content.get('scope_of_work') %}
-    <div style="margin-bottom:32px;">
-      <div class="prop-section-title">Scope of Work</div>
-      {% for item in proposal.content.get('scope_of_work', []) %}
-      <div class="scope-item">
-        <div class="scope-dot"></div>
-        <span>{{ item }}</span>
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- Materials -->
-    {% if proposal.content.get('materials_list') and proposal.content.get('materials_list')|length > 0 %}
-    <div style="margin-bottom:32px;">
-      <div class="prop-section-title">Materials & Parts</div>
-      <table class="mat-table">
-        <thead>
-          <tr>
-            <th style="text-align:left;">Item</th>
-            <th>Qty</th>
-            <th>Unit</th>
-            <th>Unit Cost</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for mat in proposal.content.get('materials_list', []) %}
-          <tr>
-            <td>{{ mat.get('name','') }}</td>
-            <td>{{ mat.get('quantity','') }}</td>
-            <td>{{ mat.get('unit','') }}</td>
-            <td>${{ '{:,.2f}'.format(mat.get('unit_cost',0)) }}</td>
-            <td>${{ '{:,.2f}'.format(mat.get('total',0)) }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% endif %}
-
-    <!-- Labor -->
-    {% if proposal.content.get('labor_description') %}
-    <div style="margin-bottom:32px;">
-      <div class="prop-section-title">Labor</div>
-      <div style="background:#F8F8F8;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
-        <div>
-          <div style="font-size:14px;color:#333;">{{ proposal.content.get('labor_description') }}</div>
-          <div style="font-size:12px;color:#888;margin-top:4px;font-family:'JetBrains Mono',monospace;">{{ proposal.content.get('labor_hours', proposal.labor_hours) }} hrs × ${{ '{:,.0f}'.format(proposal.content.get('labor_rate', proposal.labor_rate)) }}/hr</div>
-        </div>
-        <div style="font-size:20px;font-weight:700;color:#111;font-family:'JetBrains Mono',monospace;">${{ '{:,.2f}'.format(proposal.content.get('labor_total', proposal.labor_hours * proposal.labor_rate)) }}</div>
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- Totals -->
-    <div style="margin-bottom:32px;">
-      <div style="max-width:320px;margin-left:auto;">
-        {% if proposal.content.get('total_materials') %}
-        <div class="total-row" style="padding:6px 0;border-bottom:1px solid #EBEBEB;">
-          <span class="total-label">Materials</span>
-          <span class="total-val">${{ '{:,.2f}'.format(proposal.content.get('total_materials',0)) }}</span>
-        </div>
-        {% endif %}
-        {% if proposal.content.get('labor_total') %}
-        <div class="total-row" style="padding:6px 0;border-bottom:1px solid #EBEBEB;">
-          <span class="total-label">Labor</span>
-          <span class="total-val">${{ '{:,.2f}'.format(proposal.content.get('labor_total',0)) }}</span>
-        </div>
-        {% endif %}
-        {% if proposal.content.get('tax_amount') and proposal.content.get('tax_amount') > 0 %}
-        <div class="total-row" style="padding:6px 0;border-bottom:1px solid #EBEBEB;">
-          <span class="total-label">Tax</span>
-          <span class="total-val">${{ '{:,.2f}'.format(proposal.content.get('tax_amount',0)) }}</span>
-        </div>
-        {% endif %}
-        <div class="total-row grand" style="margin-top:12px;">
-          <span class="total-label">TOTAL ESTIMATE</span>
-          <span class="total-val">${{ '{:,.2f}'.format(proposal.grand_total) }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Terms -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-bottom:32px;padding-top:24px;border-top:1px solid #EBEBEB;">
-      {% if proposal.content.get('payment_terms') %}
-      <div>
-        <div class="prop-label">Payment Terms</div>
-        <div style="font-size:13px;color:#444;line-height:1.6;margin-top:4px;">{{ proposal.content.get('payment_terms') }}</div>
-      </div>
-      {% endif %}
-      {% if proposal.content.get('warranty_terms') %}
-      <div>
-        <div class="prop-label">Warranty</div>
-        <div style="font-size:13px;color:#444;line-height:1.6;margin-top:4px;">{{ proposal.content.get('warranty_terms') }}</div>
-      </div>
-      {% endif %}
-    </div>
-
-    <!-- Closing -->
-    {% if proposal.content.get('closing_statement') %}
-    <div class="closing-box" style="margin-bottom:36px;">
-      <p style="font-size:13px;color:#444;line-height:1.7;">{{ proposal.content.get('closing_statement') }}</p>
-      {% if proposal.content.get('call_to_action') %}
-      <p style="font-size:13px;font-weight:600;color:#F97316;margin-top:8px;">{{ proposal.content.get('call_to_action') }}</p>
-      {% endif %}
-    </div>
-    {% endif %}
-
-    <!-- Signature -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;padding-top:32px;border-top:1px solid #EBEBEB;">
-      <div>
+      <div class="sig-area">
+        <div class="terms-title">Signature:</div>
         <div class="sig-line"></div>
-        <div class="sig-label">{{ proposal.client_name }} · Date</div>
-      </div>
-      <div>
-        <div class="sig-line"></div>
-        <div class="sig-label">{{ user.name }} · {{ user.company_name }} · Date</div>
+        <div class="sig-name">{{ proposal.client_name }}</div>
       </div>
     </div>
 
-    <!-- Doc footer -->
-    <div style="margin-top:40px;padding-top:16px;border-top:1px solid #F0F0F0;text-align:center;">
-      <p style="font-size:10px;color:#BBBBB8;font-family:'JetBrains Mono',monospace;letter-spacing:0.06em;">GENERATED BY CLOSETHEJOB · VALID {{ proposal.content.get('validity_period','30 DAYS')|upper }} FROM {{ proposal.formatted_date.upper() }}</p>
-    </div>
+  </div>
 
-  </div><!-- /proposal-body -->
-</div><!-- /proposal-doc -->
-</div><!-- /wrapper -->
+  <!-- Footer -->
+  <div class="prop-footer">
+    {% if user.phone %}{{ user.phone }} · {% endif %}{% if user.address %}{{ user.address }} · {% endif %}{{ user.company_name or user.name }}
+  </div>
+
+</div>
+</div>
 
 {% endblock %}
