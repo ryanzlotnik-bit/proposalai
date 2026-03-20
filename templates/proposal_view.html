@@ -180,6 +180,10 @@
         EMAIL CLIENT
       </a>
       {% endif %}
+      <a href="{{ url_for('close_job_from_proposal', proposal_id=proposal.id) }}"
+         style="font-size:12px;color:var(--green);border:1px solid rgba(74,222,128,0.3);padding:8px 16px;text-decoration:none;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:6px;background:rgba(74,222,128,0.06);" onmouseover="this.style.background='rgba(74,222,128,0.12)'" onmouseout="this.style.background='rgba(74,222,128,0.06)'">
+        ✓ CLOSE JOB
+      </a>
       <button onclick="window.print()" class="btn-orange" style="padding:8px 20px;font-size:12px;border:none;cursor:pointer;font-family:'JetBrains Mono',monospace;clip-path:none;">
         PRINT / SAVE PDF
       </button>

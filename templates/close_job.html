@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Close Job — {{ proposal.proposal_number }}{% endblock %}
+
+{% block content %}
+<div style="max-width:560px;margin:60px auto;padding:0 24px;">
+
+  <a href="{{ url_for('view_proposal', proposal_id=proposal.id) }}" style="font-size:12px;color:var(--text-muted);text-decoration:none;font-family:'JetBrains Mono',monospace;display:inline-block;margin-bottom:24px;">← BACK TO PROPOSAL</a>
+
+  <div style="margin-bottom:28px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">// {{ proposal.proposal_number }}</div>
+    <h1 class="font-display" style="font-size:40px;color:var(--text);line-height:1.1;">Close This Job</h1>
+    <p style="color:var(--text-muted);font-size:13px;margin-top:8px;">Confirm the final details and log it to your financial records.</p>
+  </div>
+
+  <div class="ctj-card" style="padding:28px;">
+    <form method="POST" action="{{ url_for('add_job') }}">
+      <input type="hidden" name="proposal_id" value="{{ proposal.id }}">
+
+      <div style="margin-bottom:20px;">
+        <label class="ctj-label">Client Name</label>
+        <input name="client_name" class="ctj-input" value="{{ proposal.client_name }}" required>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div>
+          <label class="ctj-label">Client Email</label>
+          <input name="client_email" type="email" class="ctj-input" value="{{ proposal.client_email }}">
+        </div>
+        <div>
+          <label class="ctj-label">Client Phone</label>
+          <input name="client_phone" class="ctj-input" value="{{ proposal.client_phone }}">
+        </div>
+      </div>
+      <div style="margin-bottom:20px;">
+        <label class="ctj-label">Job Type</label>
+        <input name="job_type" class="ctj-input" value="{{ proposal.job_type }}">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div>
+          <label class="ctj-label">Final Revenue ($ paid) <span style="color:var(--orange);">*</span></label>
+          <input name="revenue" type="number" step="0.01" min="0" class="ctj-input"
+                 value="{{ '{:.2f}'.format(proposal.grand_total) }}" required>
+        </div>
+        <div>
+          <label class="ctj-label">Completion Date <span style="color:var(--orange);">*</span></label>
+          <input name="completed_date" type="date" class="ctj-input" value="{{ today }}" required>
+        </div>
+      </div>
+      <div style="margin-bottom:20px;">
+        <label class="ctj-label">Notes (optional)</label>
+        <textarea name="description" class="ctj-input" rows="3" style="resize:vertical;" placeholder="Any final notes about this job…">{{ proposal.job_description }}</textarea>
+      </div>
+
+      <!-- Invoice checkbox -->
+      <div style="margin-bottom:24px;padding:16px;background:var(--surface-2);border:1px solid var(--border-bright);display:flex;align-items:flex-start;gap:12px;">
+        <input type="checkbox" name="send_invoice" id="sendInvoiceCheck"
+               {% if proposal.client_email %}checked{% endif %}
+               style="margin-top:3px;accent-color:var(--orange);">
+        <div>
+          <label for="sendInvoiceCheck" style="font-size:13px;font-weight:600;color:var(--text);cursor:pointer;">
+            Auto-send invoice to client
+          </label>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:3px;font-family:'JetBrains Mono',monospace;">
+            {% if proposal.client_email %}
+              Will send to {{ proposal.client_email }}
+            {% else %}
+              Enter client email above to enable
+            {% endif %}
+          </p>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-orange" style="width:100%;padding:14px;font-size:14px;justify-content:center;clip-path:none;">
+        ✓ Log Closed Job
+      </button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

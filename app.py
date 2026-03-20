@@ -2,9 +2,11 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
+from flask_mail import Mail, Message
 import requests as http_requests
 import stripe
 import os
+import calendar
 from datetime import datetime, date
 from dotenv import load_dotenv
 import json
@@ -18,11 +20,20 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-pro
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///proposalai.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Mail config — set MAIL_USERNAME and MAIL_PASSWORD in .env
+app.config['MAIL_SERVER']   = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT']     = int(os.getenv('MAIL_PORT', 587))
+app.config['MAIL_USE_TLS']  = True
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', '')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', '')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME', '')
+
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access that page.'
+mail = Mail(app)
 
 stripe.api_key = ''.join(os.getenv('STRIPE_SECRET_KEY', '').split())
 
@@ -86,6 +97,7 @@ class Proposal(db.Model):
     grand_total = db.Column(db.Float, default=0)
     status = db.Column(db.String(50), default='draft')  # draft, sent, accepted, declined
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    linked_jobs = db.relationship('Job', backref='proposal', lazy=True)
 
     @property
     def content(self):
@@ -108,6 +120,58 @@ class Proposal(db.Model):
         }.get(self.status, 'gray')
 
 
+class Job(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    proposal_id = db.Column(db.Integer, db.ForeignKey('proposal.id'), nullable=True)
+    client_name = db.Column(db.String(200), nullable=False)
+    client_email = db.Column(db.String(200), default='')
+    client_phone = db.Column(db.String(50), default='')
+    job_type = db.Column(db.String(100), default='')
+    description = db.Column(db.Text, default='')
+    revenue = db.Column(db.Float, default=0)
+    completed_date = db.Column(db.Date, nullable=False)
+    invoice_sent = db.Column(db.Boolean, default=False)
+    invoice_sent_at = db.Column(db.DateTime, nullable=True)
+    notes = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    job_expenses = db.relationship('Expense', backref='job', lazy=True)
+    job_tips = db.relationship('Tip', backref='job', lazy=True)
+
+    @property
+    def tip_total(self):
+        return sum(t.amount for t in self.job_tips)
+
+    @property
+    def expense_total(self):
+        return sum(e.amount for e in self.job_expenses)
+
+    @property
+    def net(self):
+        return self.revenue + self.tip_total - self.expense_total
+
+
+class Expense(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=True)
+    description = db.Column(db.String(300), nullable=False)
+    amount = db.Column(db.Float, default=0)
+    category = db.Column(db.String(100), default='General')
+    date = db.Column(db.Date, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Tip(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=True)
+    amount = db.Column(db.Float, default=0)
+    note = db.Column(db.String(300), default='')
+    date = db.Column(db.Date, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -119,6 +183,161 @@ def generate_proposal_number():
     today = date.today()
     rand = ''.join(random.choices(string.digits, k=4))
     return f"P-{today.strftime('%Y%m')}-{rand}"
+
+
+def build_monthly_chart_data(user_id, months=12):
+    today = date.today()
+    labels, revenues, expenses_data, tips_data = [], [], [], []
+    for i in range(months - 1, -1, -1):
+        # Calculate month/year going back i months
+        month = today.month - i
+        year = today.year
+        while month <= 0:
+            month += 12
+            year -= 1
+        label = f"{calendar.month_abbr[month]} '{str(year)[2:]}"
+        start = date(year, month, 1)
+        _, last_day = calendar.monthrange(year, month)
+        end = date(year, month, last_day)
+
+        rev = db.session.query(db.func.sum(Job.revenue)).filter(
+            Job.user_id == user_id,
+            Job.completed_date >= start,
+            Job.completed_date <= end
+        ).scalar() or 0
+
+        exp = db.session.query(db.func.sum(Expense.amount)).filter(
+            Expense.user_id == user_id,
+            Expense.date >= start,
+            Expense.date <= end
+        ).scalar() or 0
+
+        tip = db.session.query(db.func.sum(Tip.amount)).filter(
+            Tip.user_id == user_id,
+            Tip.date >= start,
+            Tip.date <= end
+        ).scalar() or 0
+
+        labels.append(label)
+        revenues.append(round(float(rev), 2))
+        expenses_data.append(round(float(exp), 2))
+        tips_data.append(round(float(tip), 2))
+
+    return labels, revenues, expenses_data, tips_data
+
+
+def send_invoice_email(job, user):
+    """Send a clean HTML invoice email to the client. Returns True on success."""
+    if not app.config.get('MAIL_USERNAME') or not job.client_email:
+        return False
+
+    company = user.company_name or user.name
+    invoice_num = f"INV-{job.id:04d}"
+    completed = job.completed_date.strftime('%B %d, %Y')
+
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:40px 20px;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:4px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+        <!-- Header -->
+        <tr><td style="background:#1a1a1a;padding:0;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="padding:20px 32px;">
+                <div style="font-size:20px;font-weight:700;color:#fff;">{company}</div>
+                <div style="font-size:12px;color:#888;margin-top:4px;">{user.trade_type}{' · Lic #' + user.license_number if user.license_number else ''}</div>
+              </td>
+              <td style="padding:20px 32px;text-align:right;">
+                <div style="font-size:12px;color:#888;">{user.phone or ''}</div>
+                <div style="font-size:12px;color:#888;margin-top:2px;">{user.email}</div>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+
+        <!-- Orange title bar -->
+        <tr><td style="background:#F97316;padding:14px 32px;">
+          <span style="font-size:20px;font-weight:800;color:#fff;letter-spacing:0.04em;text-transform:uppercase;">INVOICE</span>
+          <span style="float:right;font-size:14px;color:rgba(255,255,255,0.85);font-weight:600;">{invoice_num}</span>
+        </td></tr>
+
+        <!-- Body -->
+        <tr><td style="padding:32px;">
+
+          <!-- Info row -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
+            <tr>
+              <td width="50%" style="vertical-align:top;padding-right:16px;">
+                <div style="background:#f9f9f9;border:1px solid #eee;padding:16px;border-radius:2px;">
+                  <div style="font-size:10px;font-weight:700;color:#F97316;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Billed To</div>
+                  <div style="font-size:14px;font-weight:700;color:#111;">{job.client_name}</div>
+                  {'<div style="font-size:12px;color:#555;margin-top:4px;">' + job.client_email + '</div>' if job.client_email else ''}
+                  {'<div style="font-size:12px;color:#555;margin-top:2px;">' + job.client_phone + '</div>' if job.client_phone else ''}
+                </div>
+              </td>
+              <td width="50%" style="vertical-align:top;padding-left:16px;">
+                <div style="background:#f9f9f9;border:1px solid #eee;padding:16px;border-radius:2px;">
+                  <div style="font-size:10px;font-weight:700;color:#F97316;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Invoice Details</div>
+                  <table cellpadding="0" cellspacing="0">
+                    <tr><td style="font-size:12px;color:#888;padding:2px 0;padding-right:12px;">Invoice #</td><td style="font-size:12px;font-weight:600;color:#111;">{invoice_num}</td></tr>
+                    <tr><td style="font-size:12px;color:#888;padding:2px 0;padding-right:12px;">Job Type</td><td style="font-size:12px;font-weight:600;color:#111;">{job.job_type or 'Services'}</td></tr>
+                    <tr><td style="font-size:12px;color:#888;padding:2px 0;padding-right:12px;">Completed</td><td style="font-size:12px;font-weight:600;color:#111;">{completed}</td></tr>
+                  </table>
+                </div>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Description -->
+          {'<p style="font-size:13px;color:#444;line-height:1.6;margin-bottom:24px;">' + job.description + '</p>' if job.description else ''}
+
+          <!-- Amount table -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;">
+            <tr style="background:#f5f5f5;">
+              <td style="padding:10px 14px;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #e0e0e0;">Description</td>
+              <td style="padding:10px 14px;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #e0e0e0;text-align:right;">Amount</td>
+            </tr>
+            <tr>
+              <td style="padding:14px;font-size:13px;color:#333;border-bottom:1px solid #eee;">{job.job_type or 'Professional Services'}</td>
+              <td style="padding:14px;font-size:13px;font-weight:600;color:#111;text-align:right;border-bottom:1px solid #eee;">${job.revenue:,.2f}</td>
+            </tr>
+            <tr style="background:#F97316;">
+              <td style="padding:12px 14px;font-size:14px;font-weight:700;color:#fff;">TOTAL DUE</td>
+              <td style="padding:12px 14px;font-size:14px;font-weight:700;color:#fff;text-align:right;">${job.revenue:,.2f}</td>
+            </tr>
+          </table>
+
+          {'<p style="font-size:12px;color:#888;font-style:italic;margin-bottom:0;">Notes: ' + job.notes + '</p>' if job.notes else ''}
+
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="background:#1a1a1a;padding:16px 32px;text-align:center;">
+          <p style="font-size:11px;color:#666;margin:0;">Thank you for your business · {company}</p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+"""
+
+    try:
+        msg = Message(
+            subject=f"Invoice {invoice_num} — {company}",
+            recipients=[job.client_email],
+            html=html,
+        )
+        mail.send(msg)
+        return True
+    except Exception:
+        return False
 
 
 def call_claude_for_proposal(job_data, user_data):
@@ -268,7 +487,6 @@ def generate():
         return redirect(url_for('pricing'))
 
     if request.method == 'POST':
-        # Collect service-specific fields (prefixed with svc_)
         service_details = {}
         for key in request.form:
             if key.startswith('svc_'):
@@ -369,6 +587,16 @@ def delete_proposal(proposal_id):
     return redirect(url_for('dashboard'))
 
 
+@app.route('/proposal/<int:proposal_id>/close')
+@login_required
+def close_job_from_proposal(proposal_id):
+    proposal = Proposal.query.get_or_404(proposal_id)
+    if proposal.user_id != current_user.id:
+        flash('Access denied.', 'error')
+        return redirect(url_for('dashboard'))
+    return render_template('close_job.html', proposal=proposal, today=date.today().isoformat())
+
+
 @app.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile():
@@ -390,6 +618,209 @@ def profile():
 def pricing():
     return render_template('pricing.html')
 
+
+# ─── Financials ────────────────────────────────────────────────────────────────
+
+@app.route('/financials')
+@login_required
+def financials():
+    jobs = Job.query.filter_by(user_id=current_user.id).order_by(Job.completed_date.desc()).all()
+    expenses = Expense.query.filter_by(user_id=current_user.id).order_by(Expense.date.desc()).all()
+    tips = Tip.query.filter_by(user_id=current_user.id).order_by(Tip.date.desc()).all()
+    all_jobs = Job.query.filter_by(user_id=current_user.id).all()
+
+    total_revenue = sum(j.revenue for j in jobs)
+    total_expenses = sum(e.amount for e in expenses)
+    total_tips = sum(t.amount for t in tips)
+    net_profit = total_revenue + total_tips - total_expenses
+
+    labels, revenues, expenses_monthly, tips_monthly = build_monthly_chart_data(current_user.id)
+    chart_data = json.dumps({
+        'labels': labels,
+        'revenues': revenues,
+        'expenses': expenses_monthly,
+        'tips': tips_monthly,
+    })
+
+    return render_template('financials.html',
+        jobs=jobs, expenses=expenses, tips=tips, all_jobs=all_jobs,
+        total_revenue=total_revenue, total_expenses=total_expenses,
+        total_tips=total_tips, net_profit=net_profit,
+        chart_data=chart_data,
+        today=date.today().isoformat(),
+    )
+
+
+@app.route('/jobs/add', methods=['POST'])
+@login_required
+def add_job():
+    client_name = request.form.get('client_name', '').strip()
+    if not client_name:
+        flash('Client name is required.', 'error')
+        return redirect(url_for('financials'))
+
+    try:
+        completed_date = date.fromisoformat(request.form.get('completed_date', ''))
+    except ValueError:
+        flash('Invalid completion date.', 'error')
+        return redirect(url_for('financials'))
+
+    proposal_id = request.form.get('proposal_id') or None
+    if proposal_id:
+        proposal_id = int(proposal_id)
+
+    job = Job(
+        user_id=current_user.id,
+        proposal_id=proposal_id,
+        client_name=client_name,
+        client_email=request.form.get('client_email', '').strip(),
+        client_phone=request.form.get('client_phone', '').strip(),
+        job_type=request.form.get('job_type', '').strip(),
+        description=request.form.get('description', '').strip(),
+        revenue=float(request.form.get('revenue', 0) or 0),
+        completed_date=completed_date,
+        notes=request.form.get('notes', '').strip(),
+    )
+    db.session.add(job)
+    db.session.commit()
+
+    # Auto-send invoice if requested
+    if request.form.get('send_invoice') and job.client_email:
+        success = send_invoice_email(job, current_user)
+        if success:
+            job.invoice_sent = True
+            job.invoice_sent_at = datetime.utcnow()
+            db.session.commit()
+            flash(f'Job logged and invoice sent to {job.client_email}.', 'success')
+        else:
+            flash('Job logged. Invoice email failed — check MAIL_USERNAME and MAIL_PASSWORD in .env.', 'warning')
+    else:
+        flash(f'Job "{client_name}" logged successfully.', 'success')
+
+    return redirect(url_for('financials'))
+
+
+@app.route('/jobs/<int:job_id>/delete', methods=['POST'])
+@login_required
+def delete_job(job_id):
+    job = Job.query.get_or_404(job_id)
+    if job.user_id != current_user.id:
+        flash('Access denied.', 'error')
+        return redirect(url_for('financials'))
+    # Delete related expenses and tips first
+    Expense.query.filter_by(job_id=job.id).delete()
+    Tip.query.filter_by(job_id=job.id).delete()
+    db.session.delete(job)
+    db.session.commit()
+    flash('Job deleted.', 'success')
+    return redirect(url_for('financials'))
+
+
+@app.route('/jobs/<int:job_id>/send-invoice', methods=['POST'])
+@login_required
+def send_invoice(job_id):
+    job = Job.query.get_or_404(job_id)
+    if job.user_id != current_user.id:
+        flash('Access denied.', 'error')
+        return redirect(url_for('financials'))
+    if not job.client_email:
+        flash('No client email on file for this job.', 'error')
+        return redirect(url_for('financials'))
+    success = send_invoice_email(job, current_user)
+    if success:
+        job.invoice_sent = True
+        job.invoice_sent_at = datetime.utcnow()
+        db.session.commit()
+        flash(f'Invoice sent to {job.client_email}.', 'success')
+    else:
+        flash('Invoice send failed. Set MAIL_USERNAME and MAIL_PASSWORD in your .env file.', 'error')
+    return redirect(url_for('financials'))
+
+
+@app.route('/expenses/add', methods=['POST'])
+@login_required
+def add_expense():
+    description = request.form.get('description', '').strip()
+    if not description:
+        flash('Description is required.', 'error')
+        return redirect(url_for('financials'))
+    try:
+        exp_date = date.fromisoformat(request.form.get('date', ''))
+    except ValueError:
+        flash('Invalid date.', 'error')
+        return redirect(url_for('financials'))
+
+    job_id = request.form.get('job_id') or None
+    if job_id:
+        job_id = int(job_id)
+
+    expense = Expense(
+        user_id=current_user.id,
+        job_id=job_id,
+        description=description,
+        amount=float(request.form.get('amount', 0) or 0),
+        category=request.form.get('category', 'General').strip(),
+        date=exp_date,
+    )
+    db.session.add(expense)
+    db.session.commit()
+    flash('Expense added.', 'success')
+    return redirect(url_for('financials'))
+
+
+@app.route('/expenses/<int:expense_id>/delete', methods=['POST'])
+@login_required
+def delete_expense(expense_id):
+    expense = Expense.query.get_or_404(expense_id)
+    if expense.user_id != current_user.id:
+        flash('Access denied.', 'error')
+        return redirect(url_for('financials'))
+    db.session.delete(expense)
+    db.session.commit()
+    flash('Expense deleted.', 'success')
+    return redirect(url_for('financials'))
+
+
+@app.route('/tips/add', methods=['POST'])
+@login_required
+def add_tip():
+    try:
+        tip_date = date.fromisoformat(request.form.get('date', ''))
+    except ValueError:
+        flash('Invalid date.', 'error')
+        return redirect(url_for('financials'))
+
+    job_id = request.form.get('job_id') or None
+    if job_id:
+        job_id = int(job_id)
+
+    tip = Tip(
+        user_id=current_user.id,
+        job_id=job_id,
+        amount=float(request.form.get('amount', 0) or 0),
+        note=request.form.get('note', '').strip(),
+        date=tip_date,
+    )
+    db.session.add(tip)
+    db.session.commit()
+    flash('Tip recorded.', 'success')
+    return redirect(url_for('financials'))
+
+
+@app.route('/tips/<int:tip_id>/delete', methods=['POST'])
+@login_required
+def delete_tip(tip_id):
+    tip = Tip.query.get_or_404(tip_id)
+    if tip.user_id != current_user.id:
+        flash('Access denied.', 'error')
+        return redirect(url_for('financials'))
+    db.session.delete(tip)
+    db.session.commit()
+    flash('Tip deleted.', 'success')
+    return redirect(url_for('financials'))
+
+
+# ─── Stripe ────────────────────────────────────────────────────────────────────
 
 @app.route('/create-checkout-session', methods=['POST'])
 @login_required

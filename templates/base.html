@@ -321,6 +321,7 @@
       <div style="display:flex;align-items:center;gap:24px;">
         {% if current_user.is_authenticated %}
           <a href="{{ url_for('dashboard') }}" class="nav-link">Dashboard</a>
+          <a href="{{ url_for('financials') }}" class="nav-link">Financials</a>
           <a href="{{ url_for('generate') }}" class="btn-orange">+ New Proposal</a>
           <div class="nav-dropdown">
             <div class="nav-avatar">{{ current_user.name[0].upper() }}</div>
