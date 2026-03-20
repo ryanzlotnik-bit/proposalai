@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Team — CloseTheJob{% endblock %}
+
+{% block content %}
+<div style="max-width:720px;margin:0 auto;padding:40px 24px;">
+
+  <div style="margin-bottom:32px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">// Settings</div>
+    <h1 class="font-display" style="font-size:52px;color:var(--text);line-height:1;">Your Team.</h1>
+    <p style="color:var(--text-muted);font-size:14px;margin-top:8px;">Team members can create proposals, manage jobs, and access your account.</p>
+  </div>
+
+  <!-- Invite form -->
+  <div class="ctj-card" style="padding:28px;margin-bottom:24px;">
+    <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);">// Invite Someone</div>
+    <form method="POST" action="{{ url_for('team_invite') }}" style="display:flex;gap:12px;flex-wrap:wrap;">
+      <input type="email" name="email" required class="ctj-input" placeholder="teammate@example.com" style="flex:1;min-width:240px;" />
+      <button type="submit" class="btn-orange" style="padding:11px 24px;font-size:13px;border:none;cursor:pointer;clip-path:none;white-space:nowrap;">Send Invite →</button>
+    </form>
+    <p style="font-size:11px;color:var(--text-muted);margin-top:10px;">They'll get an email with a link to create their account. They'll see all your data but you keep full control.</p>
+  </div>
+
+  <!-- Active members -->
+  {% if members %}
+  <div class="ctj-card" style="padding:28px;margin-bottom:24px;">
+    <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">// Active Members ({{ members|length }})</div>
+    {% for m in members %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border);gap:16px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:14px;font-weight:600;color:var(--text);">{{ m.name }}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">{{ m.email }}</div>
+      </div>
+      <form method="POST" action="{{ url_for('team_remove', member_id=m.id) }}" onsubmit="return confirm('Remove {{ m.name }} from your team?')">
+        <button type="submit" class="btn-ghost" style="padding:7px 16px;font-size:12px;">Remove</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Pending invites -->
+  {% if invites %}
+  {% set pending = invites|selectattr('accepted','eq',false)|list %}
+  {% if pending %}
+  <div class="ctj-card" style="padding:28px;">
+    <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">// Pending Invites</div>
+    {% for inv in pending %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border);gap:12px;flex-wrap:wrap;">
+      <div style="font-size:13px;color:var(--text-muted);">{{ inv.email }}</div>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);background:var(--surface-2);border:1px solid var(--border);padding:3px 8px;letter-spacing:0.06em;">AWAITING</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endif %}
+
+  {% if not members and not invites %}
+  <div style="text-align:center;padding:40px 20px;color:var(--text-muted);">
+    <p style="font-size:14px;">No team members yet. Send an invite above to get started.</p>
+  </div>
+  {% endif %}
+
+  <div style="margin-top:20px;">
+    <a href="{{ url_for('profile') }}" style="font-size:12px;color:var(--text-muted);text-decoration:none;font-family:'JetBrains Mono',monospace;">← Back to Profile</a>
+  </div>
+
+</div>
+{% endblock %}

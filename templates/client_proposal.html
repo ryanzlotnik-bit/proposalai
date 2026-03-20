@@ -515,7 +515,7 @@
     </div>
     {% endif %}
 
-    <div class="powered-by">Powered by <a href="https://closethejob.com">CloseTheJob</a> — the business platform for contractors</div>
+    {% if not user.can_use_branding %}<div class="powered-by" style="font-size:10px;color:#bbb;text-align:center;padding:12px;">Powered by CloseTheJob</div>{% endif %}
   </div>
 
 </body>

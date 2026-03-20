@@ -70,6 +70,57 @@
     </div>
   </form>
 
+  <!-- Custom Branding (Business plan) -->
+  {% if current_user.can_use_branding %}
+  <div class="ctj-card" style="padding:28px;margin-top:24px;">
+    <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);">// Custom Branding</div>
+    <form method="POST" action="{{ url_for('profile') }}">
+      <input type="hidden" name="name" value="{{ current_user.name }}" />
+      <input type="hidden" name="company_name" value="{{ current_user.company_name }}" />
+      <input type="hidden" name="trade_type" value="{{ current_user.trade_type }}" />
+      <input type="hidden" name="phone" value="{{ current_user.phone }}" />
+      <input type="hidden" name="license_number" value="{{ current_user.license_number }}" />
+      <input type="hidden" name="address" value="{{ current_user.address }}" />
+      <input type="hidden" name="website" value="{{ current_user.website }}" />
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="grid-column:1/-1;">
+          <label class="ctj-label">Logo URL</label>
+          <input type="text" name="logo_url" value="{{ current_user.logo_url or '' }}" class="ctj-input" placeholder="https://yoursite.com/logo.png" />
+          <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Paste a direct link to your logo image. It will appear on invoices and proposals.</p>
+        </div>
+        <div>
+          <label class="ctj-label">Brand Color</label>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="color" name="brand_color" value="{{ current_user.effective_brand_color }}" style="width:44px;height:36px;border:1px solid var(--border);background:none;cursor:pointer;padding:2px;" />
+            <input type="text" id="color-text" value="{{ current_user.effective_brand_color }}" class="ctj-input" style="flex:1;" placeholder="#F97316" oninput="document.querySelector('[name=brand_color]').value=this.value" />
+          </div>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Used on invoice headers and proposal accents.</p>
+        </div>
+        {% if current_user.logo_url %}
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-2);border:1px solid var(--border);">
+          <img src="{{ current_user.logo_url }}" alt="Logo preview" style="max-height:40px;max-width:120px;object-fit:contain;" onerror="this.style.display='none'" />
+          <span style="font-size:11px;color:var(--text-muted);">Current logo</span>
+        </div>
+        {% endif %}
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:20px;">
+        <button type="submit" class="btn-orange" style="padding:10px 24px;font-size:13px;border:none;cursor:pointer;clip-path:none;">Save Branding →</button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
+  <!-- Team Members (Business plan) -->
+  {% if current_user.can_have_team %}
+  <div class="ctj-card" style="padding:28px;margin-top:24px;">
+    <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">// Team Members</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+      <p style="font-size:13px;color:var(--text-muted);">Invite team members to access your account.</p>
+      <a href="{{ url_for('team') }}" class="btn-orange" style="padding:9px 20px;font-size:12px;clip-path:none;">Manage Team →</a>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Google Calendar Integration -->
   <div class="ctj-card" style="padding:28px;margin-top:24px;">
     <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);">// Google Calendar Sync</div>

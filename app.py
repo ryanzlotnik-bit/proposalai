@@ -94,6 +94,9 @@ class User(db.Model, UserMixin):
     google_access_token = db.Column(db.Text, nullable=True)
     google_refresh_token = db.Column(db.Text, nullable=True)
     google_token_expiry = db.Column(db.Float, nullable=True)
+    logo_url = db.Column(db.Text, nullable=True)
+    brand_color = db.Column(db.String(7), default='#F97316')
+    team_owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     proposals = db.relationship('Proposal', backref='user', lazy=True)
 
     @property
@@ -132,6 +135,18 @@ class User(db.Model, UserMixin):
     @property
     def plan_display(self):
         return {'trial': 'Free', 'starter': 'Pro', 'pro': 'Business'}.get(self.plan, self.plan.capitalize())
+
+    @property
+    def can_use_branding(self):
+        return self.plan == 'pro'
+
+    @property
+    def can_have_team(self):
+        return self.plan == 'pro'
+
+    @property
+    def effective_brand_color(self):
+        return self.brand_color or '#F97316'
 
 
 class Proposal(db.Model):
@@ -281,12 +296,36 @@ class Client(db.Model):
     scheduled_jobs = db.relationship('ScheduledJob', backref='client', lazy=True, foreign_keys='ScheduledJob.client_id')
 
 
+class TeamInvite(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    email = db.Column(db.String(150), nullable=False)
+    token = db.Column(db.String(64), unique=True, nullable=False)
+    accepted = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
 
 # ─── Helpers ───────────────────────────────────────────────────────────────────
+
+def uid():
+    """Return the effective owner user ID. Team members see their owner's data."""
+    if not current_user.is_authenticated:
+        return None
+    return current_user.team_owner_id or current_user.id
+
+
+def get_owner_user():
+    """Return the effective owner User object."""
+    owner_id = current_user.team_owner_id or current_user.id
+    if owner_id == current_user.id:
+        return current_user
+    return User.query.get(owner_id)
+
 
 def generate_proposal_number():
     today = date.today()
@@ -626,7 +665,9 @@ def _build_invoice_html(job, user, pay_url=None):
     company = user.company_name or user.name
     invoice_num = f"INV-{job.id:04d}"
     completed = job.completed_date.strftime('%B %d, %Y')
-    pay_btn = f'<p style="text-align:center;margin:24px 0 8px;"><a href="{pay_url}" style="display:inline-block;background:#F97316;color:#fff;font-size:15px;font-weight:800;padding:14px 36px;text-decoration:none;letter-spacing:0.05em;border-radius:2px;">PAY ONLINE →</a></p><p style="text-align:center;font-size:11px;color:#999;margin-bottom:20px;">Secure payment powered by Stripe</p>' if pay_url else ''
+    bc = user.effective_brand_color
+    logo_html = f'<img src="{user.logo_url}" alt="{company}" style="max-height:40px;max-width:160px;object-fit:contain;" />' if user.logo_url else f'<div style="font-size:18px;font-weight:700;color:#fff;">{company}</div>'
+    pay_btn = f'<p style="text-align:center;margin:24px 0 8px;"><a href="{pay_url}" style="display:inline-block;background:{bc};color:#fff;font-size:15px;font-weight:800;padding:14px 36px;text-decoration:none;letter-spacing:0.05em;border-radius:2px;">PAY ONLINE →</a></p><p style="text-align:center;font-size:11px;color:#999;margin-bottom:20px;">Secure payment powered by Stripe</p>' if pay_url else ''
     return f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f4f4f4;font-family:'Helvetica Neue',Arial,sans-serif;">
@@ -635,27 +676,27 @@ def _build_invoice_html(job, user, pay_url=None):
 <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
 <tr><td style="background:#1a1a1a;padding:20px 32px;">
   <table width="100%"><tr>
-    <td><div style="font-size:18px;font-weight:700;color:#fff;">{company}</div>
-        <div style="font-size:11px;color:#888;">{user.trade_type}{' · Lic #'+user.license_number if user.license_number else ''}</div></td>
+    <td>{logo_html}
+        <div style="font-size:11px;color:#888;margin-top:4px;">{user.trade_type}{' · Lic #'+user.license_number if user.license_number else ''}</div></td>
     <td style="text-align:right;"><div style="font-size:11px;color:#888;">{user.phone or ''}</div>
         <div style="font-size:11px;color:#888;">{user.email}</div></td>
   </tr></table>
 </td></tr>
-<tr><td style="background:#F97316;padding:14px 32px;">
+<tr><td style="background:{bc};padding:14px 32px;">
   <span style="font-size:18px;font-weight:800;color:#fff;">INVOICE</span>
   <span style="float:right;font-size:13px;color:rgba(255,255,255,0.9);font-weight:600;">{invoice_num}</span>
 </td></tr>
 <tr><td style="padding:32px;">
   <table width="100%" style="margin-bottom:24px;"><tr>
     <td width="48%" style="background:#f9f9f9;border:1px solid #eee;padding:14px;vertical-align:top;">
-      <div style="font-size:10px;font-weight:700;color:#F97316;text-transform:uppercase;margin-bottom:6px;">Billed To</div>
+      <div style="font-size:10px;font-weight:700;color:{bc};text-transform:uppercase;margin-bottom:6px;">Billed To</div>
       <div style="font-size:13px;font-weight:700;color:#111;">{job.client_name}</div>
       {'<div style="font-size:11px;color:#555;margin-top:3px;">'+job.client_email+'</div>' if job.client_email else ''}
       {'<div style="font-size:11px;color:#555;">'+job.client_phone+'</div>' if job.client_phone else ''}
     </td>
     <td width="4%"></td>
     <td width="48%" style="background:#f9f9f9;border:1px solid #eee;padding:14px;vertical-align:top;">
-      <div style="font-size:10px;font-weight:700;color:#F97316;text-transform:uppercase;margin-bottom:6px;">Invoice Details</div>
+      <div style="font-size:10px;font-weight:700;color:{bc};text-transform:uppercase;margin-bottom:6px;">Invoice Details</div>
       <table><tr><td style="font-size:11px;color:#888;padding-right:10px;">Invoice #</td><td style="font-size:11px;font-weight:600;color:#111;">{invoice_num}</td></tr>
       <tr><td style="font-size:11px;color:#888;padding-right:10px;">Job Type</td><td style="font-size:11px;font-weight:600;color:#111;">{job.job_type or 'Services'}</td></tr>
       <tr><td style="font-size:11px;color:#888;padding-right:10px;">Completed</td><td style="font-size:11px;font-weight:600;color:#111;">{completed}</td></tr></table>
@@ -667,7 +708,7 @@ def _build_invoice_html(job, user, pay_url=None):
     <td style="padding:9px 12px;font-size:10px;font-weight:700;color:#555;text-transform:uppercase;border-bottom:1px solid #e0e0e0;text-align:right;">Amount</td></tr>
     <tr><td style="padding:12px;font-size:12px;color:#333;border-bottom:1px solid #eee;">{job.job_type or 'Professional Services'}</td>
     <td style="padding:12px;font-size:12px;font-weight:600;color:#111;text-align:right;border-bottom:1px solid #eee;">${job.revenue:,.2f}</td></tr>
-    <tr style="background:#F97316;"><td style="padding:11px 12px;font-size:13px;font-weight:700;color:#fff;">TOTAL DUE</td>
+    <tr style="background:{bc};"><td style="padding:11px 12px;font-size:13px;font-weight:700;color:#fff;">TOTAL DUE</td>
     <td style="padding:11px 12px;font-size:13px;font-weight:700;color:#fff;text-align:right;">${job.revenue:,.2f}</td></tr>
   </table>
   {'<p style="font-size:11px;color:#888;font-style:italic;">Notes: '+job.notes+'</p>' if job.notes else ''}
@@ -970,31 +1011,31 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    auto_invoice_past_scheduled_jobs(current_user.id)
-    auto_send_followup_reminders(current_user.id)
+    auto_invoice_past_scheduled_jobs(uid())
+    auto_send_followup_reminders(uid())
     today = date.today()
 
-    proposals = Proposal.query.filter_by(user_id=current_user.id)\
+    proposals = Proposal.query.filter_by(user_id=uid())\
         .order_by(Proposal.created_at.desc()).all()
 
     # Revenue this month
     month_start = date(today.year, today.month, 1)
     revenue_mtd = db.session.query(db.func.sum(Job.revenue)).filter(
-        Job.user_id == current_user.id,
+        Job.user_id == uid(),
         Job.completed_date >= month_start,
         Job.completed_date <= today,
     ).scalar() or 0
 
     # Upcoming scheduled jobs
     upcoming_jobs = ScheduledJob.query.filter(
-        ScheduledJob.user_id == current_user.id,
+        ScheduledJob.user_id == uid(),
         ScheduledJob.status == 'scheduled',
         ScheduledJob.scheduled_date >= today,
     ).order_by(ScheduledJob.scheduled_date).limit(8).all()
 
     today_jobs = [j for j in upcoming_jobs if j.scheduled_date == today]
 
-    clients_count = Client.query.filter_by(user_id=current_user.id).count()
+    clients_count = Client.query.filter_by(user_id=uid()).count()
 
     # Pipeline: sum of sent proposals
     sent_proposals = [p for p in proposals if p.status == 'sent']
@@ -1020,7 +1061,7 @@ def add_cost_template():
         flash('Name is required.', 'error')
         return redirect(url_for('generate'))
     ct = CostTemplate(
-        user_id=current_user.id,
+        user_id=uid(),
         name=name,
         cost_type=request.form.get('cost_type', 'fixed'),
         amount=float(request.form.get('amount', 0) or 0),
@@ -1036,7 +1077,7 @@ def add_cost_template():
 @login_required
 def delete_cost_template(ct_id):
     ct = CostTemplate.query.get_or_404(ct_id)
-    if ct.user_id != current_user.id:
+    if ct.user_id != uid():
         flash('Access denied.', 'error')
         return redirect(url_for('generate'))
     db.session.delete(ct)
@@ -1048,7 +1089,7 @@ def delete_cost_template(ct_id):
 @app.route('/generate', methods=['GET', 'POST'])
 @login_required
 def generate():
-    cost_templates = CostTemplate.query.filter_by(user_id=current_user.id).order_by(CostTemplate.created_at).all()
+    cost_templates = CostTemplate.query.filter_by(user_id=uid()).order_by(CostTemplate.created_at).all()
 
     if not current_user.can_generate:
         flash('You\'ve used your 3 free proposals. Upgrade to Pro for unlimited proposals + auto-invoicing.', 'warning')
@@ -1115,7 +1156,7 @@ def generate():
             # Save as template if requested
             if str(i) in adhoc_saves:
                 new_ct = CostTemplate(
-                    user_id=current_user.id,
+                    user_id=uid(),
                     name=name,
                     cost_type=cost_type,
                     amount=amount,
@@ -1154,7 +1195,7 @@ def generate():
             content = call_claude_for_proposal(job_data, user_data)
         except Exception as e:
             flash(f'Error generating proposal: {str(e)}', 'error')
-            clients = Client.query.filter_by(user_id=current_user.id).order_by(Client.name).all()
+            clients = Client.query.filter_by(user_id=uid()).order_by(Client.name).all()
             return render_template('generate.html', form_data=job_data, cost_templates=cost_templates, allowed_job_types=current_user.allowed_job_types, clients=clients)
 
         # Auto-upsert client in CRM — find by email, then name, else create new
@@ -1164,11 +1205,11 @@ def generate():
             existing = None
             if job_data['client_email']:
                 existing = Client.query.filter_by(
-                    user_id=current_user.id, email=job_data['client_email']
+                    user_id=uid(), email=job_data['client_email']
                 ).first()
             if not existing:
                 existing = Client.query.filter(
-                    Client.user_id == current_user.id,
+                    Client.user_id == uid(),
                     db.func.lower(Client.name) == job_data['client_name'].lower()
                 ).first()
             if existing:
@@ -1181,7 +1222,7 @@ def generate():
                     existing.address = job_data['client_address']
             else:
                 new_client = Client(
-                    user_id=current_user.id,
+                    user_id=uid(),
                     name=job_data['client_name'],
                     email=job_data['client_email'],
                     phone=job_data['client_phone'],
@@ -1192,7 +1233,7 @@ def generate():
                 linked_client_id = new_client.id
 
         proposal = Proposal(
-            user_id=current_user.id,
+            user_id=uid(),
             client_id=linked_client_id,
             proposal_number=generate_proposal_number(),
             client_name=job_data['client_name'],
@@ -1216,7 +1257,7 @@ def generate():
         db.session.commit()
         return redirect(url_for('view_proposal', proposal_id=proposal.id))
 
-    clients = Client.query.filter_by(user_id=current_user.id).order_by(Client.name).all()
+    clients = Client.query.filter_by(user_id=uid()).order_by(Client.name).all()
     return render_template('generate.html', form_data={}, cost_templates=cost_templates, allowed_job_types=current_user.allowed_job_types, clients=clients)
 
 
@@ -1224,7 +1265,7 @@ def generate():
 @login_required
 def view_proposal(proposal_id):
     proposal = Proposal.query.get_or_404(proposal_id)
-    if proposal.user_id != current_user.id:
+    if proposal.user_id != uid():
         flash('Access denied.', 'error')
         return redirect(url_for('dashboard'))
     if not proposal.public_token:
@@ -1237,7 +1278,7 @@ def view_proposal(proposal_id):
 @login_required
 def update_status(proposal_id):
     proposal = Proposal.query.get_or_404(proposal_id)
-    if proposal.user_id != current_user.id:
+    if proposal.user_id != uid():
         return jsonify({'error': 'Access denied'}), 403
     new_status = request.json.get('status')
     if new_status in ('draft', 'sent', 'accepted', 'declined'):
@@ -1250,7 +1291,7 @@ def update_status(proposal_id):
 @login_required
 def delete_proposal(proposal_id):
     proposal = Proposal.query.get_or_404(proposal_id)
-    if proposal.user_id != current_user.id:
+    if proposal.user_id != uid():
         flash('Access denied.', 'error')
         return redirect(url_for('dashboard'))
     db.session.delete(proposal)
@@ -1263,14 +1304,14 @@ def delete_proposal(proposal_id):
 @login_required
 def nudge_proposal(proposal_id):
     proposal = Proposal.query.get_or_404(proposal_id)
-    if proposal.user_id != current_user.id:
+    if proposal.user_id != uid():
         return jsonify({'error': 'Access denied'}), 403
     if not proposal.client_email:
         return jsonify({'error': 'No client email'}), 400
     # Reset so it sends even if auto already fired
     proposal.reminder_sent_at = None
     db.session.commit()
-    send_followup_reminder(proposal.id, current_user.id)
+    send_followup_reminder(proposal.id, uid())
     return jsonify({'ok': True})
 
 
@@ -1278,7 +1319,7 @@ def nudge_proposal(proposal_id):
 @login_required
 def close_job_from_proposal(proposal_id):
     proposal = Proposal.query.get_or_404(proposal_id)
-    if proposal.user_id != current_user.id:
+    if proposal.user_id != uid():
         flash('Access denied.', 'error')
         return redirect(url_for('dashboard'))
     return render_template('close_job.html', proposal=proposal, today=date.today().isoformat())
@@ -1358,6 +1399,11 @@ def profile():
         current_user.license_number = request.form.get('license_number', '').strip()
         current_user.address = request.form.get('address', '').strip()
         current_user.website = request.form.get('website', '').strip()
+        if current_user.can_use_branding:
+            current_user.logo_url = request.form.get('logo_url', '').strip() or None
+            color = request.form.get('brand_color', '').strip()
+            if color and len(color) == 7 and color.startswith('#'):
+                current_user.brand_color = color
         db.session.commit()
         flash('Profile updated successfully.', 'success')
         return redirect(url_for('profile'))
@@ -1375,18 +1421,18 @@ def pricing():
 @app.route('/financials')
 @login_required
 def financials():
-    auto_invoice_past_scheduled_jobs(current_user.id)
-    jobs = Job.query.filter_by(user_id=current_user.id).order_by(Job.completed_date.desc()).all()
-    expenses = Expense.query.filter_by(user_id=current_user.id).order_by(Expense.date.desc()).all()
-    tips = Tip.query.filter_by(user_id=current_user.id).order_by(Tip.date.desc()).all()
-    all_jobs = Job.query.filter_by(user_id=current_user.id).all()
+    auto_invoice_past_scheduled_jobs(uid())
+    jobs = Job.query.filter_by(user_id=uid()).order_by(Job.completed_date.desc()).all()
+    expenses = Expense.query.filter_by(user_id=uid()).order_by(Expense.date.desc()).all()
+    tips = Tip.query.filter_by(user_id=uid()).order_by(Tip.date.desc()).all()
+    all_jobs = Job.query.filter_by(user_id=uid()).all()
 
     total_revenue = sum(j.revenue for j in jobs)
     total_expenses = sum(e.amount for e in expenses)
     total_tips = sum(t.amount for t in tips)
     net_profit = total_revenue + total_tips - total_expenses
 
-    labels, revenues, expenses_monthly, tips_monthly = build_monthly_chart_data(current_user.id)
+    labels, revenues, expenses_monthly, tips_monthly = build_monthly_chart_data(uid())
     chart_data = json.dumps({
         'labels': labels,
         'revenues': revenues,
@@ -1423,7 +1469,7 @@ def add_job():
         proposal_id = int(proposal_id)
 
     job = Job(
-        user_id=current_user.id,
+        user_id=uid(),
         proposal_id=proposal_id,
         client_name=client_name,
         client_email=request.form.get('client_email', '').strip(),
@@ -1451,7 +1497,7 @@ def add_job():
 @login_required
 def delete_job(job_id):
     job = Job.query.get_or_404(job_id)
-    if job.user_id != current_user.id:
+    if job.user_id != uid():
         flash('Access denied.', 'error')
         return redirect(url_for('financials'))
     # Delete related expenses and tips first
@@ -1467,7 +1513,7 @@ def delete_job(job_id):
 @login_required
 def send_invoice(job_id):
     job = Job.query.get_or_404(job_id)
-    if job.user_id != current_user.id:
+    if job.user_id != uid():
         flash('Access denied.', 'error')
         return redirect(url_for('financials'))
     if not job.client_email:
@@ -1496,7 +1542,7 @@ def add_expense():
         job_id = int(job_id)
 
     expense = Expense(
-        user_id=current_user.id,
+        user_id=uid(),
         job_id=job_id,
         description=description,
         amount=float(request.form.get('amount', 0) or 0),
@@ -1513,7 +1559,7 @@ def add_expense():
 @login_required
 def delete_expense(expense_id):
     expense = Expense.query.get_or_404(expense_id)
-    if expense.user_id != current_user.id:
+    if expense.user_id != uid():
         flash('Access denied.', 'error')
         return redirect(url_for('financials'))
     db.session.delete(expense)
@@ -1536,7 +1582,7 @@ def add_tip():
         job_id = int(job_id)
 
     tip = Tip(
-        user_id=current_user.id,
+        user_id=uid(),
         job_id=job_id,
         amount=float(request.form.get('amount', 0) or 0),
         note=request.form.get('note', '').strip(),
@@ -1552,7 +1598,7 @@ def add_tip():
 @login_required
 def delete_tip(tip_id):
     tip = Tip.query.get_or_404(tip_id)
-    if tip.user_id != current_user.id:
+    if tip.user_id != uid():
         flash('Access denied.', 'error')
         return redirect(url_for('financials'))
     db.session.delete(tip)
@@ -1566,7 +1612,7 @@ def delete_tip(tip_id):
 @app.route('/schedule', methods=['GET', 'POST'])
 @login_required
 def schedule():
-    auto_invoice_past_scheduled_jobs(current_user.id)
+    auto_invoice_past_scheduled_jobs(uid())
     if request.method == 'POST':
         client_name = request.form.get('client_name', '').strip()
         if not client_name:
@@ -1580,7 +1626,7 @@ def schedule():
         client_id_raw = request.form.get('client_id', '').strip()
         linked_client_id = int(client_id_raw) if client_id_raw.isdigit() else None
         sj = ScheduledJob(
-            user_id=current_user.id,
+            user_id=uid(),
             client_id=linked_client_id,
             client_name=client_name,
             client_email=request.form.get('client_email', '').strip(),
@@ -1594,15 +1640,15 @@ def schedule():
         )
         db.session.add(sj)
         db.session.commit()
-        push_to_google_calendar(current_user.id, sj.id)
+        push_to_google_calendar(uid(), sj.id)
         flash(f'Job scheduled for {sched_date.strftime("%b %d, %Y")}.', 'success')
         return redirect(url_for('schedule'))
 
-    jobs = ScheduledJob.query.filter_by(user_id=current_user.id)\
+    jobs = ScheduledJob.query.filter_by(user_id=uid())\
         .order_by(ScheduledJob.scheduled_date).all()
     upcoming = [j for j in jobs if j.status == 'scheduled']
     past = [j for j in jobs if j.status != 'scheduled']
-    clients = Client.query.filter_by(user_id=current_user.id).order_by(Client.name).all()
+    clients = Client.query.filter_by(user_id=uid()).order_by(Client.name).all()
     google_connected = bool(current_user.google_access_token)
     return render_template('schedule.html', upcoming=upcoming, past=past, today=date.today().isoformat(), clients=clients, google_connected=google_connected)
 
@@ -1611,11 +1657,11 @@ def schedule():
 @login_required
 def cancel_scheduled_job(sj_id):
     sj = ScheduledJob.query.get_or_404(sj_id)
-    if sj.user_id != current_user.id:
+    if sj.user_id != uid():
         flash('Access denied.', 'error')
         return redirect(url_for('schedule'))
     if sj.google_event_id:
-        delete_from_google_calendar(current_user.id, sj.google_event_id)
+        delete_from_google_calendar(uid(), sj.google_event_id)
     sj.status = 'cancelled'
     db.session.commit()
     flash('Job cancelled.', 'success')
@@ -1626,7 +1672,7 @@ def cancel_scheduled_job(sj_id):
 @login_required
 def delete_scheduled_job(sj_id):
     sj = ScheduledJob.query.get_or_404(sj_id)
-    if sj.user_id != current_user.id:
+    if sj.user_id != uid():
         flash('Access denied.', 'error')
         return redirect(url_for('schedule'))
     db.session.delete(sj)
@@ -1800,7 +1846,7 @@ def stripe_webhook():
 @app.route('/clients')
 @login_required
 def clients():
-    all_clients = Client.query.filter_by(user_id=current_user.id).order_by(Client.name).all()
+    all_clients = Client.query.filter_by(user_id=uid()).order_by(Client.name).all()
     return render_template('clients.html', clients=all_clients)
 
 
@@ -1812,7 +1858,7 @@ def add_client():
         flash('Client name is required.', 'error')
         return redirect(url_for('clients'))
     c = Client(
-        user_id=current_user.id,
+        user_id=uid(),
         name=name,
         email=request.form.get('email', '').strip(),
         phone=request.form.get('phone', '').strip(),
@@ -1829,12 +1875,12 @@ def add_client():
 @login_required
 def client_detail(client_id):
     c = Client.query.get_or_404(client_id)
-    if c.user_id != current_user.id:
+    if c.user_id != uid():
         flash('Access denied.', 'error')
         return redirect(url_for('clients'))
-    proposals = Proposal.query.filter_by(user_id=current_user.id, client_id=client_id).order_by(Proposal.created_at.desc()).all()
-    jobs = Job.query.filter_by(user_id=current_user.id, client_id=client_id).order_by(Job.completed_date.desc()).all()
-    scheduled = ScheduledJob.query.filter_by(user_id=current_user.id, client_id=client_id).order_by(ScheduledJob.scheduled_date.desc()).all()
+    proposals = Proposal.query.filter_by(user_id=uid(), client_id=client_id).order_by(Proposal.created_at.desc()).all()
+    jobs = Job.query.filter_by(user_id=uid(), client_id=client_id).order_by(Job.completed_date.desc()).all()
+    scheduled = ScheduledJob.query.filter_by(user_id=uid(), client_id=client_id).order_by(ScheduledJob.scheduled_date.desc()).all()
     return render_template('client_detail.html', client=c, proposals=proposals, jobs=jobs, scheduled=scheduled)
 
 
@@ -1842,7 +1888,7 @@ def client_detail(client_id):
 @login_required
 def edit_client(client_id):
     c = Client.query.get_or_404(client_id)
-    if c.user_id != current_user.id:
+    if c.user_id != uid():
         flash('Access denied.', 'error')
         return redirect(url_for('clients'))
     c.name = request.form.get('name', '').strip() or c.name
@@ -1859,7 +1905,7 @@ def edit_client(client_id):
 @login_required
 def delete_client(client_id):
     c = Client.query.get_or_404(client_id)
-    if c.user_id != current_user.id:
+    if c.user_id != uid():
         flash('Access denied.', 'error')
         return redirect(url_for('clients'))
     Proposal.query.filter_by(client_id=client_id).update({'client_id': None})
@@ -1869,6 +1915,104 @@ def delete_client(client_id):
     db.session.commit()
     flash('Contact deleted.', 'success')
     return redirect(url_for('clients'))
+
+
+# ─── Team Members ──────────────────────────────────────────────────────────────
+
+@app.route('/team')
+@login_required
+def team():
+    if not get_owner_user().can_have_team:
+        flash('Team members are a Business plan feature.', 'warning')
+        return redirect(url_for('pricing'))
+    invites = TeamInvite.query.filter_by(owner_id=uid()).order_by(TeamInvite.created_at.desc()).all()
+    members = User.query.filter_by(team_owner_id=uid()).all()
+    return render_template('team.html', invites=invites, members=members)
+
+
+@app.route('/team/invite', methods=['POST'])
+@login_required
+def team_invite():
+    if not get_owner_user().can_have_team:
+        return redirect(url_for('pricing'))
+    email = request.form.get('email', '').strip().lower()
+    if not email:
+        flash('Please enter an email address.', 'error')
+        return redirect(url_for('team'))
+    existing = TeamInvite.query.filter_by(owner_id=uid(), email=email).first()
+    if existing:
+        flash('An invite was already sent to that address.', 'warning')
+        return redirect(url_for('team'))
+    token = secrets.token_urlsafe(24)
+    invite = TeamInvite(owner_id=uid(), email=email, token=token)
+    db.session.add(invite)
+    db.session.commit()
+    # Send invite email
+    if app.config.get('MAIL_USERNAME'):
+        owner = get_owner_user()
+        base_url = os.getenv('APP_URL', '').rstrip('/')
+        join_url = f"{base_url}/team/join/{token}"
+        try:
+            from flask_mail import Message as MailMessage
+            msg = MailMessage(
+                subject=f"{owner.name} invited you to join CloseTheJob",
+                recipients=[email],
+                html=f"""<p>Hi,</p>
+<p><strong>{owner.name}</strong> ({owner.company_name or ''}) has invited you to join their CloseTheJob account as a team member.</p>
+<p><a href="{join_url}" style="display:inline-block;background:#F97316;color:#fff;padding:12px 24px;text-decoration:none;font-weight:700;">Accept Invitation →</a></p>
+<p style="font-size:12px;color:#888;">Or copy this link: {join_url}</p>"""
+            )
+            mail.send(msg)
+        except Exception:
+            pass
+    flash(f'Invite sent to {email}.', 'success')
+    return redirect(url_for('team'))
+
+
+@app.route('/team/join/<token>', methods=['GET', 'POST'])
+def team_join(token):
+    invite = TeamInvite.query.filter_by(token=token, accepted=False).first_or_404()
+    owner = User.query.get_or_404(invite.owner_id)
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        password = request.form.get('password', '').strip()
+        if not name or not password or len(password) < 8:
+            flash('Please fill in all fields (password must be 8+ characters).', 'error')
+            return render_template('team_join.html', invite=invite, owner=owner)
+        existing = User.query.filter_by(email=invite.email).first()
+        if existing:
+            existing.team_owner_id = owner.id
+            invite.accepted = True
+            db.session.commit()
+            flash('Your account is now linked. Log in to get started.', 'success')
+            return redirect(url_for('login'))
+        hashed = bcrypt.generate_password_hash(password).decode('utf-8')
+        member = User(
+            email=invite.email,
+            name=name,
+            password=hashed,
+            trade_type=owner.trade_type,
+            team_owner_id=owner.id,
+            onboarding_done=True,
+        )
+        db.session.add(member)
+        invite.accepted = True
+        db.session.commit()
+        flash('Account created! Log in to get started.', 'success')
+        return redirect(url_for('login'))
+    return render_template('team_join.html', invite=invite, owner=owner)
+
+
+@app.route('/team/remove/<int:member_id>', methods=['POST'])
+@login_required
+def team_remove(member_id):
+    member = User.query.get_or_404(member_id)
+    if member.team_owner_id != uid():
+        return redirect(url_for('team'))
+    member.team_owner_id = None
+    db.session.commit()
+    flash('Team member removed.', 'success')
+    return redirect(url_for('team'))
 
 
 # ─── Google Calendar OAuth ─────────────────────────────────────────────────────
@@ -1964,6 +2108,9 @@ with app.app_context():
         'ALTER TABLE proposal ADD COLUMN reminder_sent_at DATETIME',
         'ALTER TABLE job ADD COLUMN pay_token VARCHAR(64)',
         'ALTER TABLE job ADD COLUMN paid_at DATETIME',
+        'ALTER TABLE "user" ADD COLUMN logo_url TEXT',
+        'ALTER TABLE "user" ADD COLUMN brand_color VARCHAR(7) DEFAULT \'#F97316\'',
+        'ALTER TABLE "user" ADD COLUMN team_owner_id INTEGER',
     ]
     for _sql in _migrations:
         try:
