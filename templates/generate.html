@@ -56,7 +56,7 @@
           <label class="ctj-label">Job Type <span style="color:var(--orange);">*</span></label>
           <select name="job_type" required class="ctj-input" id="job-type-select">
             <option value="">Select...</option>
-            {% for jt in ['AC Installation','AC Repair','Furnace Installation','Furnace Repair','Duct Work',
+            {% set all_types = ['AC Installation','AC Repair','Furnace Installation','Furnace Repair','Duct Work',
               'Plumbing Repair','Water Heater Installation','Pipe Replacement','Drain Cleaning',
               'Electrical Panel Upgrade','Outlet Installation','Wiring','Lighting Installation',
               'Roof Replacement','Roof Repair','Gutter Installation',
@@ -65,7 +65,10 @@
               'Flooring','Tile Work','Drywall',
               'General Construction','Remodel',
               'Pressure Washing','Window Washing','Epoxy Flooring','Other'] %}
-            <option value="{{ jt }}" {% if form_data.get('job_type') == jt %}selected{% endif %}>{{ jt }}</option>
+            {% for jt in all_types %}
+              {% if not allowed_job_types or jt in allowed_job_types %}
+                <option value="{{ jt }}" {% if form_data.get('job_type') == jt %}selected{% endif %}>{{ jt }}</option>
+              {% endif %}
             {% endfor %}
           </select>
         </div>

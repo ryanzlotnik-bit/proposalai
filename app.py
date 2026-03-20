@@ -48,6 +48,20 @@ stripe.api_key = ''.join(os.getenv('STRIPE_SECRET_KEY', '').split())
 
 TRIAL_PROPOSAL_LIMIT = 3
 
+SPECIALTIES = {
+    'HVAC': ['AC Installation', 'AC Repair', 'Furnace Installation', 'Furnace Repair', 'Duct Work'],
+    'Plumbing': ['Plumbing Repair', 'Water Heater Installation', 'Pipe Replacement', 'Drain Cleaning'],
+    'Electrical': ['Electrical Panel Upgrade', 'Outlet Installation', 'Wiring', 'Lighting Installation'],
+    'Roofing': ['Roof Replacement', 'Roof Repair', 'Gutter Installation'],
+    'Painting': ['Painting — Interior', 'Painting — Exterior'],
+    'Flooring': ['Flooring', 'Tile Work'],
+    'Landscaping': ['Landscaping', 'Lawn Care', 'Tree Removal'],
+    'General Construction': ['General Construction', 'Remodel', 'Drywall'],
+    'Pressure Washing': ['Pressure Washing', 'Window Washing'],
+    'Epoxy Flooring': ['Epoxy Flooring'],
+    'Other': ['Other'],
+}
+
 # ─── Models ────────────────────────────────────────────────────────────────────
 
 class User(db.Model, UserMixin):
@@ -65,8 +79,19 @@ class User(db.Model, UserMixin):
     stripe_customer_id = db.Column(db.String(200), default='')
     stripe_subscription_id = db.Column(db.String(200), default='')
     plan = db.Column(db.String(50), default='trial')  # trial, starter, pro
+    specialty = db.Column(db.String(200), default='')   # comma-separated specialties
+    onboarding_done = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     proposals = db.relationship('Proposal', backref='user', lazy=True)
+
+    @property
+    def allowed_job_types(self):
+        if not self.specialty:
+            return None  # None = show all
+        types = []
+        for s in self.specialty.split(','):
+            types.extend(SPECIALTIES.get(s.strip(), []))
+        return types
 
     @property
     def proposal_count(self):
@@ -458,46 +483,53 @@ def send_invoice_email(job, user):
     if not app.config.get('MAIL_USERNAME') or not job.client_email:
         return False
 
+    # Pass IDs only — ORM objects cannot be used across thread boundaries
+    job_id = job.id
+    user_id = user.id
     username = app.config.get('MAIL_USERNAME', '')
     password = app.config.get('MAIL_PASSWORD', '')
 
     def do_send():
         with app.app_context():
+            j = Job.query.get(job_id)
+            u = User.query.get(user_id)
+            if not j or not u:
+                return
+
+            # Generate PDF (non-fatal if it fails)
             try:
-                pdf_bytes = generate_invoice_pdf(job, user)
-                html_body = _build_invoice_html(job, user)
-                mime_msg, subject = _build_mime_invoice(job, user, html_body, pdf_bytes)
+                pdf_bytes = generate_invoice_pdf(j, u)
+            except Exception:
+                pdf_bytes = None
 
-                # 1) Send to client via Flask-Mail
-                flask_msg = Message(
-                    subject=subject,
-                    recipients=[job.client_email],
-                    html=html_body,
-                )
-                flask_msg.attach(
-                    f"INV-{job.id:04d}.pdf",
-                    'application/pdf',
-                    pdf_bytes,
-                )
+            html_body = _build_invoice_html(j, u)
+            invoice_num = f"INV-{j.id:04d}"
+            company = u.company_name or u.name
+            subject = f"Invoice {invoice_num} — {company}"
+
+            # 1) Send to client
+            try:
+                flask_msg = Message(subject=subject, recipients=[j.client_email], html=html_body)
+                if pdf_bytes:
+                    flask_msg.attach(f"{invoice_num}.pdf", 'application/pdf', pdf_bytes)
                 mail.send(flask_msg)
-
-                # 2) Save a copy to Gmail Drafts via IMAP
-                if username and password and 'gmail' in username.lower():
-                    try:
-                        imap = imaplib.IMAP4_SSL('imap.gmail.com')
-                        imap.login(username, password)
-                        imap.append(
-                            '[Gmail]/Drafts',
-                            '\\Draft',
-                            imaplib.Time2Internaldate(time.time()),
-                            mime_msg.as_bytes(),
-                        )
-                        imap.logout()
-                    except Exception:
-                        pass  # Draft save failure is non-critical
-
+                j.invoice_sent = True
+                j.invoice_sent_at = datetime.utcnow()
+                db.session.commit()
             except Exception:
                 pass
+
+            # 2) Save to Gmail Drafts via IMAP
+            if pdf_bytes and username and password and 'gmail' in username.lower():
+                try:
+                    mime_msg, _ = _build_mime_invoice(j, u, html_body, pdf_bytes)
+                    imap = imaplib.IMAP4_SSL('imap.gmail.com')
+                    imap.login(username, password)
+                    imap.append('[Gmail]/Drafts', '\\Draft',
+                                imaplib.Time2Internaldate(time.time()), mime_msg.as_bytes())
+                    imap.logout()
+                except Exception:
+                    pass
 
     threading.Thread(target=do_send, daemon=True).start()
     return True
@@ -625,9 +657,22 @@ def register():
         db.session.add(user)
         db.session.commit()
         login_user(user)
-        flash(f'Welcome, {name}! You have {TRIAL_PROPOSAL_LIMIT} free proposals.', 'success')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('onboarding'))
     return render_template('register.html')
+
+
+@app.route('/onboarding', methods=['GET', 'POST'])
+@login_required
+def onboarding():
+    if request.method == 'POST':
+        selected = request.form.getlist('specialties')
+        current_user.specialty = ','.join(selected)
+        current_user.onboarding_done = True
+        current_user.trade_type = selected[0] if selected else current_user.trade_type
+        db.session.commit()
+        flash(f'Welcome, {current_user.name}! You have {TRIAL_PROPOSAL_LIMIT} free proposals.', 'success')
+        return redirect(url_for('dashboard'))
+    return render_template('onboarding.html', specialties=list(SPECIALTIES.keys()))
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -803,7 +848,7 @@ def generate():
             content = call_claude_for_proposal(job_data, user_data)
         except Exception as e:
             flash(f'Error generating proposal: {str(e)}', 'error')
-            return render_template('generate.html', form_data=job_data, cost_templates=cost_templates)
+            return render_template('generate.html', form_data=job_data, cost_templates=cost_templates, allowed_job_types=current_user.allowed_job_types)
 
         proposal = Proposal(
             user_id=current_user.id,
@@ -828,7 +873,7 @@ def generate():
         db.session.commit()
         return redirect(url_for('view_proposal', proposal_id=proposal.id))
 
-    return render_template('generate.html', form_data={}, cost_templates=cost_templates)
+    return render_template('generate.html', form_data={}, cost_templates=cost_templates, allowed_job_types=current_user.allowed_job_types)
 
 
 @app.route('/proposal/<int:proposal_id>')
@@ -966,14 +1011,8 @@ def add_job():
 
     # Auto-send invoice if requested
     if request.form.get('send_invoice') and job.client_email:
-        success = send_invoice_email(job, current_user)
-        if success:
-            job.invoice_sent = True
-            job.invoice_sent_at = datetime.utcnow()
-            db.session.commit()
-            flash(f'Job logged and invoice sent to {job.client_email}.', 'success')
-        else:
-            flash('Job logged. Invoice email failed — check MAIL_USERNAME and MAIL_PASSWORD in .env.', 'warning')
+        send_invoice_email(job, current_user)
+        flash(f'Job logged. Invoice is being sent to {job.client_email}.', 'success')
     else:
         flash(f'Job "{client_name}" logged successfully.', 'success')
 
@@ -1006,14 +1045,8 @@ def send_invoice(job_id):
     if not job.client_email:
         flash('No client email on file for this job.', 'error')
         return redirect(url_for('financials'))
-    success = send_invoice_email(job, current_user)
-    if success:
-        job.invoice_sent = True
-        job.invoice_sent_at = datetime.utcnow()
-        db.session.commit()
-        flash(f'Invoice sent to {job.client_email}.', 'success')
-    else:
-        flash('Invoice send failed. Set MAIL_USERNAME and MAIL_PASSWORD in your .env file.', 'error')
+    send_invoice_email(job, current_user)
+    flash(f'Invoice is being sent to {job.client_email}.', 'success')
     return redirect(url_for('financials'))
 
 

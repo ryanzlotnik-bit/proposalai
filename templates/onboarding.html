@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}What's Your Trade? — CloseTheJob{% endblock %}
+
+{% block head %}
+<style>
+  .spec-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+    margin-bottom: 32px;
+  }
+  .spec-card {
+    position: relative;
+    cursor: pointer;
+  }
+  .spec-card input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0; height: 0;
+  }
+  .spec-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: center;
+    min-height: 100px;
+  }
+  .spec-label:hover {
+    border-color: var(--orange);
+    background: var(--surface-2);
+  }
+  .spec-card input:checked + .spec-label {
+    border-color: var(--orange);
+    background: var(--orange-dim);
+    box-shadow: inset 0 0 0 1px var(--orange);
+  }
+  .spec-icon {
+    width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted);
+    transition: color 0.15s;
+  }
+  .spec-card input:checked + .spec-label .spec-icon { color: var(--orange); }
+  .spec-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
+  }
+  .check-mark {
+    position: absolute;
+    top: 8px; right: 8px;
+    width: 18px; height: 18px;
+    background: var(--orange);
+    display: none;
+    align-items: center; justify-content: center;
+    clip-path: polygon(0 0, 90% 0, 100% 10%, 100% 100%, 10% 100%, 0 90%);
+  }
+  .spec-card input:checked ~ .check-mark { display: flex; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:720px;margin:60px auto;padding:0 24px;">
+
+  <div style="margin-bottom:36px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">// Step 1 of 1</div>
+    <h1 class="font-display" style="font-size:52px;color:var(--text);line-height:1;">What's Your<br>Trade?</h1>
+    <p style="color:var(--text-muted);font-size:14px;margin-top:10px;">Pick everything that applies. We'll tailor your proposals accordingly.</p>
+  </div>
+
+  <form method="POST" action="{{ url_for('onboarding') }}" id="onboarding-form">
+    <div class="spec-grid">
+      {% set icons = {
+        'HVAC': '<path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm-1-13h2v5l3 3-1.4 1.4L11 13.6z"/>',
+        'Plumbing': '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15v-4H7l5-8v4h4l-5 8z"/>',
+        'Electrical': '<path d="M7 2v11h3v9l7-12h-4l4-8z"/>',
+        'Roofing': '<path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>',
+        'Painting': '<path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37l-1.34-1.34a1 1 0 0 0-1.41 0L9 12.25 11.75 15l8.96-8.96a1 1 0 0 0 0-1.41z"/>',
+        'Flooring': '<path d="M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2zm-4 4H9v-2h6v2zm4-8H9V5h10v2z"/>',
+        'Landscaping': '<path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/>',
+        'General Construction': '<path d="M13 2.05v2.02c3.95.49 7 3.85 7 7.93 0 3.21-1.81 6-4.72 7.72L13 17v5h5l-1.22-1.22C19.91 19.07 22 15.76 22 12c0-5.18-3.95-9.45-9-9.95zM11 2.05C5.95 2.55 2 6.82 2 12c0 3.76 2.09 7.07 5.22 8.78L6 22h5v-5l-2.28 2.28C7.81 18 6 15.21 6 12c0-4.08 3.05-7.44 7-7.93V2.05z"/>',
+        'Pressure Washing': '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>',
+        'Epoxy Flooring': '<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/>',
+        'Other': '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>'
+      } %}
+
+      {% for spec in specialties %}
+      <div class="spec-card">
+        <input type="checkbox" name="specialties" value="{{ spec }}" id="spec-{{ loop.index }}">
+        <label class="spec-label" for="spec-{{ loop.index }}">
+          <div class="spec-icon">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+              {{ icons.get(spec, icons['Other']) | safe }}
+            </svg>
+          </div>
+          <span class="spec-name">{{ spec }}</span>
+        </label>
+        <div class="check-mark">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#000" stroke-width="3">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <a href="{{ url_for('dashboard') }}" style="font-size:13px;color:var(--text-muted);text-decoration:none;font-family:'JetBrains Mono',monospace;">SKIP FOR NOW</a>
+      <button type="submit" class="btn-orange" style="padding:13px 36px;font-size:14px;border:none;cursor:pointer;" id="onboard-btn">
+        Let's Go →
+      </button>
+    </div>
+  </form>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('onboarding-form').addEventListener('submit', function() {
+  document.getElementById('onboard-btn').textContent = 'Saving...';
+});
+</script>
+{% endblock %}
