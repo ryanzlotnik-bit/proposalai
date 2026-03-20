@@ -21,6 +21,7 @@ from fpdf import FPDF
 import json
 import random
 import string
+import secrets
 
 load_dotenv()
 
@@ -130,6 +131,8 @@ class Proposal(db.Model):
     generated_content = db.Column(db.Text, default='{}')
     grand_total = db.Column(db.Float, default=0)
     status = db.Column(db.String(50), default='draft')  # draft, sent, accepted, declined
+    public_token = db.Column(db.String(64), unique=True, nullable=True)
+    accepted_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     linked_jobs = db.relationship('Job', backref='proposal', lazy=True)
 
@@ -913,6 +916,7 @@ def generate():
             generated_content=json.dumps(content),
             grand_total=content.get('grand_total', 0),
             status='draft',
+            public_token=secrets.token_urlsafe(20),
         )
         db.session.add(proposal)
         db.session.commit()
@@ -928,6 +932,9 @@ def view_proposal(proposal_id):
     if proposal.user_id != current_user.id:
         flash('Access denied.', 'error')
         return redirect(url_for('dashboard'))
+    if not proposal.public_token:
+        proposal.public_token = secrets.token_urlsafe(20)
+        db.session.commit()
     return render_template('proposal_view.html', proposal=proposal, user=current_user)
 
 
@@ -965,6 +972,49 @@ def close_job_from_proposal(proposal_id):
         flash('Access denied.', 'error')
         return redirect(url_for('dashboard'))
     return render_template('close_job.html', proposal=proposal, today=date.today().isoformat())
+
+
+@app.route('/p/<token>')
+def public_proposal(token):
+    proposal = Proposal.query.filter_by(public_token=token).first_or_404()
+    user = User.query.get(proposal.user_id)
+    return render_template('client_proposal.html', proposal=proposal, user=user)
+
+
+@app.route('/p/<token>/respond', methods=['POST'])
+def public_proposal_respond(token):
+    proposal = Proposal.query.filter_by(public_token=token).first_or_404()
+    action = request.form.get('action')
+    if action not in ('accepted', 'declined'):
+        return redirect(url_for('public_proposal', token=token))
+    if proposal.status in ('accepted', 'declined'):
+        return redirect(url_for('public_proposal', token=token))
+    proposal.status = action
+    if action == 'accepted':
+        proposal.accepted_at = datetime.utcnow()
+    db.session.commit()
+    user = User.query.get(proposal.user_id)
+    # Notify contractor
+    def notify():
+        with app.app_context():
+            p = Proposal.query.filter_by(public_token=token).first()
+            u = User.query.get(p.user_id)
+            if not u or not u.email:
+                return
+            verb = 'ACCEPTED' if action == 'accepted' else 'DECLINED'
+            subject = f"Proposal {p.proposal_number} {verb} by {p.client_name}"
+            body = f"""<p>Hi {u.name},</p>
+<p><strong>{p.client_name}</strong> has <strong>{verb}</strong> proposal <strong>{p.proposal_number}</strong>
+for <strong>${p.grand_total:,.2f}</strong>.</p>
+{'<p>Time to get to work!</p>' if action == 'accepted' else '<p>Consider following up to address any concerns.</p>'}
+<p style="color:#888;font-size:12px;">— CloseTheJob</p>"""
+            try:
+                msg = Message(subject=subject, recipients=[u.email], html=body)
+                mail.send(msg)
+            except Exception:
+                pass
+    threading.Thread(target=notify, daemon=True).start()
+    return redirect(url_for('public_proposal', token=token))
 
 
 @app.route('/profile', methods=['GET', 'POST'])
