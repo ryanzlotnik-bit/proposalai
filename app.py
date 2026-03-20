@@ -7,6 +7,7 @@ import requests as http_requests
 import stripe
 import os
 import calendar
+import threading
 from datetime import datetime, date
 from dotenv import load_dotenv
 import json
@@ -334,7 +335,15 @@ def send_invoice_email(job, user):
             recipients=[job.client_email],
             html=html,
         )
-        mail.send(msg)
+        # Send in background thread so the page doesn't freeze
+        ctx = app.app_context()
+        def send():
+            with ctx:
+                try:
+                    mail.send(msg)
+                except Exception:
+                    pass
+        threading.Thread(target=send, daemon=True).start()
         return True
     except Exception:
         return False
