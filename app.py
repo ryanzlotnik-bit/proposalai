@@ -97,6 +97,8 @@ class User(db.Model, UserMixin):
     logo_url = db.Column(db.Text, nullable=True)
     brand_color = db.Column(db.String(7), default='#F97316')
     team_owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    booking_slug = db.Column(db.String(100), unique=True, nullable=True)
+    booking_enabled = db.Column(db.Boolean, default=False)
     proposals = db.relationship('Proposal', backref='user', lazy=True)
 
     @property
@@ -171,12 +173,29 @@ class Proposal(db.Model):
     # Generated content (JSON string)
     generated_content = db.Column(db.Text, default='{}')
     grand_total = db.Column(db.Float, default=0)
+    tax_rate = db.Column(db.Float, default=0)  # percentage, e.g. 8.5
+    deposit_pct = db.Column(db.Float, default=0)  # 0 = no deposit required
+    deposit_token = db.Column(db.String(64), unique=True, nullable=True)
+    deposit_paid_at = db.Column(db.DateTime, nullable=True)
+    template_id = db.Column(db.Integer, nullable=True)  # source template if any
     status = db.Column(db.String(50), default='draft')  # draft, sent, accepted, declined
     public_token = db.Column(db.String(64), unique=True, nullable=True)
     accepted_at = db.Column(db.DateTime, nullable=True)
     reminder_sent_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     linked_jobs = db.relationship('Job', backref='proposal', lazy=True)
+
+    @property
+    def tax_amount(self):
+        return round(self.grand_total * (self.tax_rate or 0) / 100, 2)
+
+    @property
+    def total_with_tax(self):
+        return self.grand_total + self.tax_amount
+
+    @property
+    def deposit_amount(self):
+        return round(self.total_with_tax * (self.deposit_pct or 0) / 100, 2)
 
     @property
     def content(self):
@@ -304,6 +323,37 @@ class TeamInvite(db.Model):
     email = db.Column(db.String(150), nullable=False)
     token = db.Column(db.String(64), unique=True, nullable=False)
     accepted = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class ProposalTemplate(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    job_type = db.Column(db.String(100), default='')
+    job_description = db.Column(db.Text, default='')
+    materials_input = db.Column(db.Text, default='')
+    labor_hours = db.Column(db.Float, default=0)
+    labor_rate = db.Column(db.Float, default=75)
+    timeline = db.Column(db.String(300), default='')
+    warranty = db.Column(db.String(300), default='')
+    notes = db.Column(db.Text, default='')
+    tax_rate = db.Column(db.Float, default=0)
+    deposit_pct = db.Column(db.Float, default=0)
+    generated_content = db.Column(db.Text, default='{}')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class JobRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    client_name = db.Column(db.String(200), nullable=False)
+    client_email = db.Column(db.String(200), default='')
+    client_phone = db.Column(db.String(50), default='')
+    job_type = db.Column(db.String(100), default='')
+    description = db.Column(db.Text, default='')
+    preferred_date = db.Column(db.String(100), default='')
+    status = db.Column(db.String(50), default='new')  # new, converted, dismissed
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -1181,6 +1231,41 @@ def dashboard():
     sent_proposals = [p for p in proposals if p.status == 'sent']
     pipeline_value = sum(p.grand_total for p in sent_proposals)
 
+    # Win rate analytics
+    closed = [p for p in proposals if p.status in ('accepted', 'declined', 'sent')]
+    accepted = [p for p in proposals if p.status == 'accepted']
+    win_rate = round(len(accepted) / len(closed) * 100) if closed else 0
+
+    # Win rate by job type
+    job_type_stats = {}
+    for p in proposals:
+        if not p.job_type or p.status == 'draft':
+            continue
+        jt = p.job_type
+        if jt not in job_type_stats:
+            job_type_stats[jt] = {'sent': 0, 'accepted': 0}
+        if p.status in ('sent', 'accepted', 'declined'):
+            job_type_stats[jt]['sent'] += 1
+        if p.status == 'accepted':
+            job_type_stats[jt]['accepted'] += 1
+    for jt in job_type_stats:
+        s = job_type_stats[jt]
+        s['rate'] = round(s['accepted'] / s['sent'] * 100) if s['sent'] else 0
+    job_type_stats = sorted(job_type_stats.items(), key=lambda x: x[1]['rate'], reverse=True)
+
+    # Avg deal size
+    avg_deal = round(sum(p.grand_total for p in accepted) / len(accepted)) if accepted else 0
+
+    # Top clients by revenue
+    client_revenue = {}
+    for j in Job.query.filter_by(user_id=uid()).all():
+        if j.client_name:
+            client_revenue[j.client_name] = client_revenue.get(j.client_name, 0) + j.revenue
+    top_clients = sorted(client_revenue.items(), key=lambda x: x[1], reverse=True)[:5]
+
+    # Incoming job requests
+    new_requests = JobRequest.query.filter_by(user_id=uid(), status='new').count()
+
     return render_template('dashboard.html',
         proposals=proposals,
         upcoming_jobs=upcoming_jobs,
@@ -1190,6 +1275,11 @@ def dashboard():
         sent_proposals=sent_proposals,
         pipeline_value=pipeline_value,
         today=today,
+        win_rate=win_rate,
+        avg_deal=avg_deal,
+        job_type_stats=job_type_stats,
+        top_clients=top_clients,
+        new_requests=new_requests,
     )
 
 
@@ -1372,6 +1462,10 @@ def generate():
                 db.session.flush()
                 linked_client_id = new_client.id
 
+        tax_rate = float(request.form.get('tax_rate', 0) or 0)
+        deposit_pct = float(request.form.get('deposit_pct', 0) or 0)
+        tmpl_id = request.form.get('template_id') or None
+
         proposal = Proposal(
             user_id=uid(),
             client_id=linked_client_id,
@@ -1390,6 +1484,9 @@ def generate():
             notes=job_data['notes'],
             generated_content=json.dumps(content),
             grand_total=content.get('grand_total', 0),
+            tax_rate=tax_rate,
+            deposit_pct=deposit_pct,
+            template_id=int(tmpl_id) if tmpl_id else None,
             status='draft',
             public_token=secrets.token_urlsafe(20),
         )
@@ -1398,7 +1495,10 @@ def generate():
         return redirect(url_for('view_proposal', proposal_id=proposal.id))
 
     clients = Client.query.filter_by(user_id=uid()).order_by(Client.name).all()
-    return render_template('generate.html', form_data={}, cost_templates=cost_templates, allowed_job_types=current_user.allowed_job_types, clients=clients)
+    templates = ProposalTemplate.query.filter_by(user_id=uid()).order_by(ProposalTemplate.name).all()
+    return render_template('generate.html', form_data={}, cost_templates=cost_templates,
+                           allowed_job_types=current_user.allowed_job_types, clients=clients,
+                           templates=templates)
 
 
 @app.route('/proposal/<int:proposal_id>')
@@ -1544,6 +1644,18 @@ def profile():
             color = request.form.get('brand_color', '').strip()
             if color and len(color) == 7 and color.startswith('#'):
                 current_user.brand_color = color
+        # Booking page settings
+        new_slug = request.form.get('booking_slug', '').strip().lower()
+        if new_slug:
+            import re
+            new_slug = re.sub(r'[^a-z0-9-]', '-', new_slug)
+            # Only save if unique or unchanged
+            existing = User.query.filter(User.booking_slug == new_slug, User.id != current_user.id).first()
+            if not existing:
+                current_user.booking_slug = new_slug
+        elif 'booking_slug' in request.form:
+            current_user.booking_slug = None
+        current_user.booking_enabled = bool(request.form.get('booking_enabled'))
         db.session.commit()
         flash('Profile updated successfully.', 'success')
         return redirect(url_for('profile'))
@@ -1823,6 +1935,227 @@ def delete_scheduled_job(sj_id):
     return redirect(url_for('schedule'))
 
 
+# ─── Proposal Templates ────────────────────────────────────────────────────────
+
+@app.route('/proposal/<int:proposal_id>/save-template', methods=['POST'])
+@login_required
+def save_proposal_template(proposal_id):
+    proposal = Proposal.query.get_or_404(proposal_id)
+    if proposal.user_id != uid():
+        return jsonify({'error': 'Access denied'}), 403
+    name = request.json.get('name', '').strip()
+    if not name:
+        return jsonify({'error': 'Name required'}), 400
+    tmpl = ProposalTemplate(
+        user_id=uid(),
+        name=name,
+        job_type=proposal.job_type,
+        job_description=proposal.job_description,
+        materials_input=proposal.materials_input,
+        labor_hours=proposal.labor_hours,
+        labor_rate=proposal.labor_rate,
+        timeline=proposal.timeline,
+        warranty=proposal.warranty,
+        notes=proposal.notes,
+        tax_rate=proposal.tax_rate,
+        deposit_pct=proposal.deposit_pct,
+        generated_content=proposal.generated_content,
+    )
+    db.session.add(tmpl)
+    db.session.commit()
+    return jsonify({'ok': True, 'id': tmpl.id, 'name': tmpl.name})
+
+
+@app.route('/templates/<int:tmpl_id>/data')
+@login_required
+def template_data(tmpl_id):
+    tmpl = ProposalTemplate.query.get_or_404(tmpl_id)
+    if tmpl.user_id != uid():
+        return jsonify({'error': 'Access denied'}), 403
+    return jsonify({
+        'job_type': tmpl.job_type,
+        'job_description': tmpl.job_description,
+        'materials_input': tmpl.materials_input,
+        'labor_hours': tmpl.labor_hours,
+        'labor_rate': tmpl.labor_rate,
+        'timeline': tmpl.timeline,
+        'warranty': tmpl.warranty,
+        'notes': tmpl.notes,
+        'tax_rate': tmpl.tax_rate,
+        'deposit_pct': tmpl.deposit_pct,
+    })
+
+
+@app.route('/templates/<int:tmpl_id>/delete', methods=['POST'])
+@login_required
+def delete_template(tmpl_id):
+    tmpl = ProposalTemplate.query.get_or_404(tmpl_id)
+    if tmpl.user_id != uid():
+        flash('Access denied.', 'error')
+        return redirect(url_for('generate'))
+    db.session.delete(tmpl)
+    db.session.commit()
+    flash('Template deleted.', 'success')
+    return redirect(url_for('generate'))
+
+
+# ─── Deposits ──────────────────────────────────────────────────────────────────
+
+@app.route('/proposal/<int:proposal_id>/deposit-link')
+@login_required
+def proposal_deposit_link(proposal_id):
+    proposal = Proposal.query.get_or_404(proposal_id)
+    if proposal.user_id != uid():
+        abort(403)
+    if not proposal.deposit_token:
+        proposal.deposit_token = secrets.token_urlsafe(20)
+        db.session.commit()
+    return redirect(url_for('deposit_view', token=proposal.deposit_token))
+
+
+@app.route('/deposit/<token>')
+def deposit_view(token):
+    proposal = Proposal.query.filter_by(deposit_token=token).first_or_404()
+    user = User.query.get_or_404(proposal.user_id)
+    return render_template('deposit_pay.html', proposal=proposal, user=user,
+                           stripe_enabled=bool(stripe.api_key))
+
+
+@app.route('/deposit/<token>/pay', methods=['POST'])
+def deposit_pay(token):
+    proposal = Proposal.query.filter_by(deposit_token=token).first_or_404()
+    if proposal.deposit_paid_at:
+        return redirect(url_for('deposit_view', token=token))
+    if not stripe.api_key:
+        return redirect(url_for('deposit_view', token=token))
+    user = User.query.get_or_404(proposal.user_id)
+    company = user.company_name or user.name
+    amount_cents = max(50, int(round(proposal.deposit_amount * 100)))
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {'name': f"Deposit — {proposal.job_type} — {company}"},
+                    'unit_amount': amount_cents,
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            customer_email=proposal.client_email or None,
+            success_url=url_for('deposit_success', token=token, _external=True),
+            cancel_url=url_for('deposit_view', token=token, _external=True),
+            metadata={'proposal_id': proposal.id, 'type': 'deposit'},
+        )
+        return redirect(session.url)
+    except Exception:
+        return redirect(url_for('deposit_view', token=token))
+
+
+@app.route('/deposit/<token>/success')
+def deposit_success(token):
+    proposal = Proposal.query.filter_by(deposit_token=token).first_or_404()
+    user = User.query.get_or_404(proposal.user_id)
+    return render_template('deposit_success.html', proposal=proposal, user=user)
+
+
+# ─── Public Booking Page ───────────────────────────────────────────────────────
+
+@app.route('/book/<slug>')
+def booking_page(slug):
+    user = User.query.filter_by(booking_slug=slug, booking_enabled=True).first_or_404()
+    return render_template('booking.html', contractor=user)
+
+
+@app.route('/book/<slug>/submit', methods=['POST'])
+def booking_submit(slug):
+    user = User.query.filter_by(booking_slug=slug, booking_enabled=True).first_or_404()
+    client_name = request.form.get('client_name', '').strip()
+    if not client_name:
+        flash('Please enter your name.', 'error')
+        return redirect(url_for('booking_page', slug=slug))
+    jr = JobRequest(
+        user_id=user.id,
+        client_name=client_name,
+        client_email=request.form.get('client_email', '').strip(),
+        client_phone=request.form.get('client_phone', '').strip(),
+        job_type=request.form.get('job_type', '').strip(),
+        description=request.form.get('description', '').strip(),
+        preferred_date=request.form.get('preferred_date', '').strip(),
+    )
+    db.session.add(jr)
+    db.session.commit()
+    # Notify contractor
+    if app.config.get('MAIL_USERNAME') and user.email:
+        def notify():
+            with app.app_context():
+                u = User.query.get(user.id)
+                r = JobRequest.query.get(jr.id)
+                if not u or not r:
+                    return
+                try:
+                    from flask_mail import Message as MailMessage
+                    base_url = os.getenv('APP_URL', '').rstrip('/')
+                    msg = MailMessage(
+                        subject=f"New job request from {r.client_name}",
+                        recipients=[u.email],
+                        html=f"""<p>You have a new job request from your booking page.</p>
+<table style="border-collapse:collapse;width:100%;max-width:500px;">
+<tr><td style="padding:8px;border:1px solid #eee;font-weight:600;">Name</td><td style="padding:8px;border:1px solid #eee;">{r.client_name}</td></tr>
+<tr><td style="padding:8px;border:1px solid #eee;font-weight:600;">Email</td><td style="padding:8px;border:1px solid #eee;">{r.client_email or '—'}</td></tr>
+<tr><td style="padding:8px;border:1px solid #eee;font-weight:600;">Phone</td><td style="padding:8px;border:1px solid #eee;">{r.client_phone or '—'}</td></tr>
+<tr><td style="padding:8px;border:1px solid #eee;font-weight:600;">Job Type</td><td style="padding:8px;border:1px solid #eee;">{r.job_type or '—'}</td></tr>
+<tr><td style="padding:8px;border:1px solid #eee;font-weight:600;">Description</td><td style="padding:8px;border:1px solid #eee;">{r.description or '—'}</td></tr>
+<tr><td style="padding:8px;border:1px solid #eee;font-weight:600;">Preferred Date</td><td style="padding:8px;border:1px solid #eee;">{r.preferred_date or '—'}</td></tr>
+</table>
+<p><a href="{base_url}/job-requests" style="background:#F97316;color:#fff;padding:10px 20px;text-decoration:none;font-weight:700;">View in Dashboard →</a></p>"""
+                    )
+                    mail.send(msg)
+                except Exception:
+                    pass
+        threading.Thread(target=notify, daemon=True).start()
+    return render_template('booking_thanks.html', contractor=user)
+
+
+@app.route('/job-requests')
+@login_required
+def job_requests():
+    requests_list = JobRequest.query.filter_by(user_id=uid()).order_by(JobRequest.created_at.desc()).all()
+    return render_template('job_requests.html', requests=requests_list)
+
+
+@app.route('/job-requests/<int:req_id>/convert')
+@login_required
+def convert_job_request(req_id):
+    jr = JobRequest.query.get_or_404(req_id)
+    if jr.user_id != uid():
+        return redirect(url_for('job_requests'))
+    jr.status = 'converted'
+    db.session.commit()
+    # Pre-fill generate form via query params
+    from urllib.parse import urlencode
+    params = urlencode({
+        'client_name': jr.client_name,
+        'client_email': jr.client_email,
+        'client_phone': jr.client_phone,
+        'job_type': jr.job_type,
+        'job_description': jr.description,
+    })
+    return redirect(url_for('generate') + '?' + params)
+
+
+@app.route('/job-requests/<int:req_id>/dismiss', methods=['POST'])
+@login_required
+def dismiss_job_request(req_id):
+    jr = JobRequest.query.get_or_404(req_id)
+    if jr.user_id != uid():
+        return redirect(url_for('job_requests'))
+    jr.status = 'dismissed'
+    db.session.commit()
+    return redirect(url_for('job_requests'))
+
+
 # ─── Invoice Payments ──────────────────────────────────────────────────────────
 
 @app.route('/invoice/<token>')
@@ -1972,12 +2305,20 @@ def stripe_webhook():
 
     if event['type'] == 'checkout.session.completed':
         session = event['data']['object']
-        if session.get('metadata', {}).get('type') == 'invoice':
-            job_id = session['metadata'].get('job_id')
+        meta = session.get('metadata', {})
+        if meta.get('type') == 'invoice':
+            job_id = meta.get('job_id')
             if job_id:
                 job = Job.query.get(int(job_id))
                 if job and not job.paid_at:
                     job.paid_at = datetime.utcnow()
+                    db.session.commit()
+        elif meta.get('type') == 'deposit':
+            proposal_id = meta.get('proposal_id')
+            if proposal_id:
+                proposal = Proposal.query.get(int(proposal_id))
+                if proposal and not proposal.deposit_paid_at:
+                    proposal.deposit_paid_at = datetime.utcnow()
                     db.session.commit()
 
     return jsonify({'received': True})
@@ -2255,6 +2596,13 @@ with app.app_context():
         'ALTER TABLE "user" ADD COLUMN logo_url TEXT',
         'ALTER TABLE "user" ADD COLUMN brand_color VARCHAR(7) DEFAULT \'#F97316\'',
         'ALTER TABLE "user" ADD COLUMN team_owner_id INTEGER',
+        'ALTER TABLE "user" ADD COLUMN booking_slug VARCHAR(100)',
+        'ALTER TABLE "user" ADD COLUMN booking_enabled BOOLEAN DEFAULT 0',
+        'ALTER TABLE proposal ADD COLUMN tax_rate FLOAT DEFAULT 0',
+        'ALTER TABLE proposal ADD COLUMN deposit_pct FLOAT DEFAULT 0',
+        'ALTER TABLE proposal ADD COLUMN deposit_token VARCHAR(64)',
+        'ALTER TABLE proposal ADD COLUMN deposit_paid_at DATETIME',
+        'ALTER TABLE proposal ADD COLUMN template_id INTEGER',
     ]
     for _sql in _migrations:
         try:

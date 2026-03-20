@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Deposit Payment — {{ proposal.client_name }}{% endblock %}
+
+{% block content %}
+<div style="min-height:90vh;display:flex;align-items:center;justify-content:center;padding:40px 24px;">
+  <div style="width:100%;max-width:480px;">
+
+    <div style="margin-bottom:28px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">// Deposit Request</div>
+      <h1 class="font-display" style="font-size:44px;color:var(--text);line-height:1;">{{ user.company_name or user.name }}.</h1>
+      <p style="color:var(--text-muted);margin-top:8px;font-size:14px;">{{ user.trade_type }} · Proposal {{ proposal.proposal_number }}</p>
+    </div>
+
+    <div class="ctj-card" style="padding:28px;margin-bottom:16px;">
+      <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);">// Job Details</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;justify-content:space-between;gap:16px;">
+          <span style="font-size:13px;color:var(--text-muted);">Client</span>
+          <span style="font-size:13px;font-weight:600;color:var(--text);">{{ proposal.client_name }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:16px;">
+          <span style="font-size:13px;color:var(--text-muted);">Job Type</span>
+          <span style="font-size:13px;font-weight:600;color:var(--text);">{{ proposal.job_type }}</span>
+        </div>
+        {% if proposal.client_address %}
+        <div style="display:flex;justify-content:space-between;gap:16px;">
+          <span style="font-size:13px;color:var(--text-muted);">Location</span>
+          <span style="font-size:13px;color:var(--text);text-align:right;max-width:280px;">{{ proposal.client_address }}</span>
+        </div>
+        {% endif %}
+        <div style="display:flex;justify-content:space-between;gap:16px;">
+          <span style="font-size:13px;color:var(--text-muted);">Proposal Total</span>
+          <span style="font-size:13px;font-weight:600;color:var(--text);">${{ '{:,.2f}'.format(proposal.grand_total) }}</span>
+        </div>
+        <div style="border-top:1px solid var(--border);padding-top:14px;display:flex;justify-content:space-between;align-items:center;gap:16px;">
+          <div>
+            <div style="font-size:12px;color:var(--text-muted);">Deposit Required ({{ proposal.deposit_pct }}%)</div>
+            <div style="font-size:28px;font-weight:700;color:var(--orange);font-family:'Bebas Neue',cursive;letter-spacing:0.02em;">${{ '{:,.2f}'.format(proposal.deposit_amount) }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% if proposal.deposit_paid_at %}
+    <div style="text-align:center;padding:24px;background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.25);">
+      <div style="font-size:32px;color:var(--green);margin-bottom:8px;">✓</div>
+      <div style="font-size:16px;font-weight:700;color:var(--green);">Deposit Already Paid</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px;">Paid on {{ proposal.deposit_paid_at.strftime('%B %d, %Y') }}</div>
+    </div>
+    {% else %}
+    <form method="POST" action="{{ url_for('deposit_pay', token=proposal.deposit_token) }}">
+      <button type="submit" class="btn-orange" style="width:100%;justify-content:center;padding:16px;font-size:15px;clip-path:none;border:none;cursor:pointer;font-weight:700;">
+        Pay Deposit — ${{ '{:,.2f}'.format(proposal.deposit_amount) }} →
+      </button>
+    </form>
+    <p style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:10px;">Secure payment powered by Stripe. Your card details are never stored.</p>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

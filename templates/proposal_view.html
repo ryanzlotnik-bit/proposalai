@@ -196,6 +196,26 @@
          style="font-size:12px;color:var(--green);border:1px solid rgba(74,222,128,0.3);padding:8px 16px;text-decoration:none;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:6px;background:rgba(74,222,128,0.06);" onmouseover="this.style.background='rgba(74,222,128,0.12)'" onmouseout="this.style.background='rgba(74,222,128,0.06)'">
         ✓ CLOSE JOB
       </a>
+      <button id="template-btn" onclick="saveAsTemplate()"
+        style="font-size:12px;color:var(--text-muted);border:1px solid var(--border-bright);padding:8px 16px;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:6px;background:none;cursor:pointer;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v14a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        SAVE AS TEMPLATE
+      </button>
+      {% if proposal.deposit_pct and proposal.deposit_pct > 0 %}
+      <div style="display:flex;align-items:center;gap:8px;">
+        {% if proposal.deposit_paid_at %}
+        <span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--green);border:1px solid rgba(74,222,128,0.3);padding:5px 12px;background:rgba(74,222,128,0.06);">✓ DEPOSIT PAID</span>
+        {% elif proposal.deposit_token %}
+        <button onclick="copyDepositLink()" id="deposit-btn" style="font-size:12px;color:var(--orange);border:1px solid rgba(249,115,22,0.3);padding:8px 16px;font-family:'JetBrains Mono',monospace;background:rgba(249,115,22,0.06);cursor:pointer;" onmouseover="this.style.background='rgba(249,115,22,0.12)'" onmouseout="this.style.background='rgba(249,115,22,0.06)'">
+          COPY DEPOSIT LINK
+        </button>
+        {% else %}
+        <a href="{{ url_for('proposal_deposit_link', proposal_id=proposal.id) }}" id="deposit-btn" style="font-size:12px;color:var(--orange);border:1px solid rgba(249,115,22,0.3);padding:8px 16px;font-family:'JetBrains Mono',monospace;background:rgba(249,115,22,0.06);display:flex;align-items:center;gap:6px;text-decoration:none;" onmouseover="this.style.background='rgba(249,115,22,0.12)'" onmouseout="this.style.background='rgba(249,115,22,0.06)'">
+          REQUEST DEPOSIT
+        </a>
+        {% endif %}
+      </div>
+      {% endif %}
       <button onclick="window.print()" class="btn-orange" style="padding:8px 20px;font-size:12px;border:none;cursor:pointer;font-family:'JetBrains Mono',monospace;clip-path:none;">
         PRINT / SAVE PDF
       </button>
@@ -286,11 +306,32 @@
         </tr>
         {% endif %}
 
-        <!-- Total -->
+        <!-- Tax + Total -->
+        {% if proposal.tax_rate and proposal.tax_rate > 0 %}
+        <tr style="background:#f9f9f9;">
+          <td colspan="3" style="text-align:right;font-size:12px;color:#555;padding:6px 10px;">Subtotal</td>
+          <td style="font-size:12px;font-weight:600;color:#333;">${{ '{:,.2f}'.format(proposal.grand_total) }}</td>
+        </tr>
+        <tr style="background:#f9f9f9;">
+          <td colspan="3" style="text-align:right;font-size:12px;color:#555;padding:6px 10px;">Tax ({{ proposal.tax_rate }}%)</td>
+          <td style="font-size:12px;font-weight:600;color:#333;">${{ '{:,.2f}'.format(proposal.tax_amount) }}</td>
+        </tr>
+        <tr class="total-row">
+          <td colspan="3">Total (incl. tax)</td>
+          <td>${{ '{:,.2f}'.format(proposal.total_with_tax) }}</td>
+        </tr>
+        {% else %}
         <tr class="total-row">
           <td colspan="3">Total Estimate</td>
           <td>${{ '{:,.2f}'.format(proposal.grand_total) }}</td>
         </tr>
+        {% endif %}
+        {% if proposal.deposit_pct and proposal.deposit_pct > 0 %}
+        <tr style="background:#fff8f3;">
+          <td colspan="3" style="text-align:right;font-size:12px;color:#F97316;padding:6px 10px;">Deposit Required ({{ proposal.deposit_pct }}%)</td>
+          <td style="font-size:12px;font-weight:700;color:#F97316;">${{ '{:,.2f}'.format(proposal.deposit_amount) }}</td>
+        </tr>
+        {% endif %}
       </tbody>
     </table>
 
@@ -347,6 +388,31 @@ function nudgeClient() {
       }
     })
     .catch(() => { btn.textContent = 'ERROR'; btn.disabled = false; });
+}
+
+function saveAsTemplate() {
+  const name = prompt('Name for this template:', '{{ proposal.job_type }} Template');
+  if (!name) return;
+  const btn = document.getElementById('template-btn');
+  btn.textContent = 'SAVING...';
+  fetch('{{ url_for("save_proposal_template", proposal_id=proposal.id) }}', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name})
+  }).then(r => r.json()).then(d => {
+    if (d.ok) { btn.textContent = '✓ SAVED'; btn.style.color = 'var(--green)'; }
+    else { btn.textContent = 'ERROR'; }
+  }).catch(() => { btn.textContent = 'ERROR'; });
+}
+
+function copyDepositLink() {
+  const url = '{{ request.host_url }}deposit/{{ proposal.deposit_token }}';
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('deposit-btn');
+    btn.textContent = '✓ COPIED';
+    btn.style.color = 'var(--green)';
+    setTimeout(() => { btn.textContent = 'COPY DEPOSIT LINK'; btn.style.color = 'var(--orange)'; }, 2000);
+  });
 }
 
 function copyShareLink() {

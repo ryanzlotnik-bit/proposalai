@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Deposit Received — CloseTheJob{% endblock %}
+
+{% block content %}
+<div style="min-height:90vh;display:flex;align-items:center;justify-content:center;padding:40px 24px;">
+  <div style="width:100%;max-width:440px;text-align:center;">
+    <div style="font-size:64px;margin-bottom:16px;">✓</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">// Payment Received</div>
+    <h1 class="font-display" style="font-size:48px;color:var(--text);line-height:1;">Deposit<br/>Confirmed.</h1>
+    <p style="color:var(--text-muted);margin-top:16px;font-size:14px;line-height:1.6;">
+      Your deposit has been received. {{ user.company_name or user.name }} will be in touch to confirm your appointment.
+    </p>
+    {% if user.phone %}
+    <p style="color:var(--text-muted);font-size:13px;margin-top:12px;">Questions? Call {{ user.phone }}</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

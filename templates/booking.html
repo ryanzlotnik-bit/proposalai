@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Book a Job — {{ owner.company_name or owner.name }}{% endblock %}
+
+{% block content %}
+<div style="min-height:90vh;display:flex;align-items:center;justify-content:center;padding:40px 24px;">
+  <div style="width:100%;max-width:560px;">
+
+    <div style="margin-bottom:32px;">
+      {% if owner.logo_url %}
+      <img src="{{ owner.logo_url }}" alt="Logo" style="max-height:48px;max-width:160px;object-fit:contain;margin-bottom:20px;display:block;" onerror="this.style.display='none'" />
+      {% endif %}
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">// Request a Job</div>
+      <h1 class="font-display" style="font-size:48px;color:var(--text);line-height:1;">{{ owner.company_name or owner.name }}.</h1>
+      <p style="color:var(--text-muted);margin-top:10px;font-size:14px;">{{ owner.trade_type }}{% if owner.phone %} · {{ owner.phone }}{% endif %}</p>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+    <div style="padding:12px 16px;margin-bottom:16px;background:{% if cat == 'error' %}rgba(248,113,113,0.08){% else %}rgba(74,222,128,0.08){% endif %};border:1px solid {% if cat == 'error' %}rgba(248,113,113,0.25){% else %}rgba(74,222,128,0.25){% endif %};font-size:13px;color:{% if cat == 'error' %}var(--red){% else %}var(--green){% endif %};">
+      {{ msg }}
+    </div>
+    {% endfor %}
+    {% endwith %}
+
+    <div class="ctj-card" style="padding:32px;">
+      <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);">// Your Information</div>
+      <form method="POST" action="{{ url_for('booking_submit', slug=owner.booking_slug) }}">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div>
+            <label class="ctj-label">Your Name <span style="color:var(--orange);">*</span></label>
+            <input type="text" name="name" required class="ctj-input" placeholder="Jane Smith" />
+          </div>
+          <div>
+            <label class="ctj-label">Phone Number</label>
+            <input type="text" name="phone" class="ctj-input" placeholder="(555) 867-5309" />
+          </div>
+          <div style="grid-column:1/-1;">
+            <label class="ctj-label">Email Address</label>
+            <input type="email" name="email" class="ctj-input" placeholder="jane@example.com" />
+          </div>
+          <div style="grid-column:1/-1;">
+            <label class="ctj-label">Job Address</label>
+            <input type="text" name="address" class="ctj-input" placeholder="123 Main St, Chicago, IL 60601" />
+          </div>
+        </div>
+
+        <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);margin-top:8px;">// Job Details</div>
+
+        <div style="display:grid;gap:16px;margin-bottom:16px;">
+          <div>
+            <label class="ctj-label">What do you need done? <span style="color:var(--orange);">*</span></label>
+            <select name="job_type" required class="ctj-input">
+              <option value="">Select...</option>
+              {% set all_types = ['AC Installation','AC Repair','Furnace Installation','Furnace Repair','Duct Work',
+                'Plumbing Repair','Water Heater Installation','Pipe Replacement','Drain Cleaning',
+                'Electrical Panel Upgrade','Outlet Installation','Wiring','Lighting Installation',
+                'Roof Replacement','Roof Repair','Gutter Installation',
+                'Landscaping','Lawn Care','Tree Removal',
+                'Painting — Interior','Painting — Exterior',
+                'Flooring','Tile Work','Drywall',
+                'General Construction','Remodel',
+                'Pressure Washing','Window Washing','Epoxy Flooring','Other'] %}
+              {% for jt in all_types %}
+              <option value="{{ jt }}">{{ jt }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="ctj-label">Preferred Timing</label>
+            <input type="text" name="preferred_date" class="ctj-input" placeholder="e.g. ASAP, next week, anytime in April" />
+          </div>
+          <div>
+            <label class="ctj-label">Describe the Job <span style="color:var(--orange);">*</span></label>
+            <textarea name="description" required rows="4" class="ctj-input" style="resize:vertical;" placeholder="Tell us what you need. More detail helps us give you a better estimate."></textarea>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-orange" style="width:100%;justify-content:center;padding:14px;font-size:14px;clip-path:none;border:none;cursor:pointer;">
+          Submit Request →
+        </button>
+      </form>
+    </div>
+
+    {% if not owner.can_use_branding %}
+    <div style="text-align:center;margin-top:20px;">
+      <span style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">Powered by <a href="/" style="color:var(--orange);text-decoration:none;">CloseTheJob</a></span>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

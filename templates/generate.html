@@ -13,6 +13,21 @@
 
   <form method="POST" action="{{ url_for('generate') }}" id="proposal-form">
 
+    <!-- Template Loader -->
+    {% if templates %}
+    <div style="margin-bottom:16px;padding:16px 20px;background:var(--surface);border:1px solid var(--border-bright);display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;flex-shrink:0;">Load Template →</div>
+      <select id="template-picker" class="ctj-input" style="flex:1;min-width:200px;margin-bottom:0;" onchange="loadTemplate(this.value)">
+        <option value="">— Select a saved template —</option>
+        {% for t in templates %}
+        <option value="{{ t.id }}">{{ t.name }}</option>
+        {% endfor %}
+      </select>
+      <a href="/templates" style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-decoration:none;flex-shrink:0;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">MANAGE ›</a>
+    </div>
+    {% endif %}
+    <input type="hidden" name="template_id" id="template_id_field" value="" />
+
     <!-- Section 1: Client -->
     <div class="ctj-card" style="margin-bottom:2px;padding:28px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border);">
@@ -200,6 +215,16 @@
         <div>
           <label class="ctj-label">Additional Notes</label>
           <input type="text" name="notes" value="{{ form_data.get('notes','') }}" class="ctj-input" placeholder="e.g. Permit required, access through side gate" />
+        </div>
+        <div>
+          <label class="ctj-label">Tax Rate (%)</label>
+          <input type="number" name="tax_rate" min="0" max="30" step="0.1" value="{{ form_data.get('tax_rate', '') }}" class="ctj-input" placeholder="e.g. 8.5" />
+          <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Added to the total on the proposal. Leave blank for no tax.</p>
+        </div>
+        <div>
+          <label class="ctj-label">Deposit Required (%)</label>
+          <input type="number" name="deposit_pct" min="0" max="100" step="1" value="{{ form_data.get('deposit_pct', '') }}" class="ctj-input" placeholder="e.g. 50" />
+          <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Shown on proposal. You can send a payment link to collect it.</p>
         </div>
       </div>
     </div>
@@ -628,6 +653,33 @@ function togglePerUnit(select, idx) {
     hiddenUnit.name = 'adhoc_unit[]';
     hiddenQty.name = 'adhoc_qty[]';
   }
+}
+
+function loadTemplate(templateId) {
+  if (!templateId) return;
+  fetch(`/templates/${templateId}/data`)
+    .then(r => r.json())
+    .then(d => {
+      if (d.error) return;
+      document.getElementById('template_id_field').value = templateId;
+      // Fill job type
+      if (d.job_type) {
+        const jts = document.getElementById('job-type-select');
+        jts.value = d.job_type;
+        buildServiceFields(d.job_type);
+      }
+      // Fill pricing fields
+      if (d.labor_hours) document.querySelector('[name=labor_hours]').value = d.labor_hours;
+      if (d.labor_rate) document.querySelector('[name=labor_rate]').value = d.labor_rate;
+      if (d.tax_rate) document.querySelector('[name=tax_rate]').value = d.tax_rate;
+      if (d.deposit_pct) document.querySelector('[name=deposit_pct]').value = d.deposit_pct;
+      if (d.warranty) document.querySelector('[name=warranty]').value = d.warranty;
+      if (d.notes) document.querySelector('[name=notes]').value = d.notes;
+      // Flash confirmation
+      const picker = document.getElementById('template-picker');
+      picker.style.borderColor = 'var(--green)';
+      setTimeout(() => picker.style.borderColor = '', 2000);
+    });
 }
 
 function fillClientFromPicker(sel) {

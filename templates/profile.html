@@ -121,6 +121,44 @@
   </div>
   {% endif %}
 
+  <!-- Public Booking Page -->
+  <div class="ctj-card" style="padding:28px;margin-top:24px;">
+    <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);">// Public Booking Page</div>
+    <form method="POST" action="{{ url_for('profile') }}">
+      <input type="hidden" name="name" value="{{ current_user.name }}" />
+      <input type="hidden" name="company_name" value="{{ current_user.company_name }}" />
+      <input type="hidden" name="trade_type" value="{{ current_user.trade_type }}" />
+      <input type="hidden" name="phone" value="{{ current_user.phone }}" />
+      <input type="hidden" name="license_number" value="{{ current_user.license_number }}" />
+      <input type="hidden" name="address" value="{{ current_user.address }}" />
+      <input type="hidden" name="website" value="{{ current_user.website }}" />
+      <div style="display:grid;gap:16px;">
+        <div>
+          <label class="ctj-label">Booking Page URL Slug</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:13px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;white-space:nowrap;">/book/</span>
+            <input type="text" name="booking_slug" value="{{ current_user.booking_slug or '' }}" class="ctj-input" placeholder="your-company-name" style="flex:1;" />
+          </div>
+          <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">Clients visit this URL to submit a job request. Use lowercase letters, numbers, and hyphens only.</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <input type="checkbox" name="booking_enabled" id="booking_enabled" value="1" {% if current_user.booking_enabled %}checked{% endif %} style="width:16px;height:16px;accent-color:var(--orange);cursor:pointer;" />
+          <label for="booking_enabled" style="font-size:13px;color:var(--text);cursor:pointer;">Enable public booking page</label>
+        </div>
+        {% if current_user.booking_enabled and current_user.booking_slug %}
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(74,222,128,0.04);border:1px solid rgba(74,222,128,0.2);">
+          <span style="width:8px;height:8px;background:var(--green);border-radius:50%;display:inline-block;flex-shrink:0;"></span>
+          <span style="font-size:12px;color:var(--text-muted);">Your booking page is live at <a href="{{ url_for('booking_page', slug=current_user.booking_slug) }}" target="_blank" style="color:var(--orange);text-decoration:none;">/book/{{ current_user.booking_slug }}</a></span>
+          <a href="{{ url_for('job_requests') }}" style="margin-left:auto;font-size:11px;color:var(--orange);text-decoration:none;font-family:'JetBrains Mono',monospace;flex-shrink:0;">VIEW REQUESTS →</a>
+        </div>
+        {% endif %}
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+        <button type="submit" class="btn-orange" style="padding:10px 24px;font-size:13px;border:none;cursor:pointer;clip-path:none;">Save Booking Settings →</button>
+      </div>
+    </form>
+  </div>
+
   <!-- Google Calendar Integration -->
   <div class="ctj-card" style="padding:28px;margin-top:24px;">
     <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);">// Google Calendar Sync</div>

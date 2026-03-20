@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Request Sent — {{ owner.company_name or owner.name }}{% endblock %}
+
+{% block content %}
+<div style="min-height:90vh;display:flex;align-items:center;justify-content:center;padding:40px 24px;">
+  <div style="width:100%;max-width:440px;text-align:center;">
+    {% if owner.logo_url %}
+    <img src="{{ owner.logo_url }}" alt="Logo" style="max-height:48px;max-width:160px;object-fit:contain;margin-bottom:24px;display:block;margin-left:auto;margin-right:auto;" onerror="this.style.display='none'" />
+    {% endif %}
+    <div style="font-size:64px;margin-bottom:16px;">✓</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">// Request Received</div>
+    <h1 class="font-display" style="font-size:48px;color:var(--text);line-height:1;">We'll Be<br/>In Touch.</h1>
+    <p style="color:var(--text-muted);margin-top:16px;font-size:14px;line-height:1.7;">
+      Thanks for reaching out to {{ owner.company_name or owner.name }}. We've received your request and will follow up shortly.
+    </p>
+    {% if owner.phone %}
+    <p style="color:var(--text-muted);font-size:13px;margin-top:12px;">You can also call us at <strong style="color:var(--text);">{{ owner.phone }}</strong></p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

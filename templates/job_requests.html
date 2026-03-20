@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Job Requests — CloseTheJob{% endblock %}
+
+{% block content %}
+<div style="max-width:860px;margin:0 auto;padding:40px 24px;">
+
+  <div style="margin-bottom:32px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+    <div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">// Booking</div>
+      <h1 class="font-display" style="font-size:52px;color:var(--text);line-height:1;">Job Requests.</h1>
+      <p style="color:var(--text-muted);font-size:14px;margin-top:8px;">Leads from your public booking page. Convert to a proposal or dismiss.</p>
+    </div>
+    {% if current_user.booking_enabled and current_user.booking_slug %}
+    <div style="text-align:right;">
+      <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-bottom:6px;">Your Booking Link</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <code style="font-size:12px;color:var(--orange);font-family:'JetBrains Mono',monospace;background:var(--surface-2);border:1px solid var(--border);padding:6px 10px;">/book/{{ current_user.booking_slug }}</code>
+        <button onclick="copyBookingLink()" id="copy-btn" style="font-size:11px;color:var(--text-muted);background:none;border:1px solid var(--border-bright);padding:6px 12px;cursor:pointer;font-family:'JetBrains Mono',monospace;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">COPY</button>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if not current_user.booking_enabled or not current_user.booking_slug %}
+  <div style="background:rgba(249,115,22,0.06);border:1px solid rgba(249,115,22,0.25);border-left:3px solid var(--orange);padding:16px 20px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
+    <div>
+      <div style="font-size:13px;font-weight:600;color:var(--text);">Booking page not active</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Enable your public booking page in Profile settings to start receiving requests.</div>
+    </div>
+    <a href="{{ url_for('profile') }}" class="btn-orange" style="padding:8px 18px;font-size:12px;">Enable in Profile →</a>
+  </div>
+  {% endif %}
+
+  {% if requests %}
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    {% for req in requests %}
+    <div class="ctj-card" style="padding:24px;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+            <div style="font-size:15px;font-weight:700;color:var(--text);">{{ req.name }}</div>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);background:var(--surface-2);border:1px solid var(--border);padding:2px 7px;letter-spacing:0.06em;">{{ req.created_at.strftime('%b %d') }}</span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;margin-bottom:10px;">
+            {% if req.email %}<span style="font-size:12px;color:var(--text-muted);">{{ req.email }}</span>{% endif %}
+            {% if req.phone %}<span style="font-size:12px;color:var(--text-muted);">{{ req.phone }}</span>{% endif %}
+          </div>
+          <div style="font-size:13px;font-weight:600;color:var(--orange);margin-bottom:4px;">{{ req.job_type }}</div>
+          {% if req.address %}<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">{{ req.address }}</div>{% endif %}
+          {% if req.preferred_date %}<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Preferred: {{ req.preferred_date }}</div>{% endif %}
+          {% if req.description %}
+          <div style="font-size:13px;color:var(--text);margin-top:8px;line-height:1.6;padding:10px 14px;background:var(--surface-2);border-left:2px solid var(--border-bright);">{{ req.description }}</div>
+          {% endif %}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+          <form method="POST" action="{{ url_for('convert_job_request', req_id=req.id) }}">
+            <button type="submit" class="btn-orange" style="padding:9px 20px;font-size:12px;border:none;cursor:pointer;clip-path:none;width:100%;">
+              Convert to Proposal →
+            </button>
+          </form>
+          <form method="POST" action="{{ url_for('dismiss_job_request', req_id=req.id) }}" onsubmit="return confirm('Dismiss this request?')">
+            <button type="submit" class="btn-ghost" style="padding:7px 20px;font-size:12px;width:100%;">Dismiss</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:60px 20px;">
+    <div style="font-size:40px;margin-bottom:16px;opacity:0.3;">📥</div>
+    <p style="font-size:14px;color:var(--text-muted);margin-bottom:6px;">No pending job requests.</p>
+    <p style="font-size:12px;color:var(--text-muted);">Share your booking link with clients to start receiving requests.</p>
+  </div>
+  {% endif %}
+
+  <div style="margin-top:24px;">
+    <a href="{{ url_for('dashboard') }}" style="font-size:12px;color:var(--text-muted);text-decoration:none;font-family:'JetBrains Mono',monospace;">← Back to Dashboard</a>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyBookingLink() {
+  const url = window.location.origin + '/book/{{ current_user.booking_slug }}';
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✓ COPIED';
+    btn.style.color = 'var(--green)';
+    setTimeout(() => { btn.textContent = 'COPY'; btn.style.color = ''; }, 2000);
+  });
+}
+</script>
+{% endblock %}

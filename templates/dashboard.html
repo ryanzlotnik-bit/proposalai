@@ -415,6 +415,54 @@
     </div>
   </div>
 
+  <!-- Win Rate Analytics (Pro+) -->
+  {% if current_user.can_see_charts %}
+  <div style="margin-top:32px;margin-bottom:28px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">Proposal Analytics</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--border);">
+      <div class="stat-tile green">
+        <div class="stat-value" style="color:var(--green);">{{ win_rate }}%</div>
+        <div class="stat-label">Win Rate</div>
+        <div class="stat-sub">of decided proposals</div>
+      </div>
+      <div class="stat-tile blue">
+        <div class="stat-value" style="color:var(--blue);">${{ "{:,.0f}".format(avg_deal) }}</div>
+        <div class="stat-label">Avg Deal Size</div>
+        <div class="stat-sub">accepted proposals</div>
+      </div>
+      {% if top_clients %}
+      <div class="stat-tile muted" style="grid-column:span 2;">
+        <div class="stat-label" style="margin-bottom:10px;">Top Clients by Revenue</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          {% for client_name, rev in top_clients %}
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <span style="font-size:12px;color:var(--text);">{{ client_name }}</span>
+            <span style="font-size:12px;font-weight:700;color:var(--green);">${{ "{:,.0f}".format(rev) }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% if job_type_stats %}
+      <div class="stat-tile muted" style="grid-column:span 2;">
+        <div class="stat-label" style="margin-bottom:10px;">Win Rate by Job Type</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          {% for jtype, stats in job_type_stats[:5] %}
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="flex:1;background:var(--border);height:4px;border-radius:2px;overflow:hidden;">
+              <div style="height:100%;background:var(--green);width:{{ stats.rate }}%;"></div>
+            </div>
+            <span style="font-size:11px;color:var(--text-muted);width:120px;text-align:right;font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ jtype }}</span>
+            <span style="font-size:11px;font-weight:600;color:var(--green);width:36px;text-align:right;">{{ stats.rate }}%</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
   <!-- All proposals (below fold) -->
   {% if proposals %}
   <div id="all-proposals" style="margin-top:32px;">
