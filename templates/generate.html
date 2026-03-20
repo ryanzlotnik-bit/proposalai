@@ -195,6 +195,31 @@
   </form>
 </div>
 
+<!-- Loading Overlay -->
+<div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(12,12,12,0.96);z-index:2000;flex-direction:column;align-items:center;justify-content:center;gap:32px;">
+  <div style="font-family:'Bebas Neue',cursive;font-size:72px;color:var(--orange);line-height:1;letter-spacing:0.04em;" id="loading-dots">Writing<br>Your Proposal.</div>
+  <div style="display:flex;gap:8px;" id="dot-row">
+    <div class="ldot"></div><div class="ldot"></div><div class="ldot"></div>
+  </div>
+  <p style="font-size:13px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-align:center;max-width:300px;line-height:1.8;">
+    AI is writing your proposal.<br>This takes about 15–20 seconds.
+  </p>
+</div>
+<style>
+.ldot {
+  width:10px;height:10px;
+  background:var(--orange);
+  border-radius:50%;
+  animation:ldotBounce 1s ease-in-out infinite;
+}
+.ldot:nth-child(2){animation-delay:0.15s;}
+.ldot:nth-child(3){animation-delay:0.3s;}
+@keyframes ldotBounce {
+  0%,80%,100%{transform:scale(0.6);opacity:0.4;}
+  40%{transform:scale(1);opacity:1;}
+}
+</style>
+
 <!-- Manage Saved Costs Modal -->
 <div id="saveCostModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1000;align-items:center;justify-content:center;padding:20px;"
      onclick="if(event.target===this)this.classList.remove('active'),this.style.display='none'">
@@ -500,7 +525,8 @@ document.getElementById('proposal-form').addEventListener('submit', function() {
   btn.disabled = true;
   btn.style.opacity = '0.6';
   btn.style.cursor = 'not-allowed';
-  text.textContent = 'Generating... (~15 seconds)';
+  text.textContent = 'Generating...';
+  document.getElementById('loading-overlay').style.display = 'flex';
 });
 
 // Modal open needs display:flex not just class
