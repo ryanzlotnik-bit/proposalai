@@ -25,11 +25,11 @@
     letter-spacing: 0.12em;
     padding: 4px 10px;
   }
-  .plan-tier {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
+  .plan-name {
+    font-size: 13px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.08em;
     margin-bottom: 20px;
   }
   .plan-price {
@@ -48,8 +48,7 @@
     font-weight: 300;
   }
   .plan-cadence {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text-muted);
     margin-top: 4px;
     margin-bottom: 32px;
@@ -58,30 +57,21 @@
     display: flex;
     align-items: flex-start;
     gap: 10px;
-    padding: 8px 0;
-    font-size: 13px;
+    padding: 10px 0;
+    font-size: 14px;
     color: var(--text-muted);
     border-bottom: 1px solid var(--border);
+    line-height: 1.4;
   }
   .plan-feature:last-child { border-bottom: none; }
-  .plan-feature .dot {
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    margin-top: 6px;
-  }
-  .plan-feature .dot.orange { background: var(--orange); }
-  .plan-feature .dot.green  { background: var(--green); }
-  .plan-feature .dot.muted  { background: var(--border-bright); }
+  .plan-feature .icon { flex-shrink: 0; margin-top: 1px; font-size: 15px; }
   .plan-feature strong { color: var(--text); }
 
   .compare-table { width: 100%; border-collapse: collapse; }
   .compare-table th {
     padding: 14px 20px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    font-size: 13px;
+    font-weight: 700;
     color: var(--text-muted);
     border-bottom: 1px solid var(--border);
     text-align: center;
@@ -97,9 +87,9 @@
   .compare-table td:first-child { text-align: left; color: var(--text); }
   .compare-table tr:last-child td { border-bottom: none; }
   .compare-table tr:hover td { background: rgba(249,115,22,0.02); }
-  .check { color: var(--green); font-size: 15px; }
-  .cross { color: var(--border-bright); font-size: 15px; }
-  .partial { color: var(--orange); font-size: 12px; font-family: 'JetBrains Mono', monospace; }
+  .check { color: var(--green); font-size: 16px; }
+  .cross { color: var(--border-bright); font-size: 16px; }
+  .partial { color: var(--orange); font-size: 12px; }
 </style>
 {% endblock %}
 
@@ -108,9 +98,8 @@
 
   <!-- Heading -->
   <div style="text-align:center;margin-bottom:64px;">
-    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:16px;">// Pricing</div>
-    <h1 class="font-display" style="font-size:clamp(56px,8vw,100px);color:var(--text);line-height:0.95;">One Price.<br />Your Whole Business.</h1>
-    <p style="color:var(--text-muted);font-size:16px;margin-top:20px;max-width:520px;margin-left:auto;margin-right:auto;">Try everything free. When you're ready to automate, upgrade. No per-proposal fees, ever.</p>
+    <h1 class="font-display" style="font-size:clamp(56px,8vw,100px);color:var(--text);line-height:0.95;">Simple Pricing.<br />Serious Tools.</h1>
+    <p style="color:var(--text-muted);font-size:16px;margin-top:20px;max-width:520px;margin-left:auto;margin-right:auto;">Start free and use the whole platform. Upgrade when you want invoices to send themselves.</p>
   </div>
 
   <!-- Plan cards -->
@@ -118,101 +107,78 @@
 
     <!-- Free -->
     <div class="plan-card">
-      <div class="plan-tier" style="color:var(--text-muted);">Free</div>
+      <div class="plan-name" style="color:var(--text-muted);">Free</div>
       <div class="plan-price">$0</div>
-      <div class="plan-cadence">3 AI proposals to try</div>
+      <div class="plan-cadence">No credit card needed</div>
       <div style="border-top:1px solid var(--border);padding-top:20px;margin-bottom:32px;">
-        {% for dot, text in [
-          ('muted', 'AI proposal generation'),
-          ('muted', '3 proposals to try the AI'),
-          ('muted', 'Job scheduling'),
-          ('muted', 'Client CRM'),
-          ('muted', 'Financial tracking'),
-          ('muted', 'Manual invoicing'),
-        ] %}
-        <div class="plan-feature">
-          <div class="dot {{ dot }}"></div>
-          <span>{{ text }}</span>
-        </div>
-        {% endfor %}
+        <div class="plan-feature"><span class="icon">✓</span><span>Generate <strong>3 AI proposals</strong> to see what the tool can do</span></div>
+        <div class="plan-feature"><span class="icon">✓</span><span><strong>Schedule jobs</strong> on a visual calendar</span></div>
+        <div class="plan-feature"><span class="icon">✓</span><span><strong>Save clients</strong> and see their full history</span></div>
+        <div class="plan-feature"><span class="icon">✓</span><span><strong>Track revenue, expenses, and tips</strong> manually</span></div>
+        <div class="plan-feature"><span class="icon">✓</span><span>Send invoices to clients by email with a PDF attached</span></div>
       </div>
       {% if current_user.is_authenticated %}
         {% if not current_user.is_subscribed %}
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;padding:12px;border:1px solid var(--border);text-align:center;">CURRENT PLAN</div>
+        <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;padding:12px;border:1px solid var(--border);text-align:center;font-weight:600;">Your Current Plan</div>
         {% else %}
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;padding:12px;text-align:center;">Already upgraded</div>
+        <div style="font-size:12px;color:var(--text-muted);padding:12px;text-align:center;">Already upgraded</div>
         {% endif %}
       {% else %}
-        <a href="{{ url_for('register') }}" class="btn-ghost" style="width:100%;justify-content:center;padding:13px;">Start Free →</a>
+        <a href="{{ url_for('register') }}" class="btn-ghost" style="width:100%;justify-content:center;padding:13px;">Start for Free →</a>
       {% endif %}
     </div>
 
     <!-- Pro (FEATURED) -->
     <div class="plan-card featured">
       <div class="plan-badge">Most Popular</div>
-      <div class="plan-tier" style="color:var(--orange);">Pro</div>
+      <div class="plan-name" style="color:var(--orange);">Pro</div>
       <div class="plan-price"><sup>$</sup>49</div>
       <div class="plan-cadence">per month · cancel anytime</div>
       <div style="border-top:1px solid var(--border);padding-top:20px;margin-bottom:32px;">
-        {% for dot, text in [
-          ('orange', '<strong>Unlimited</strong> AI proposals'),
-          ('orange', '<strong>Auto-invoicing</strong> — jobs invoice themselves'),
-          ('orange', '<strong>Financial charts</strong> + monthly trends'),
-          ('orange', '<strong>Google Calendar</strong> sync'),
-          ('orange', 'Full client CRM'),
-          ('orange', 'Cost templates'),
-          ('orange', 'Everything in Free'),
-        ] %}
-        <div class="plan-feature">
-          <div class="dot {{ dot }}"></div>
-          <span>{{ text }}</span>
-        </div>
-        {% endfor %}
+        <div class="plan-feature"><span class="icon" style="color:var(--orange);">✓</span><span>Everything in Free, plus:</span></div>
+        <div class="plan-feature"><span class="icon" style="color:var(--orange);">⚡</span><span><strong>Unlimited AI proposals</strong> — no cap, ever</span></div>
+        <div class="plan-feature"><span class="icon" style="color:var(--orange);">⚡</span><span><strong>Invoices send themselves</strong> — when a job is done, the invoice goes out automatically</span></div>
+        <div class="plan-feature"><span class="icon" style="color:var(--orange);">⚡</span><span><strong>Revenue and profit charts</strong> so you can see how your business is trending month to month</span></div>
+        <div class="plan-feature"><span class="icon" style="color:var(--orange);">⚡</span><span><strong>Google Calendar sync</strong> — every job you schedule shows up in your calendar automatically</span></div>
+        <div class="plan-feature"><span class="icon" style="color:var(--orange);">⚡</span><span><strong>Saved cost templates</strong> — stop re-typing your standard line items every time</span></div>
       </div>
       {% if current_user.is_authenticated %}
         {% if current_user.plan == 'starter' %}
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;padding:12px;border:1px solid rgba(249,115,22,0.3);text-align:center;background:rgba(249,115,22,0.06);">✓ CURRENT PLAN</div>
+        <div style="font-size:12px;color:var(--orange);text-transform:uppercase;letter-spacing:0.08em;padding:12px;border:1px solid rgba(249,115,22,0.3);text-align:center;background:rgba(249,115,22,0.06);font-weight:700;">✓ Your Current Plan</div>
         {% else %}
         <form method="POST" action="{{ url_for('create_checkout_session') }}">
           <input type="hidden" name="plan" value="starter" />
-          <button type="submit" class="btn-orange" style="width:100%;justify-content:center;padding:14px;font-size:13px;border:none;cursor:pointer;clip-path:none;font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;">UPGRADE TO PRO →</button>
+          <button type="submit" class="btn-orange" style="width:100%;justify-content:center;padding:14px;font-size:14px;border:none;cursor:pointer;clip-path:none;">Upgrade to Pro →</button>
         </form>
         {% endif %}
       {% else %}
-        <a href="{{ url_for('register') }}" class="btn-orange" style="width:100%;justify-content:center;padding:14px;font-size:13px;clip-path:none;font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;">GET STARTED →</a>
+        <a href="{{ url_for('register') }}" class="btn-orange" style="width:100%;justify-content:center;padding:14px;font-size:14px;clip-path:none;">Get Started →</a>
       {% endif %}
     </div>
 
     <!-- Business -->
     <div class="plan-card">
-      <div class="plan-tier" style="color:var(--text-muted);">Business</div>
+      <div class="plan-name" style="color:var(--text-muted);">Business</div>
       <div class="plan-price"><sup>$</sup>99</div>
       <div class="plan-cadence">per month · cancel anytime</div>
       <div style="border-top:1px solid var(--border);padding-top:20px;margin-bottom:32px;">
-        {% for dot, text in [
-          ('green', 'Everything in Pro'),
-          ('green', 'Priority support'),
-          ('green', 'Custom proposal branding <span style=\"font-size:10px;color:var(--text-muted);\">(coming soon)</span>'),
-          ('green', 'Team members <span style=\"font-size:10px;color:var(--text-muted);\">(coming soon)</span>'),
-          ('green', 'White-label client portal <span style=\"font-size:10px;color:var(--text-muted);\">(coming soon)</span>'),
-        ] %}
-        <div class="plan-feature">
-          <div class="dot {{ dot }}"></div>
-          <span>{{ text }}</span>
-        </div>
-        {% endfor %}
+        <div class="plan-feature"><span class="icon" style="color:var(--green);">✓</span><span>Everything in Pro, plus:</span></div>
+        <div class="plan-feature"><span class="icon" style="color:var(--green);">✓</span><span><strong>Priority support</strong> — get help faster when you need it</span></div>
+        <div class="plan-feature"><span class="icon" style="color:var(--text-muted);">○</span><span>Custom proposal branding with your logo and colors <span style="font-size:11px;color:var(--orange);">(coming soon)</span></span></div>
+        <div class="plan-feature"><span class="icon" style="color:var(--text-muted);">○</span><span>Add team members to your account <span style="font-size:11px;color:var(--orange);">(coming soon)</span></span></div>
+        <div class="plan-feature"><span class="icon" style="color:var(--text-muted);">○</span><span>White-label the client-facing pages with your brand <span style="font-size:11px;color:var(--orange);">(coming soon)</span></span></div>
       </div>
       {% if current_user.is_authenticated %}
         {% if current_user.plan == 'pro' %}
-        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);text-transform:uppercase;letter-spacing:0.1em;padding:12px;border:1px solid rgba(74,222,128,0.2);text-align:center;background:rgba(74,222,128,0.04);">✓ CURRENT PLAN</div>
+        <div style="font-size:12px;color:var(--green);text-transform:uppercase;letter-spacing:0.08em;padding:12px;border:1px solid rgba(74,222,128,0.2);text-align:center;background:rgba(74,222,128,0.04);font-weight:700;">✓ Your Current Plan</div>
         {% else %}
         <form method="POST" action="{{ url_for('create_checkout_session') }}">
           <input type="hidden" name="plan" value="pro" />
-          <button type="submit" class="btn-ghost" style="width:100%;justify-content:center;padding:13px;cursor:pointer;border:none;font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;font-size:13px;background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border-bright);">UPGRADE TO BUSINESS →</button>
+          <button type="submit" class="btn-ghost" style="width:100%;justify-content:center;padding:13px;cursor:pointer;border:none;font-size:13px;background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border-bright);">Upgrade to Business →</button>
         </form>
         {% endif %}
       {% else %}
-        <a href="{{ url_for('register') }}" class="btn-ghost" style="width:100%;justify-content:center;padding:13px;font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;font-size:13px;">GET STARTED →</a>
+        <a href="{{ url_for('register') }}" class="btn-ghost" style="width:100%;justify-content:center;padding:13px;font-size:13px;">Get Started →</a>
       {% endif %}
     </div>
 
@@ -220,12 +186,12 @@
 
   <!-- Feature comparison -->
   <div style="margin-bottom:80px;">
-    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:24px;">// What's included</div>
+    <h2 style="font-family:'Bebas Neue',cursive;font-size:36px;color:var(--text);letter-spacing:0.04em;margin-bottom:24px;">What's Included</h2>
     <div style="border:1px solid var(--border);overflow:hidden;">
       <table class="compare-table">
         <thead>
           <tr style="background:var(--surface);">
-            <th style="text-align:left;width:40%;">Feature</th>
+            <th style="text-align:left;width:42%;">Feature</th>
             <th>Free</th>
             <th style="background:rgba(249,115,22,0.04);color:var(--orange);">Pro</th>
             <th>Business</th>
@@ -233,27 +199,28 @@
         </thead>
         <tbody>
           {% for feature, free, pro, biz in [
-            ('AI proposal generation', '3 proposals', '✓ Unlimited', '✓ Unlimited'),
-            ('Job scheduling', '✓', '✓', '✓'),
-            ('Client CRM', '✓', '✓', '✓'),
-            ('Financial tracking', '✓', '✓', '✓'),
-            ('Manual invoicing', '✓', '✓', '✓'),
-            ('Auto-invoicing', '—', '✓', '✓'),
-            ('Financial charts & trends', '—', '✓', '✓'),
-            ('Google Calendar sync', '—', '✓', '✓'),
-            ('Cost templates', '—', '✓', '✓'),
-            ('Priority support', '—', '—', '✓'),
-            ('Custom branding', '—', '—', 'Soon'),
-            ('Team members', '—', '—', 'Soon'),
+            ('AI-written proposals', '3 to try', 'Unlimited', 'Unlimited'),
+            ('Job scheduling calendar', 'Yes', 'Yes', 'Yes'),
+            ('Client contact list', 'Yes', 'Yes', 'Yes'),
+            ('Revenue and expense tracking', 'Yes', 'Yes', 'Yes'),
+            ('Send invoices by email', 'Yes', 'Yes', 'Yes'),
+            ('Online invoice payments (Stripe)', 'Yes', 'Yes', 'Yes'),
+            ('Invoices send automatically after a job', 'No', 'Yes', 'Yes'),
+            ('Revenue charts and monthly trends', 'No', 'Yes', 'Yes'),
+            ('Google Calendar sync', 'No', 'Yes', 'Yes'),
+            ('Saved pricing templates', 'No', 'Yes', 'Yes'),
+            ('Priority support', 'No', 'No', 'Yes'),
+            ('Custom proposal branding', 'No', 'No', 'Coming soon'),
+            ('Team member accounts', 'No', 'No', 'Coming soon'),
           ] %}
           <tr>
             <td>{{ feature }}</td>
             {% for val in [free, pro, biz] %}
             <td {% if loop.index == 2 %}style="background:rgba(249,115,22,0.02);"{% endif %}>
-              {% if val == '✓' %}<span class="check">✓</span>
-              {% elif val == '—' %}<span class="cross">—</span>
-              {% elif val == 'Soon' %}<span class="partial">Soon</span>
-              {% else %}<span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);">{{ val }}</span>{% endif %}
+              {% if val == 'Yes' %}<span class="check">✓</span>
+              {% elif val == 'No' %}<span class="cross">—</span>
+              {% elif val == 'Coming soon' %}<span class="partial">Coming soon</span>
+              {% else %}<span style="font-size:12px;color:var(--text-muted);">{{ val }}</span>{% endif %}
             </td>
             {% endfor %}
           </tr>
@@ -265,17 +232,17 @@
 
   <!-- FAQ -->
   <div style="max-width:680px;margin:0 auto;">
-    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:32px;text-align:center;">// Common Questions</div>
+    <h2 style="font-family:'Bebas Neue',cursive;font-size:36px;color:var(--text);letter-spacing:0.04em;margin-bottom:32px;text-align:center;">Common Questions</h2>
     {% for q, a in [
-      ('Do I need a credit card to start?', 'No. Sign up free and generate 3 proposals with no payment info required.'),
-      ('What changed from the old pricing?', 'We no longer charge per proposal. Pro gives you unlimited proposals plus all the automation features — invoicing, charts, Google Calendar — for one flat monthly price.'),
-      ('What exactly is auto-invoicing?', 'When a scheduled job\'s date passes, CloseTheJob automatically creates the job record and emails a PDF invoice to your client. Zero manual effort.'),
-      ('Can I cancel anytime?', 'Yes. Cancel from your profile page at any time. No contracts, no fees, no questions.'),
-      ('Will my proposals look professional?', 'Yes. Every proposal includes scope of work, materials breakdown, labor hours, payment terms, and warranty info — formatted and ready to send or share with a client link.'),
+      ('Do I need a credit card to sign up?', 'No. Create an account and use the full platform for free. You only need a card when you decide to upgrade.'),
+      ('What does "invoices send automatically" mean?', 'When a scheduled job\'s date passes, CloseTheJob creates the job record and emails a professional PDF invoice to your client with no action from you. You can also let clients pay online directly from the invoice.'),
+      ('Can my clients pay online?', 'Yes. Every invoice includes a "Pay Online" button. Your client clicks it, pays by card through Stripe, and the job is automatically marked as paid in your financials.'),
+      ('Can I cancel anytime?', 'Yes. Cancel from your profile page at any time. No contracts, no cancellation fees.'),
+      ('What do the proposals look like?', 'Each proposal is a professional document with a full scope of work, materials breakdown, labor hours, payment terms, and warranty info. You can share it with a link or print it as a PDF.'),
     ] %}
     <div style="border-bottom:1px solid var(--border);padding:20px 0;">
-      <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px;">{{ q }}</div>
-      <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">{{ a }}</div>
+      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px;">{{ q }}</div>
+      <div style="font-size:13px;color:var(--text-muted);line-height:1.7;">{{ a }}</div>
     </div>
     {% endfor %}
   </div>
