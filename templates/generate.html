@@ -91,10 +91,71 @@
       </div>
     </div>
 
-    <!-- Section 3: Pricing -->
+    <!-- Section 3: Costs -->
+    <div class="ctj-card" style="margin-bottom:2px;padding:28px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--border-bright);line-height:1;">03</div>
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);">Costs</div>
+            <div style="font-size:12px;color:var(--text-muted);">Only costs you add here will appear — nothing invented</div>
+          </div>
+        </div>
+        <button type="button" onclick="document.getElementById('saveCostModal').classList.add('active')"
+          style="font-size:11px;color:var(--text-muted);background:none;border:1px solid var(--border-bright);padding:6px 12px;cursor:pointer;font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;transition:all 0.15s;"
+          onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">
+          MANAGE SAVED ›
+        </button>
+      </div>
+
+      <!-- Saved cost templates -->
+      {% if cost_templates %}
+      <div style="margin-bottom:20px;">
+        <div style="font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;margin-bottom:12px;">Saved Costs</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          {% for ct in cost_templates %}
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);">
+            <input type="checkbox" name="ct_{{ ct.id }}" id="ct_{{ ct.id }}" style="accent-color:var(--orange);width:16px;height:16px;flex-shrink:0;">
+            <label for="ct_{{ ct.id }}" style="flex:1;cursor:pointer;">
+              <span style="font-size:13px;font-weight:600;color:var(--text);">{{ ct.name }}</span>
+              {% if ct.cost_type == 'fixed' %}
+                <span style="font-size:12px;color:var(--text-muted);margin-left:8px;">${{ '{:,.2f}'.format(ct.amount) }} fixed</span>
+              {% else %}
+                <span style="font-size:12px;color:var(--text-muted);margin-left:8px;">${{ '{:,.2f}'.format(ct.amount) }} / {{ ct.unit }}</span>
+              {% endif %}
+            </label>
+            {% if ct.cost_type == 'per_unit' %}
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">QTY</span>
+              <input type="number" name="ct_{{ ct.id }}_qty" min="0" step="any"
+                style="width:80px;background:var(--surface);border:1px solid var(--border-bright);color:var(--text);padding:5px 8px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none;"
+                placeholder="0" onfocus="document.getElementById('ct_{{ ct.id }}').checked=true">
+              <span style="font-size:11px;color:var(--text-muted);">{{ ct.unit }}</span>
+            </div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Ad-hoc cost rows -->
+      <div style="margin-bottom:16px;">
+        <div style="font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;margin-bottom:12px;">Add Costs for This Job</div>
+        <div id="adhoc-costs" style="display:flex;flex-direction:column;gap:8px;"></div>
+        <button type="button" onclick="addCostRow()"
+          style="margin-top:10px;font-size:12px;color:var(--orange);background:none;border:1px dashed rgba(249,115,22,0.4);padding:8px 16px;cursor:pointer;font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;width:100%;transition:all 0.15s;"
+          onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='rgba(249,115,22,0.4)'">
+          + ADD COST
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Section 4: Pricing -->
     <div class="ctj-card" style="margin-bottom:28px;padding:28px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border);">
-        <div style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--border-bright);line-height:1;">03</div>
+        <div style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--border-bright);line-height:1;">04</div>
         <div>
           <div style="font-size:14px;font-weight:600;color:var(--text);">Labor & Pricing</div>
           <div style="font-size:12px;color:var(--text-muted);">Used to calculate your total estimate</div>
@@ -132,6 +193,67 @@
     </div>
 
   </form>
+</div>
+
+<!-- Manage Saved Costs Modal -->
+<div id="saveCostModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1000;align-items:center;justify-content:center;padding:20px;"
+     onclick="if(event.target===this)this.classList.remove('active'),this.style.display='none'">
+  <div style="background:var(--surface);border:1px solid var(--border-bright);width:100%;max-width:480px;max-height:85vh;overflow-y:auto;">
+    <div style="background:var(--surface-2);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-family:'Bebas Neue',cursive;font-size:20px;color:var(--text);letter-spacing:0.04em;">Saved Costs</span>
+      <button onclick="document.getElementById('saveCostModal').style.display='none'" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">×</button>
+    </div>
+    <div style="padding:24px;">
+
+      <!-- Existing saved costs -->
+      {% if cost_templates %}
+      <div style="margin-bottom:24px;">
+        {% for ct in cost_templates %}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text);">{{ ct.name }}</div>
+            <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">
+              {% if ct.cost_type == 'fixed' %}FIXED · ${{ '{:,.2f}'.format(ct.amount) }}{% else %}PER UNIT · ${{ '{:,.2f}'.format(ct.amount) }}/{{ ct.unit }}{% endif %}
+            </div>
+          </div>
+          <form method="POST" action="{{ url_for('delete_cost_template', ct_id=ct.id) }}" onsubmit="return confirm('Remove this saved cost?')">
+            <button type="submit" style="background:none;border:none;font-size:11px;color:var(--text-muted);cursor:pointer;font-family:'JetBrains Mono',monospace;transition:color 0.15s;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-muted)'">REMOVE</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">No saved costs yet. Add one below.</p>
+      {% endif %}
+
+      <!-- Add new saved cost -->
+      <div style="font-size:10px;font-weight:600;color:var(--orange);text-transform:uppercase;letter-spacing:0.08em;font-family:'JetBrains Mono',monospace;margin-bottom:12px;">Add New Saved Cost</div>
+      <form method="POST" action="{{ url_for('add_cost_template') }}">
+        <div style="margin-bottom:12px;">
+          <label class="ctj-label">Name</label>
+          <input name="name" class="ctj-input" placeholder="e.g. Service Call Fee, Per Square Foot" required>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div>
+            <label class="ctj-label">Type</label>
+            <select name="cost_type" class="ctj-input" id="modal-cost-type" onchange="toggleModalUnit(this.value)">
+              <option value="fixed">Fixed Fee</option>
+              <option value="per_unit">Per Unit</option>
+            </select>
+          </div>
+          <div>
+            <label class="ctj-label">Amount ($)</label>
+            <input name="amount" type="number" step="0.01" min="0" class="ctj-input" placeholder="0.00" required>
+          </div>
+        </div>
+        <div id="modal-unit-field" style="margin-bottom:16px;display:none;">
+          <label class="ctj-label">Unit Label <span style="color:var(--orange);">*</span></label>
+          <input name="unit" class="ctj-input" placeholder="e.g. sq ft, linear ft, unit, hour">
+        </div>
+        <button type="submit" class="btn-orange" style="width:100%;padding:11px;font-size:12px;justify-content:center;clip-path:none;">Save Cost</button>
+      </form>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
@@ -380,5 +502,83 @@ document.getElementById('proposal-form').addEventListener('submit', function() {
   btn.style.cursor = 'not-allowed';
   text.textContent = 'Generating... (~15 seconds)';
 });
+
+// Modal open needs display:flex not just class
+document.querySelector('[onclick*="saveCostModal"]').onclick = function() {
+  const m = document.getElementById('saveCostModal');
+  m.style.display = 'flex';
+};
+
+function toggleModalUnit(val) {
+  document.getElementById('modal-unit-field').style.display = val === 'per_unit' ? 'block' : 'none';
+}
+
+// ── Ad-hoc cost rows ─────────────────────────────────────────────────────────
+let costRowIndex = 0;
+function addCostRow() {
+  const container = document.getElementById('adhoc-costs');
+  const idx = costRowIndex++;
+  const row = document.createElement('div');
+  row.id = `cost-row-${idx}`;
+  row.style.cssText = 'background:var(--surface-2);border:1px solid var(--border);padding:12px 14px;';
+  row.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:end;margin-bottom:8px;">
+      <div>
+        <label class="ctj-label">Cost Name</label>
+        <input name="adhoc_name[]" class="ctj-input" placeholder="e.g. Service Fee, Material markup…">
+      </div>
+      <div>
+        <label class="ctj-label">Type</label>
+        <select name="adhoc_type[]" class="ctj-input" style="width:110px;" onchange="togglePerUnit(this, ${idx})">
+          <option value="fixed">Fixed</option>
+          <option value="per_unit">Per Unit</option>
+        </select>
+      </div>
+      <button type="button" onclick="document.getElementById('cost-row-${idx}').remove()"
+        style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:18px;padding:0 4px;line-height:1;margin-bottom:2px;transition:color 0.15s;"
+        onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-muted)'">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end;">
+      <div>
+        <label class="ctj-label">Amount ($)</label>
+        <input name="adhoc_amount[]" type="number" step="0.01" min="0" class="ctj-input" placeholder="0.00">
+      </div>
+      <div id="per-unit-fields-${idx}" style="display:none;grid-column:span 1;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div>
+            <label class="ctj-label">Unit (e.g. sq ft)</label>
+            <input name="adhoc_unit[]" class="ctj-input" placeholder="sq ft">
+          </div>
+          <div>
+            <label class="ctj-label">Quantity</label>
+            <input name="adhoc_qty[]" type="number" step="any" min="0" class="ctj-input" placeholder="0">
+          </div>
+        </div>
+      </div>
+      <input type="hidden" name="adhoc_unit[]" id="hidden-unit-${idx}">
+      <input type="hidden" name="adhoc_qty[]" id="hidden-qty-${idx}">
+    </div>
+    <div style="margin-top:10px;display:flex;align-items:center;gap:8px;">
+      <input type="checkbox" name="adhoc_save[]" value="${idx}" id="save-${idx}" style="accent-color:var(--orange);">
+      <label for="save-${idx}" style="font-size:11px;color:var(--text-muted);cursor:pointer;font-family:'JetBrains Mono',monospace;">SAVE FOR FUTURE PROPOSALS</label>
+    </div>
+  `;
+  container.appendChild(row);
+}
+
+function togglePerUnit(select, idx) {
+  const puFields = document.getElementById(`per-unit-fields-${idx}`);
+  const hiddenUnit = document.getElementById(`hidden-unit-${idx}`);
+  const hiddenQty = document.getElementById(`hidden-qty-${idx}`);
+  if (select.value === 'per_unit') {
+    puFields.style.display = 'block';
+    hiddenUnit.name = '';
+    hiddenQty.name = '';
+  } else {
+    puFields.style.display = 'none';
+    hiddenUnit.name = 'adhoc_unit[]';
+    hiddenQty.name = 'adhoc_qty[]';
+  }
+}
 </script>
 {% endblock %}

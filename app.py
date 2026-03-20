@@ -121,6 +121,16 @@ class Proposal(db.Model):
         }.get(self.status, 'gray')
 
 
+class CostTemplate(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    cost_type = db.Column(db.String(20), default='fixed')  # fixed or per_unit
+    amount = db.Column(db.Float, default=0)
+    unit = db.Column(db.String(50), default='')  # e.g. "sq ft", "linear ft"
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class Job(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -350,6 +360,19 @@ def send_invoice_email(job, user):
 
 
 def call_claude_for_proposal(job_data, user_data):
+    # Build explicit costs text
+    explicit_costs = job_data.get('explicit_costs', [])
+    if explicit_costs:
+        cost_lines = []
+        for c in explicit_costs:
+            if c['type'] == 'fixed':
+                cost_lines.append(f"  - {c['name']}: ${c['amount']:.2f} (fixed)")
+            else:
+                cost_lines.append(f"  - {c['name']}: ${c['unit_cost']:.2f} per {c['unit']} × {c['quantity']} {c['unit']} = ${c['total']:.2f}")
+        costs_section = "Explicit Costs Provided (include ONLY these in materials_list — do NOT add anything else):\n" + '\n'.join(cost_lines)
+    else:
+        costs_section = "Explicit Costs Provided: None — leave materials_list as an empty array []."
+
     prompt = f"""You are an expert proposal writer for trade contractors. Generate a detailed, professional job proposal in JSON format.
 
 Contractor:
@@ -364,12 +387,18 @@ Client & Job:
 - Job Site: {job_data['client_address']}
 - Job Type: {job_data['job_type']}
 - Description: {job_data['job_description']}
-- Materials/Parts Noted: {job_data['materials_input']}
 - Labor: {job_data['labor_hours']} hours at ${job_data['labor_rate']}/hour
 - Timeline: {job_data['timeline']}
 - Warranty: {job_data['warranty']}
 - Special Notes: {job_data['notes']}
 {(''.join(f'- {k}: {v}' + chr(10) for k, v in job_data.get('service_details', {}).items())) if job_data.get('service_details') else ''}
+
+{costs_section}
+
+CRITICAL RULES:
+1. Only include items in materials_list that are explicitly listed above. Do NOT invent, guess, or add any materials, parts, fees, or costs not provided.
+2. If no costs are provided, materials_list must be an empty array.
+3. Calculate grand_total as: labor_total + total_materials only.
 
 Return ONLY valid JSON with exactly this structure (no markdown, no extra text):
 {{
@@ -380,7 +409,7 @@ Return ONLY valid JSON with exactly this structure (no markdown, no extra text):
     "..."
   ],
   "materials_list": [
-    {{"name": "Material name", "quantity": "amount", "unit": "each/lf/sf/gal", "unit_cost": 0.00, "total": 0.00}},
+    {{"name": "Item name", "quantity": "amount", "unit": "each/lf/sf/hr", "unit_cost": 0.00, "total": 0.00}},
     ...
   ],
   "labor_description": "Clear description of labor included",
@@ -398,7 +427,7 @@ Return ONLY valid JSON with exactly this structure (no markdown, no extra text):
   "call_to_action": "Clear next step for client to accept"
 }}
 
-Use realistic pricing. Calculate all totals accurately. Be professional and specific."""
+Calculate all totals accurately. Be professional and specific."""
 
     api_key = ''.join(os.getenv('ANTHROPIC_API_KEY', '').split())
     response = http_requests.post(
@@ -488,9 +517,44 @@ def dashboard():
     return render_template('dashboard.html', proposals=proposals)
 
 
+@app.route('/cost-templates/add', methods=['POST'])
+@login_required
+def add_cost_template():
+    name = request.form.get('name', '').strip()
+    if not name:
+        flash('Name is required.', 'error')
+        return redirect(url_for('generate'))
+    ct = CostTemplate(
+        user_id=current_user.id,
+        name=name,
+        cost_type=request.form.get('cost_type', 'fixed'),
+        amount=float(request.form.get('amount', 0) or 0),
+        unit=request.form.get('unit', '').strip(),
+    )
+    db.session.add(ct)
+    db.session.commit()
+    flash(f'Saved cost "{name}" added.', 'success')
+    return redirect(url_for('generate'))
+
+
+@app.route('/cost-templates/<int:ct_id>/delete', methods=['POST'])
+@login_required
+def delete_cost_template(ct_id):
+    ct = CostTemplate.query.get_or_404(ct_id)
+    if ct.user_id != current_user.id:
+        flash('Access denied.', 'error')
+        return redirect(url_for('generate'))
+    db.session.delete(ct)
+    db.session.commit()
+    flash('Saved cost removed.', 'success')
+    return redirect(url_for('generate'))
+
+
 @app.route('/generate', methods=['GET', 'POST'])
 @login_required
 def generate():
+    cost_templates = CostTemplate.query.filter_by(user_id=current_user.id).order_by(CostTemplate.created_at).all()
+
     if not current_user.can_generate:
         flash('You have used all your free proposals. Upgrade to continue.', 'warning')
         return redirect(url_for('pricing'))
@@ -503,6 +567,68 @@ def generate():
                 if val:
                     label = key[4:].replace('_', ' ').title()
                     service_details[label] = val
+
+        # Collect explicit costs — saved templates (checked) + ad-hoc rows
+        explicit_costs = []
+
+        for ct in cost_templates:
+            if request.form.get(f'ct_{ct.id}'):
+                if ct.cost_type == 'fixed':
+                    explicit_costs.append({
+                        'name': ct.name,
+                        'type': 'fixed',
+                        'amount': ct.amount,
+                    })
+                else:
+                    qty = float(request.form.get(f'ct_{ct.id}_qty', 0) or 0)
+                    explicit_costs.append({
+                        'name': ct.name,
+                        'type': 'per_unit',
+                        'unit': ct.unit,
+                        'unit_cost': ct.amount,
+                        'quantity': qty,
+                        'total': round(ct.amount * qty, 2),
+                    })
+
+        adhoc_names   = request.form.getlist('adhoc_name[]')
+        adhoc_types   = request.form.getlist('adhoc_type[]')
+        adhoc_amounts = request.form.getlist('adhoc_amount[]')
+        adhoc_units   = request.form.getlist('adhoc_unit[]')
+        adhoc_qtys    = request.form.getlist('adhoc_qty[]')
+        adhoc_saves   = request.form.getlist('adhoc_save[]')
+
+        for i, name in enumerate(adhoc_names):
+            name = name.strip()
+            if not name:
+                continue
+            cost_type = adhoc_types[i] if i < len(adhoc_types) else 'fixed'
+            amount = float(adhoc_amounts[i]) if i < len(adhoc_amounts) and adhoc_amounts[i] else 0
+            if cost_type == 'per_unit':
+                unit = adhoc_units[i] if i < len(adhoc_units) else ''
+                qty = float(adhoc_qtys[i]) if i < len(adhoc_qtys) and adhoc_qtys[i] else 0
+                explicit_costs.append({
+                    'name': name,
+                    'type': 'per_unit',
+                    'unit': unit,
+                    'unit_cost': amount,
+                    'quantity': qty,
+                    'total': round(amount * qty, 2),
+                })
+            else:
+                explicit_costs.append({'name': name, 'type': 'fixed', 'amount': amount})
+
+            # Save as template if requested
+            if str(i) in adhoc_saves:
+                new_ct = CostTemplate(
+                    user_id=current_user.id,
+                    name=name,
+                    cost_type=cost_type,
+                    amount=amount,
+                    unit=adhoc_units[i] if cost_type == 'per_unit' and i < len(adhoc_units) else '',
+                )
+                db.session.add(new_ct)
+
+        db.session.commit()
 
         job_data = {
             'client_name': request.form.get('client_name', '').strip(),
@@ -518,6 +644,7 @@ def generate():
             'warranty': request.form.get('warranty', '').strip(),
             'notes': request.form.get('notes', '').strip(),
             'service_details': service_details,
+            'explicit_costs': explicit_costs,
         }
 
         user_data = {
@@ -532,7 +659,7 @@ def generate():
             content = call_claude_for_proposal(job_data, user_data)
         except Exception as e:
             flash(f'Error generating proposal: {str(e)}', 'error')
-            return render_template('generate.html', form_data=job_data)
+            return render_template('generate.html', form_data=job_data, cost_templates=cost_templates)
 
         proposal = Proposal(
             user_id=current_user.id,
@@ -557,7 +684,7 @@ def generate():
         db.session.commit()
         return redirect(url_for('view_proposal', proposal_id=proposal.id))
 
-    return render_template('generate.html', form_data={})
+    return render_template('generate.html', form_data={}, cost_templates=cost_templates)
 
 
 @app.route('/proposal/<int:proposal_id>')
