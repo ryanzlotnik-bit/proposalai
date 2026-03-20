@@ -8,8 +8,16 @@ import stripe
 import os
 import calendar
 import threading
+import imaplib
+import time
+import email as email_lib
+import email.utils
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
 from datetime import datetime, date
 from dotenv import load_dotenv
+from fpdf import FPDF
 import json
 import random
 import string
@@ -237,126 +245,262 @@ def build_monthly_chart_data(user_id, months=12):
     return labels, revenues, expenses_data, tips_data
 
 
-def send_invoice_email(job, user):
-    """Send a clean HTML invoice email to the client. Returns True on success."""
-    if not app.config.get('MAIL_USERNAME') or not job.client_email:
-        return False
-
+def generate_invoice_pdf(job, user):
+    """Generate a PDF invoice and return bytes."""
     company = user.company_name or user.name
     invoice_num = f"INV-{job.id:04d}"
     completed = job.completed_date.strftime('%B %d, %Y')
 
-    html = f"""
-<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+    pdf = FPDF()
+    pdf.set_margins(18, 18, 18)
+    pdf.add_page()
+    W = pdf.w - 36  # usable width
+
+    # ── Dark header bar ────────────────────────────────────────────────────────
+    pdf.set_fill_color(26, 26, 26)
+    pdf.rect(0, 0, pdf.w, 32, 'F')
+    pdf.set_y(9)
+    pdf.set_font('Helvetica', 'B', 15)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(W / 2, 7, company[:40], ln=False)
+    pdf.set_font('Helvetica', '', 9)
+    pdf.set_text_color(150, 150, 150)
+    contact_right = f"{user.phone or ''}  {user.email}"
+    pdf.cell(W / 2, 7, contact_right.strip(), align='R', ln=True)
+    pdf.set_font('Helvetica', '', 9)
+    trade_str = user.trade_type + (f" · Lic #{user.license_number}" if user.license_number else "")
+    pdf.set_x(18)
+    pdf.cell(W, 5, trade_str, ln=True)
+
+    # ── Orange title bar ───────────────────────────────────────────────────────
+    pdf.set_fill_color(249, 115, 22)
+    pdf.rect(0, 32, pdf.w, 14, 'F')
+    pdf.set_y(35)
+    pdf.set_x(18)
+    pdf.set_font('Helvetica', 'B', 13)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(W / 2, 7, 'INVOICE', ln=False)
+    pdf.cell(W / 2, 7, invoice_num, align='R', ln=True)
+
+    pdf.set_y(54)
+    pdf.set_text_color(17, 17, 17)
+
+    # ── Info boxes ─────────────────────────────────────────────────────────────
+    col_w = (W - 6) / 2
+    box_y = pdf.get_y()
+
+    # Billed To
+    pdf.set_fill_color(249, 249, 249)
+    pdf.rect(18, box_y, col_w, 36, 'F')
+    pdf.set_draw_color(220, 220, 220)
+    pdf.rect(18, box_y, col_w, 36)
+    pdf.set_xy(20, box_y + 3)
+    pdf.set_font('Helvetica', 'B', 8)
+    pdf.set_text_color(249, 115, 22)
+    pdf.cell(col_w - 4, 5, 'BILLED TO', ln=True)
+    pdf.set_x(20)
+    pdf.set_font('Helvetica', 'B', 10)
+    pdf.set_text_color(17, 17, 17)
+    pdf.cell(col_w - 4, 6, job.client_name[:35], ln=True)
+    pdf.set_font('Helvetica', '', 9)
+    pdf.set_text_color(80, 80, 80)
+    if job.client_email:
+        pdf.set_x(20); pdf.cell(col_w - 4, 5, job.client_email[:40], ln=True)
+    if job.client_phone:
+        pdf.set_x(20); pdf.cell(col_w - 4, 5, job.client_phone, ln=True)
+
+    # Invoice Details
+    dx = 18 + col_w + 6
+    pdf.set_fill_color(249, 249, 249)
+    pdf.rect(dx, box_y, col_w, 36, 'F')
+    pdf.rect(dx, box_y, col_w, 36)
+    pdf.set_xy(dx + 2, box_y + 3)
+    pdf.set_font('Helvetica', 'B', 8)
+    pdf.set_text_color(249, 115, 22)
+    pdf.cell(col_w - 4, 5, 'INVOICE DETAILS', ln=True)
+    pdf.set_text_color(80, 80, 80)
+    pdf.set_font('Helvetica', '', 9)
+    for label, val in [('Invoice #', invoice_num), ('Job Type', job.job_type or 'Services'), ('Completed', completed)]:
+        pdf.set_x(dx + 2)
+        pdf.set_font('Helvetica', 'B', 9); pdf.cell(24, 5, label, ln=False)
+        pdf.set_font('Helvetica', '', 9); pdf.cell(col_w - 28, 5, str(val)[:30], ln=True)
+
+    pdf.set_y(box_y + 40)
+
+    # ── Description ────────────────────────────────────────────────────────────
+    if job.description:
+        pdf.set_font('Helvetica', '', 10)
+        pdf.set_text_color(60, 60, 60)
+        pdf.multi_cell(W, 5, job.description[:300], ln=True)
+        pdf.ln(4)
+
+    # ── Line items table ───────────────────────────────────────────────────────
+    pdf.set_fill_color(245, 245, 245)
+    pdf.rect(18, pdf.get_y(), W, 10, 'F')
+    pdf.set_font('Helvetica', 'B', 9)
+    pdf.set_text_color(80, 80, 80)
+    pdf.cell(W * 0.7, 10, 'DESCRIPTION', ln=False, border='B')
+    pdf.cell(W * 0.3, 10, 'AMOUNT', align='R', ln=True, border='B')
+
+    pdf.set_font('Helvetica', '', 10)
+    pdf.set_text_color(50, 50, 50)
+    pdf.cell(W * 0.7, 9, job.job_type or 'Professional Services', ln=False, border='B')
+    pdf.cell(W * 0.3, 9, f'${job.revenue:,.2f}', align='R', ln=True, border='B')
+
+    # Total row
+    pdf.set_fill_color(249, 115, 22)
+    pdf.rect(18, pdf.get_y(), W, 12, 'F')
+    pdf.set_font('Helvetica', 'B', 11)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(W * 0.7, 12, 'TOTAL DUE', ln=False)
+    pdf.cell(W * 0.3, 12, f'${job.revenue:,.2f}', align='R', ln=True)
+
+    pdf.ln(6)
+
+    if job.notes:
+        pdf.set_font('Helvetica', 'I', 9)
+        pdf.set_text_color(120, 120, 120)
+        pdf.multi_cell(W, 5, f'Notes: {job.notes[:200]}')
+
+    # ── Footer ─────────────────────────────────────────────────────────────────
+    pdf.set_y(-20)
+    pdf.set_fill_color(26, 26, 26)
+    pdf.rect(0, pdf.get_y(), pdf.w, 20, 'F')
+    pdf.set_font('Helvetica', '', 9)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(W, 10, f'Thank you for your business · {company}', align='C', ln=True)
+
+    return bytes(pdf.output())
+
+
+def _build_mime_invoice(job, user, html_body, pdf_bytes):
+    """Build a MIME message with HTML body and PDF attachment."""
+    company = user.company_name or user.name
+    invoice_num = f"INV-{job.id:04d}"
+    subject = f"Invoice {invoice_num} — {company}"
+
+    msg = MIMEMultipart('mixed')
+    msg['From'] = app.config.get('MAIL_USERNAME', '')
+    msg['To'] = job.client_email
+    msg['Subject'] = subject
+    msg['Date'] = email.utils.formatdate(time.time())
+
+    alt = MIMEMultipart('alternative')
+    alt.attach(MIMEText(html_body, 'html'))
+    msg.attach(alt)
+
+    pdf_part = MIMEApplication(pdf_bytes, _subtype='pdf')
+    pdf_part.add_header('Content-Disposition', 'attachment', filename=f'{invoice_num}.pdf')
+    msg.attach(pdf_part)
+
+    return msg, subject
+
+
+def _build_invoice_html(job, user):
+    company = user.company_name or user.name
+    invoice_num = f"INV-{job.id:04d}"
+    completed = job.completed_date.strftime('%B %d, %Y')
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f4f4f4;font-family:'Helvetica Neue',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:40px 20px;">
-    <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:4px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
-
-        <!-- Header -->
-        <tr><td style="background:#1a1a1a;padding:0;">
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="padding:20px 32px;">
-                <div style="font-size:20px;font-weight:700;color:#fff;">{company}</div>
-                <div style="font-size:12px;color:#888;margin-top:4px;">{user.trade_type}{' · Lic #' + user.license_number if user.license_number else ''}</div>
-              </td>
-              <td style="padding:20px 32px;text-align:right;">
-                <div style="font-size:12px;color:#888;">{user.phone or ''}</div>
-                <div style="font-size:12px;color:#888;margin-top:2px;">{user.email}</div>
-              </td>
-            </tr>
-          </table>
-        </td></tr>
-
-        <!-- Orange title bar -->
-        <tr><td style="background:#F97316;padding:14px 32px;">
-          <span style="font-size:20px;font-weight:800;color:#fff;letter-spacing:0.04em;text-transform:uppercase;">INVOICE</span>
-          <span style="float:right;font-size:14px;color:rgba(255,255,255,0.85);font-weight:600;">{invoice_num}</span>
-        </td></tr>
-
-        <!-- Body -->
-        <tr><td style="padding:32px;">
-
-          <!-- Info row -->
-          <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;">
-            <tr>
-              <td width="50%" style="vertical-align:top;padding-right:16px;">
-                <div style="background:#f9f9f9;border:1px solid #eee;padding:16px;border-radius:2px;">
-                  <div style="font-size:10px;font-weight:700;color:#F97316;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Billed To</div>
-                  <div style="font-size:14px;font-weight:700;color:#111;">{job.client_name}</div>
-                  {'<div style="font-size:12px;color:#555;margin-top:4px;">' + job.client_email + '</div>' if job.client_email else ''}
-                  {'<div style="font-size:12px;color:#555;margin-top:2px;">' + job.client_phone + '</div>' if job.client_phone else ''}
-                </div>
-              </td>
-              <td width="50%" style="vertical-align:top;padding-left:16px;">
-                <div style="background:#f9f9f9;border:1px solid #eee;padding:16px;border-radius:2px;">
-                  <div style="font-size:10px;font-weight:700;color:#F97316;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Invoice Details</div>
-                  <table cellpadding="0" cellspacing="0">
-                    <tr><td style="font-size:12px;color:#888;padding:2px 0;padding-right:12px;">Invoice #</td><td style="font-size:12px;font-weight:600;color:#111;">{invoice_num}</td></tr>
-                    <tr><td style="font-size:12px;color:#888;padding:2px 0;padding-right:12px;">Job Type</td><td style="font-size:12px;font-weight:600;color:#111;">{job.job_type or 'Services'}</td></tr>
-                    <tr><td style="font-size:12px;color:#888;padding:2px 0;padding-right:12px;">Completed</td><td style="font-size:12px;font-weight:600;color:#111;">{completed}</td></tr>
-                  </table>
-                </div>
-              </td>
-            </tr>
-          </table>
-
-          <!-- Description -->
-          {'<p style="font-size:13px;color:#444;line-height:1.6;margin-bottom:24px;">' + job.description + '</p>' if job.description else ''}
-
-          <!-- Amount table -->
-          <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:24px;">
-            <tr style="background:#f5f5f5;">
-              <td style="padding:10px 14px;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #e0e0e0;">Description</td>
-              <td style="padding:10px 14px;font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid #e0e0e0;text-align:right;">Amount</td>
-            </tr>
-            <tr>
-              <td style="padding:14px;font-size:13px;color:#333;border-bottom:1px solid #eee;">{job.job_type or 'Professional Services'}</td>
-              <td style="padding:14px;font-size:13px;font-weight:600;color:#111;text-align:right;border-bottom:1px solid #eee;">${job.revenue:,.2f}</td>
-            </tr>
-            <tr style="background:#F97316;">
-              <td style="padding:12px 14px;font-size:14px;font-weight:700;color:#fff;">TOTAL DUE</td>
-              <td style="padding:12px 14px;font-size:14px;font-weight:700;color:#fff;text-align:right;">${job.revenue:,.2f}</td>
-            </tr>
-          </table>
-
-          {'<p style="font-size:12px;color:#888;font-style:italic;margin-bottom:0;">Notes: ' + job.notes + '</p>' if job.notes else ''}
-
-        </td></tr>
-
-        <!-- Footer -->
-        <tr><td style="background:#1a1a1a;padding:16px 32px;text-align:center;">
-          <p style="font-size:11px;color:#666;margin:0;">Thank you for your business · {company}</p>
-        </td></tr>
-
-      </table>
-    </td></tr>
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+<tr><td style="background:#1a1a1a;padding:20px 32px;">
+  <table width="100%"><tr>
+    <td><div style="font-size:18px;font-weight:700;color:#fff;">{company}</div>
+        <div style="font-size:11px;color:#888;">{user.trade_type}{' · Lic #'+user.license_number if user.license_number else ''}</div></td>
+    <td style="text-align:right;"><div style="font-size:11px;color:#888;">{user.phone or ''}</div>
+        <div style="font-size:11px;color:#888;">{user.email}</div></td>
+  </tr></table>
+</td></tr>
+<tr><td style="background:#F97316;padding:14px 32px;">
+  <span style="font-size:18px;font-weight:800;color:#fff;">INVOICE</span>
+  <span style="float:right;font-size:13px;color:rgba(255,255,255,0.9);font-weight:600;">{invoice_num}</span>
+</td></tr>
+<tr><td style="padding:32px;">
+  <table width="100%" style="margin-bottom:24px;"><tr>
+    <td width="48%" style="background:#f9f9f9;border:1px solid #eee;padding:14px;vertical-align:top;">
+      <div style="font-size:10px;font-weight:700;color:#F97316;text-transform:uppercase;margin-bottom:6px;">Billed To</div>
+      <div style="font-size:13px;font-weight:700;color:#111;">{job.client_name}</div>
+      {'<div style="font-size:11px;color:#555;margin-top:3px;">'+job.client_email+'</div>' if job.client_email else ''}
+      {'<div style="font-size:11px;color:#555;">'+job.client_phone+'</div>' if job.client_phone else ''}
+    </td>
+    <td width="4%"></td>
+    <td width="48%" style="background:#f9f9f9;border:1px solid #eee;padding:14px;vertical-align:top;">
+      <div style="font-size:10px;font-weight:700;color:#F97316;text-transform:uppercase;margin-bottom:6px;">Invoice Details</div>
+      <table><tr><td style="font-size:11px;color:#888;padding-right:10px;">Invoice #</td><td style="font-size:11px;font-weight:600;color:#111;">{invoice_num}</td></tr>
+      <tr><td style="font-size:11px;color:#888;padding-right:10px;">Job Type</td><td style="font-size:11px;font-weight:600;color:#111;">{job.job_type or 'Services'}</td></tr>
+      <tr><td style="font-size:11px;color:#888;padding-right:10px;">Completed</td><td style="font-size:11px;font-weight:600;color:#111;">{completed}</td></tr></table>
+    </td>
+  </tr></table>
+  {'<p style="font-size:12px;color:#444;line-height:1.6;margin-bottom:20px;">'+job.description+'</p>' if job.description else ''}
+  <table width="100%" style="border-collapse:collapse;margin-bottom:20px;">
+    <tr style="background:#f5f5f5;"><td style="padding:9px 12px;font-size:10px;font-weight:700;color:#555;text-transform:uppercase;border-bottom:1px solid #e0e0e0;">Description</td>
+    <td style="padding:9px 12px;font-size:10px;font-weight:700;color:#555;text-transform:uppercase;border-bottom:1px solid #e0e0e0;text-align:right;">Amount</td></tr>
+    <tr><td style="padding:12px;font-size:12px;color:#333;border-bottom:1px solid #eee;">{job.job_type or 'Professional Services'}</td>
+    <td style="padding:12px;font-size:12px;font-weight:600;color:#111;text-align:right;border-bottom:1px solid #eee;">${job.revenue:,.2f}</td></tr>
+    <tr style="background:#F97316;"><td style="padding:11px 12px;font-size:13px;font-weight:700;color:#fff;">TOTAL DUE</td>
+    <td style="padding:11px 12px;font-size:13px;font-weight:700;color:#fff;text-align:right;">${job.revenue:,.2f}</td></tr>
   </table>
-</body>
-</html>
-"""
+  {'<p style="font-size:11px;color:#888;font-style:italic;">Notes: '+job.notes+'</p>' if job.notes else ''}
+  <p style="font-size:12px;color:#666;margin-top:20px;">Please find your invoice attached as a PDF. Thank you for your business!</p>
+</td></tr>
+<tr><td style="background:#1a1a1a;padding:14px 32px;text-align:center;">
+  <p style="font-size:10px;color:#666;margin:0;">Thank you for your business · {company}</p>
+</td></tr>
+</table></td></tr></table>
+</body></html>"""
 
-    try:
-        msg = Message(
-            subject=f"Invoice {invoice_num} — {company}",
-            recipients=[job.client_email],
-            html=html,
-        )
-        # Send in background thread so the page doesn't freeze
-        ctx = app.app_context()
-        def send():
-            with ctx:
-                try:
-                    mail.send(msg)
-                except Exception:
-                    pass
-        threading.Thread(target=send, daemon=True).start()
-        return True
-    except Exception:
+
+def send_invoice_email(job, user):
+    """Send invoice email with PDF attachment and save a draft. Returns True on success."""
+    if not app.config.get('MAIL_USERNAME') or not job.client_email:
         return False
+
+    username = app.config.get('MAIL_USERNAME', '')
+    password = app.config.get('MAIL_PASSWORD', '')
+
+    def do_send():
+        with app.app_context():
+            try:
+                pdf_bytes = generate_invoice_pdf(job, user)
+                html_body = _build_invoice_html(job, user)
+                mime_msg, subject = _build_mime_invoice(job, user, html_body, pdf_bytes)
+
+                # 1) Send to client via Flask-Mail
+                flask_msg = Message(
+                    subject=subject,
+                    recipients=[job.client_email],
+                    html=html_body,
+                )
+                flask_msg.attach(
+                    f"INV-{job.id:04d}.pdf",
+                    'application/pdf',
+                    pdf_bytes,
+                )
+                mail.send(flask_msg)
+
+                # 2) Save a copy to Gmail Drafts via IMAP
+                if username and password and 'gmail' in username.lower():
+                    try:
+                        imap = imaplib.IMAP4_SSL('imap.gmail.com')
+                        imap.login(username, password)
+                        imap.append(
+                            '[Gmail]/Drafts',
+                            '\\Draft',
+                            imaplib.Time2Internaldate(time.time()),
+                            mime_msg.as_bytes(),
+                        )
+                        imap.logout()
+                    except Exception:
+                        pass  # Draft save failure is non-critical
+
+            except Exception:
+                pass
+
+    threading.Thread(target=do_send, daemon=True).start()
+    return True
 
 
 def call_claude_for_proposal(job_data, user_data):
