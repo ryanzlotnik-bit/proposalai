@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}CloseTheJob — Win More Jobs. Send Better Proposals.{% endblock %}
+{% block title %}CloseTheJob — Run Your Trade Business on Autopilot{% endblock %}
 
 {% block head %}
 <style>
@@ -85,15 +85,16 @@
   .hero-headline span { color: var(--orange); }
   .hero-subline {
     font-family: 'Bebas Neue', cursive;
-    font-size: clamp(32px, 4vw, 56px);
+    font-size: clamp(28px, 3.5vw, 48px);
     line-height: 1;
     color: var(--text-muted);
     margin-bottom: 28px;
+    letter-spacing: 0.04em;
   }
   .hero-body {
     font-size: 17px;
     color: var(--text-muted);
-    max-width: 520px;
+    max-width: 560px;
     line-height: 1.65;
     margin-bottom: 40px;
   }
@@ -253,16 +254,15 @@
   <div class="hero-glow"></div>
   <div class="hero-content">
     <div class="fade-up">
-      <div class="hero-eyebrow">For HVAC · Plumbing · Electrical · Roofing</div>
+      <div class="hero-eyebrow">For Contractors · Home Service Businesses</div>
     </div>
     <div class="fade-up-2">
-      <h1 class="hero-headline">Win More<br /><span>Jobs.</span></h1>
-      <p class="hero-subline">Send Better Proposals.</p>
+      <h1 class="hero-headline">Run Your Trade.<br /><span>On Autopilot.</span></h1>
+      <p class="hero-subline">Proposals. Scheduling. Invoices. Financials.</p>
     </div>
     <div class="fade-up-3">
       <p class="hero-body">
-        Stop losing bids to contractors who look more professional.
-        Fill in the job details — we write the proposal. Done in 60 seconds.
+        The complete business platform built for contractors. Write winning proposals, schedule jobs, auto-send invoices, and track every dollar — all in one place.
       </p>
     </div>
     <div class="hero-ctas fade-up-4">
@@ -270,26 +270,26 @@
         <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
           <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
         </svg>
-        Start Free — 3 Proposals
+        Start Free
       </a>
       <a href="{{ url_for('pricing') }}" class="btn-secondary-lg">See Pricing →</a>
     </div>
     <div class="stats-row fade-up-4">
       <div class="stat-item">
         <div class="stat-number"><span>60</span>s</div>
-        <div class="stat-label">Avg. proposal time</div>
+        <div class="stat-label">Proposals</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number"><span>Auto</span></div>
+        <div class="stat-label">Invoicing</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number"><span>1</span> app</div>
+        <div class="stat-label">For everything</div>
       </div>
       <div class="stat-item">
         <div class="stat-number"><span>$0</span></div>
-        <div class="stat-label">To get started</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-number"><span>3</span></div>
-        <div class="stat-label">Free proposals included</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-number"><span>100%</span></div>
-        <div class="stat-label">Professional output</div>
+        <div class="stat-label">To start</div>
       </div>
     </div>
   </div>
@@ -299,22 +299,27 @@
 <section class="steps-section">
   <div style="max-width:1280px;margin:0 auto;padding:0 24px;">
     <div class="section-eyebrow">// How it works</div>
-    <div class="section-heading">Three steps.<br />One winning proposal.</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1px;background:var(--border);">
+    <div class="section-heading">Four steps.<br />Your whole business, automated.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1px;background:var(--border);">
       <div class="step-card" style="background:var(--bg);">
         <div class="step-num">01</div>
-        <div class="step-title">Fill in the job details</div>
-        <div class="step-body">Client name, job type, materials, labor hours. Takes under 2 minutes — no prior experience needed.</div>
+        <div class="step-title">Write Proposals</div>
+        <div class="step-body">AI writes detailed, professional proposals in 60 seconds. Scope, materials, labor breakdown — all formatted and ready to send.</div>
       </div>
       <div class="step-card" style="background:var(--bg);">
         <div class="step-num">02</div>
-        <div class="step-title">We write your proposal</div>
-        <div class="step-body">Detailed scope of work, itemized materials, labor breakdown, payment terms — written instantly and professionally.</div>
+        <div class="step-title">Schedule Jobs</div>
+        <div class="step-body">Book upcoming jobs with client info and estimated revenue. See everything on your schedule in one clean view.</div>
       </div>
       <div class="step-card" style="background:var(--bg);">
         <div class="step-num">03</div>
-        <div class="step-title">Send it. Close the deal.</div>
-        <div class="step-body">Print, email, or share directly. Mark it accepted when the client signs off. Track your pipeline.</div>
+        <div class="step-title">Auto-Invoice</div>
+        <div class="step-body">When a job date passes, the invoice sends automatically with a PDF attachment. No manual follow-up needed.</div>
+      </div>
+      <div class="step-card" style="background:var(--bg);">
+        <div class="step-num">04</div>
+        <div class="step-title">Track Revenue</div>
+        <div class="step-body">Log tips, expenses, and see your net profit in real time. Monthly charts and totals so you always know where you stand.</div>
       </div>
     </div>
   </div>
@@ -326,12 +331,14 @@
     <div class="section-eyebrow" style="margin-bottom:40px;">// What you get</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0;border-left:1px solid var(--border);border-top:1px solid var(--border);">
       {% for icon, title, body in [
-        ('M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z', 'Professional Scope of Work', 'Clear, detailed language that shows clients exactly what they are getting — specific, convincing, and ready to send.'),
-        ('M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 20h16a2 2 0 002-2V6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2z', 'Auto-Calculated Pricing', 'Enter your labor rate and hours — materials and totals are calculated and formatted automatically.'),
-        ('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', 'Itemized Materials List', 'Parts, quantities, unit costs, and totals — organized in a clean table that builds client confidence.'),
-        ('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', 'Terms & Warranty Included', 'Payment schedules, warranty language, and validity periods auto-generated. Looks like you hired a lawyer.'),
-        ('M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', 'Pipeline Tracking', 'Mark proposals as Draft, Sent, Accepted, or Declined. See your total pipeline value at a glance.'),
-        ('M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z', 'Print-Ready Format', 'One click to print or save as PDF. Clean layout with signature lines — ready to hand to any client.'),
+        ('M13 10V3L4 14h7v7l9-11h-7z', 'AI Proposal Writing', 'Professional scope, materials, and labor breakdown written instantly. Win more bids without spending an hour on paperwork.'),
+        ('M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', 'Job Scheduling', 'Upcoming job calendar with client info, estimated revenue, and auto-invoice triggers. Never miss a job.'),
+        ('M9 12h6m-6 4h6M5 5h14l2 2v12l-2 2H5l-2-2V7l2-2z', 'Auto PDF Invoices', 'Invoices with PDF attachment sent automatically the moment a job date passes. Zero manual effort.'),
+        ('M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', 'Revenue Dashboard', 'Charts and totals for revenue, expenses, tips, and net profit. Monthly breakdowns at a glance.'),
+        ('M4 6h16M4 10h16M4 14h8', 'Cost Templates', 'Save recurring fees like service calls or per-sq-ft rates and apply them instantly to any proposal.'),
+        ('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', 'Specialty Filtering', 'Set your trade — HVAC, Plumbing, Electrical, Roofing — and only see relevant job types for your business.'),
+        ('M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', 'Gmail Draft Copy', 'Every invoice automatically saves a draft to your Gmail inbox so you always have a backup copy.'),
+        ('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', 'Pipeline Tracking', 'Mark proposals as Draft, Sent, Accepted, or Declined. See total pipeline value at a glance.'),
       ] %}
       <div class="feature-item">
         <div class="feature-icon">
@@ -351,19 +358,19 @@
 <section style="padding:100px 0;border-bottom:1px solid var(--border);">
   <div class="quote-section">
     <div class="quote-mark">"</div>
-    <p class="quote-text">I used to spend 45 minutes writing proposals that looked sloppy. Now I do it in 60 seconds and they look like they came from a big company. Won 3 extra jobs this month.</p>
-    <div class="quote-author">Mike R. · <span>HVAC Contractor · Chicago, IL</span></div>
+    <p class="quote-text">I used to juggle 4 different apps — notes for scheduling, email for proposals, spreadsheets for money. CloseTheJob replaced all of them. My invoices go out automatically now.</p>
+    <div class="quote-author">Dave M. · <span>Plumbing Contractor · Denver, CO</span></div>
   </div>
 </section>
 
 <!-- BOTTOM CTA -->
 <section class="cta-section">
   <div class="cta-inner">
-    <div class="section-eyebrow" style="margin-bottom:16px;">// Ready to win?</div>
+    <div class="section-eyebrow" style="margin-bottom:16px;">// Ready to run your trade?</div>
     <h2 style="font-family:'Bebas Neue',cursive;font-size:clamp(48px,7vw,96px);color:var(--text);line-height:1;margin-bottom:16px;">
-      Your first 3 proposals<br />are on us.
+      Everything your trade<br />business needs.
     </h2>
-    <p style="color:var(--text-muted);font-size:16px;margin-bottom:36px;">No credit card. No commitment. Just better proposals.</p>
+    <p style="color:var(--text-muted);font-size:16px;margin-bottom:36px;">Start free. No credit card.</p>
     <a href="{{ url_for('register') }}" class="btn-primary-lg" style="font-size:15px;padding:16px 36px;">
       Create Free Account →
     </a>

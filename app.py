@@ -216,6 +216,22 @@ class Tip(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class ScheduledJob(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    client_name = db.Column(db.String(200), nullable=False)
+    client_email = db.Column(db.String(200), default='')
+    client_phone = db.Column(db.String(50), default='')
+    job_type = db.Column(db.String(100), default='')
+    description = db.Column(db.Text, default='')
+    scheduled_date = db.Column(db.Date, nullable=False)
+    estimated_revenue = db.Column(db.Float, default=0)
+    invoice_on_complete = db.Column(db.Boolean, default=True)
+    status = db.Column(db.String(50), default='scheduled')  # scheduled, invoiced, cancelled
+    notes = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -268,6 +284,34 @@ def build_monthly_chart_data(user_id, months=12):
         tips_data.append(round(float(tip), 2))
 
     return labels, revenues, expenses_data, tips_data
+
+
+def auto_invoice_past_scheduled_jobs(user_id):
+    """Find scheduled jobs whose date has passed, create Job records, send invoices."""
+    today = date.today()
+    past = ScheduledJob.query.filter(
+        ScheduledJob.user_id == user_id,
+        ScheduledJob.scheduled_date <= today,
+        ScheduledJob.status == 'scheduled',
+    ).all()
+    for sj in past:
+        job = Job(
+            user_id=user_id,
+            client_name=sj.client_name,
+            client_email=sj.client_email,
+            client_phone=sj.client_phone,
+            job_type=sj.job_type,
+            description=sj.description,
+            revenue=sj.estimated_revenue,
+            completed_date=sj.scheduled_date,
+            notes=sj.notes,
+        )
+        db.session.add(job)
+        db.session.flush()  # get job.id
+        sj.status = 'invoiced'
+        db.session.commit()
+        if sj.invoice_on_complete and sj.client_email:
+            send_invoice_email(job, User.query.get(user_id))
 
 
 def generate_invoice_pdf(job, user):
@@ -701,6 +745,7 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    auto_invoice_past_scheduled_jobs(current_user.id)
     proposals = Proposal.query.filter_by(user_id=current_user.id)\
         .order_by(Proposal.created_at.desc()).all()
     return render_template('dashboard.html', proposals=proposals)
@@ -949,6 +994,7 @@ def pricing():
 @app.route('/financials')
 @login_required
 def financials():
+    auto_invoice_past_scheduled_jobs(current_user.id)
     jobs = Job.query.filter_by(user_id=current_user.id).order_by(Job.completed_date.desc()).all()
     expenses = Expense.query.filter_by(user_id=current_user.id).order_by(Expense.date.desc()).all()
     tips = Tip.query.filter_by(user_id=current_user.id).order_by(Tip.date.desc()).all()
@@ -1131,6 +1177,72 @@ def delete_tip(tip_id):
     db.session.commit()
     flash('Tip deleted.', 'success')
     return redirect(url_for('financials'))
+
+
+# ─── Schedule ──────────────────────────────────────────────────────────────────
+
+@app.route('/schedule', methods=['GET', 'POST'])
+@login_required
+def schedule():
+    auto_invoice_past_scheduled_jobs(current_user.id)
+    if request.method == 'POST':
+        client_name = request.form.get('client_name', '').strip()
+        if not client_name:
+            flash('Client name is required.', 'error')
+            return redirect(url_for('schedule'))
+        try:
+            sched_date = date.fromisoformat(request.form.get('scheduled_date', ''))
+        except ValueError:
+            flash('Invalid date.', 'error')
+            return redirect(url_for('schedule'))
+        sj = ScheduledJob(
+            user_id=current_user.id,
+            client_name=client_name,
+            client_email=request.form.get('client_email', '').strip(),
+            client_phone=request.form.get('client_phone', '').strip(),
+            job_type=request.form.get('job_type', '').strip(),
+            description=request.form.get('description', '').strip(),
+            scheduled_date=sched_date,
+            estimated_revenue=float(request.form.get('estimated_revenue', 0) or 0),
+            invoice_on_complete=bool(request.form.get('invoice_on_complete')),
+            notes=request.form.get('notes', '').strip(),
+        )
+        db.session.add(sj)
+        db.session.commit()
+        flash(f'Job scheduled for {sched_date.strftime("%b %d, %Y")}.', 'success')
+        return redirect(url_for('schedule'))
+
+    jobs = ScheduledJob.query.filter_by(user_id=current_user.id)\
+        .order_by(ScheduledJob.scheduled_date).all()
+    upcoming = [j for j in jobs if j.status == 'scheduled']
+    past = [j for j in jobs if j.status != 'scheduled']
+    return render_template('schedule.html', upcoming=upcoming, past=past, today=date.today().isoformat())
+
+
+@app.route('/schedule/<int:sj_id>/cancel', methods=['POST'])
+@login_required
+def cancel_scheduled_job(sj_id):
+    sj = ScheduledJob.query.get_or_404(sj_id)
+    if sj.user_id != current_user.id:
+        flash('Access denied.', 'error')
+        return redirect(url_for('schedule'))
+    sj.status = 'cancelled'
+    db.session.commit()
+    flash('Job cancelled.', 'success')
+    return redirect(url_for('schedule'))
+
+
+@app.route('/schedule/<int:sj_id>/delete', methods=['POST'])
+@login_required
+def delete_scheduled_job(sj_id):
+    sj = ScheduledJob.query.get_or_404(sj_id)
+    if sj.user_id != current_user.id:
+        flash('Access denied.', 'error')
+        return redirect(url_for('schedule'))
+    db.session.delete(sj)
+    db.session.commit()
+    flash('Scheduled job deleted.', 'success')
+    return redirect(url_for('schedule'))
 
 
 # ─── Stripe ────────────────────────────────────────────────────────────────────
