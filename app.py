@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
-from anthropic import Anthropic
+import requests as http_requests
 import stripe
 import os
 from datetime import datetime, date
@@ -122,7 +122,6 @@ def generate_proposal_number():
 
 
 def call_claude_for_proposal(job_data, user_data):
-    anthropic_client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
     prompt = f"""You are an expert proposal writer for trade contractors. Generate a detailed, professional job proposal in JSON format.
 
 Contractor:
@@ -172,14 +171,23 @@ Return ONLY valid JSON with exactly this structure (no markdown, no extra text):
 
 Use realistic pricing. Calculate all totals accurately. Be professional and specific."""
 
-    response = anthropic_client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=4000,
-        messages=[{"role": "user", "content": prompt}]
+    api_key = os.getenv('ANTHROPIC_API_KEY', '').strip()
+    response = http_requests.post(
+        'https://api.anthropic.com/v1/messages',
+        headers={
+            'x-api-key': api_key,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+        },
+        json={
+            'model': 'claude-sonnet-4-6',
+            'max_tokens': 4000,
+            'messages': [{'role': 'user', 'content': prompt}],
+        },
+        timeout=90,
     )
-
-    raw = response.content[0].text.strip()
-    # Strip markdown code fences if present
+    response.raise_for_status()
+    raw = response.json()['content'][0]['text'].strip()
     if raw.startswith("```"):
         raw = raw.split("```")[1]
         if raw.startswith("json"):
