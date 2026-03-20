@@ -1181,6 +1181,38 @@ def subscription_success():
     return redirect(url_for('dashboard'))
 
 
+@app.route('/test-email')
+@login_required
+def test_email():
+    """Send a test email synchronously and show the exact error."""
+    username = app.config.get('MAIL_USERNAME', '')
+    password = app.config.get('MAIL_PASSWORD', '')
+
+    lines = []
+    lines.append(f"MAIL_USERNAME set: {'YES — ' + username if username else 'NO'}")
+    lines.append(f"MAIL_PASSWORD set: {'YES' if password else 'NO'}")
+    lines.append(f"MAIL_SERVER: {app.config.get('MAIL_SERVER')}")
+    lines.append(f"MAIL_PORT: {app.config.get('MAIL_PORT')}")
+    lines.append("")
+
+    if not username or not password:
+        lines.append("ERROR: Missing MAIL_USERNAME or MAIL_PASSWORD in environment variables.")
+        lines.append("Go to Railway → your service → Variables tab and add them.")
+    else:
+        try:
+            msg = Message(
+                subject="CloseTheJob — Email Test",
+                recipients=[current_user.email],
+                html="<p>Email is working! Your invoice emails will deliver successfully.</p>",
+            )
+            mail.send(msg)
+            lines.append(f"SUCCESS: Test email sent to {current_user.email}")
+        except Exception as e:
+            lines.append(f"FAILED: {type(e).__name__}: {str(e)}")
+
+    return "<pre style='font-family:monospace;padding:40px;background:#111;color:#eee;min-height:100vh;'>" + "\n".join(lines) + "</pre>"
+
+
 @app.route('/webhook/stripe', methods=['POST'])
 def stripe_webhook():
     payload = request.data
