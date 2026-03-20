@@ -171,7 +171,7 @@ Return ONLY valid JSON with exactly this structure (no markdown, no extra text):
 
 Use realistic pricing. Calculate all totals accurately. Be professional and specific."""
 
-    api_key = os.getenv('ANTHROPIC_API_KEY', '').strip()
+    api_key = ''.join(os.getenv('ANTHROPIC_API_KEY', '').split())
     response = http_requests.post(
         'https://api.anthropic.com/v1/messages',
         headers={
