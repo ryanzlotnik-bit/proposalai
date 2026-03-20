@@ -141,6 +141,7 @@ Client & Job:
 - Timeline: {job_data['timeline']}
 - Warranty: {job_data['warranty']}
 - Special Notes: {job_data['notes']}
+{(''.join(f'- {k}: {v}' + chr(10) for k, v in job_data.get('service_details', {}).items())) if job_data.get('service_details') else ''}
 
 Return ONLY valid JSON with exactly this structure (no markdown, no extra text):
 {{
@@ -267,6 +268,15 @@ def generate():
         return redirect(url_for('pricing'))
 
     if request.method == 'POST':
+        # Collect service-specific fields (prefixed with svc_)
+        service_details = {}
+        for key in request.form:
+            if key.startswith('svc_'):
+                val = request.form.get(key, '').strip()
+                if val:
+                    label = key[4:].replace('_', ' ').title()
+                    service_details[label] = val
+
         job_data = {
             'client_name': request.form.get('client_name', '').strip(),
             'client_email': request.form.get('client_email', '').strip(),
@@ -280,6 +290,7 @@ def generate():
             'timeline': request.form.get('timeline', '').strip(),
             'warranty': request.form.get('warranty', '').strip(),
             'notes': request.form.get('notes', '').strip(),
+            'service_details': service_details,
         }
 
         user_data = {

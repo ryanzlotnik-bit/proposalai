@@ -54,7 +54,7 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         <div>
           <label class="ctj-label">Job Type <span style="color:var(--orange);">*</span></label>
-          <select name="job_type" required class="ctj-input">
+          <select name="job_type" required class="ctj-input" id="job-type-select">
             <option value="">Select...</option>
             {% for jt in ['AC Installation','AC Repair','Furnace Installation','Furnace Repair','Duct Work',
               'Plumbing Repair','Water Heater Installation','Pipe Replacement','Drain Cleaning',
@@ -73,6 +73,13 @@
           <label class="ctj-label">Timeline / Start Date</label>
           <input type="text" name="timeline" value="{{ form_data.get('timeline','') }}" class="ctj-input" placeholder="e.g. 2 days, start next week" />
         </div>
+
+        <!-- Dynamic service-specific fields -->
+        <div id="service-fields" style="grid-column:1/-1;display:none;">
+          <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border);">// Job Specifics</div>
+          <div id="service-fields-inner" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"></div>
+        </div>
+
         <div style="grid-column:1/-1;">
           <label class="ctj-label">Describe the Job <span style="color:var(--orange);">*</span> <span style="color:var(--text-muted);text-transform:none;letter-spacing:0;">(more detail = better output)</span></label>
           <textarea name="job_description" required rows="5" class="ctj-input" style="resize:vertical;" placeholder="Example: Replace existing 3-ton central AC unit. Old unit is 18 years old and failing. Need to replace condenser and air handler. House is 2,400 sq ft, two-story. Existing ductwork is in good shape and will be reused.">{{ form_data.get('job_description','') }}</textarea>
@@ -130,6 +137,241 @@
 
 {% block scripts %}
 <script>
+// Service-specific field definitions
+const SERVICE_FIELDS = {
+  'AC Installation': [
+    { name: 'home_sqft', label: 'Home Square Footage', type: 'number', placeholder: 'e.g. 2400', span: false },
+    { name: 'unit_tonnage', label: 'Unit Size (Tons)', type: 'select', options: ['1.5 ton','2 ton','2.5 ton','3 ton','3.5 ton','4 ton','5 ton','Not sure'], span: false },
+    { name: 'system_type', label: 'System Type', type: 'select', options: ['Central air','Mini-split','Package unit','Not sure'], span: false },
+    { name: 'brand_pref', label: 'Brand Preference', type: 'text', placeholder: 'e.g. Carrier, Trane, Lennox, No preference', span: false },
+  ],
+  'AC Repair': [
+    { name: 'home_sqft', label: 'Home Square Footage', type: 'number', placeholder: 'e.g. 2400', span: false },
+    { name: 'unit_age', label: 'Unit Age (years)', type: 'number', placeholder: 'e.g. 10', span: false },
+    { name: 'system_type', label: 'System Type', type: 'select', options: ['Central air','Mini-split','Package unit','Not sure'], span: false },
+    { name: 'issue_description', label: 'What\'s Wrong?', type: 'text', placeholder: 'e.g. Not cooling, leaking refrigerant, loud noise', span: false },
+  ],
+  'Furnace Installation': [
+    { name: 'home_sqft', label: 'Home Square Footage', type: 'number', placeholder: 'e.g. 2400', span: false },
+    { name: 'furnace_type', label: 'Furnace Type', type: 'select', options: ['Gas forced air','Electric','Oil','Propane','Not sure'], span: false },
+    { name: 'unit_btu', label: 'Unit Size (BTU)', type: 'text', placeholder: 'e.g. 80,000 BTU or Not sure', span: false },
+    { name: 'brand_pref', label: 'Brand Preference', type: 'text', placeholder: 'e.g. Carrier, Lennox, No preference', span: false },
+  ],
+  'Furnace Repair': [
+    { name: 'home_sqft', label: 'Home Square Footage', type: 'number', placeholder: 'e.g. 2400', span: false },
+    { name: 'unit_age', label: 'Unit Age (years)', type: 'number', placeholder: 'e.g. 12', span: false },
+    { name: 'furnace_type', label: 'Furnace Type', type: 'select', options: ['Gas forced air','Electric','Oil','Propane','Not sure'], span: false },
+    { name: 'issue_description', label: 'What\'s Wrong?', type: 'text', placeholder: 'e.g. Not heating, pilot won\'t light, noisy', span: false },
+  ],
+  'Duct Work': [
+    { name: 'home_sqft', label: 'Home Square Footage', type: 'number', placeholder: 'e.g. 2400', span: false },
+    { name: 'duct_scope', label: 'Scope', type: 'select', options: ['Full replacement','Partial repair','Sealing/insulation','New installation'], span: false },
+    { name: 'num_zones', label: 'Number of Zones/Areas', type: 'number', placeholder: 'e.g. 2', span: false },
+    { name: 'access_difficulty', label: 'Access Difficulty', type: 'select', options: ['Easy (open basement/attic)','Moderate (crawlspace)','Difficult (walls)'], span: false },
+  ],
+  'Plumbing Repair': [
+    { name: 'num_fixtures', label: 'Fixtures Affected', type: 'number', placeholder: 'e.g. 2', span: false },
+    { name: 'pipe_material', label: 'Pipe Material', type: 'select', options: ['Copper','PVC','PEX','Galvanized','Cast iron','Unknown'], span: false },
+    { name: 'access_difficulty', label: 'Access', type: 'select', options: ['Easy (exposed pipes)','Behind drywall','Under slab','Other'], span: false },
+    { name: 'issue_description', label: 'Issue', type: 'text', placeholder: 'e.g. Leaking under sink, low pressure', span: false },
+  ],
+  'Water Heater Installation': [
+    { name: 'wh_type', label: 'Water Heater Type', type: 'select', options: ['Tank (gas)','Tank (electric)','Tankless (gas)','Tankless (electric)','Heat pump'], span: false },
+    { name: 'wh_size', label: 'Tank Size (gallons)', type: 'select', options: ['40 gal','50 gal','75 gal','80 gal','Tankless (N/A)'], span: false },
+    { name: 'num_people', label: 'Household Size', type: 'select', options: ['1-2 people','3-4 people','5+ people'], span: false },
+    { name: 'brand_pref', label: 'Brand Preference', type: 'text', placeholder: 'e.g. Rheem, Bradford White, No preference', span: false },
+  ],
+  'Pipe Replacement': [
+    { name: 'linear_footage', label: 'Linear Footage', type: 'number', placeholder: 'e.g. 150', span: false },
+    { name: 'pipe_material_old', label: 'Existing Material', type: 'select', options: ['Galvanized','Cast iron','Copper','PVC','Other','Unknown'], span: false },
+    { name: 'pipe_material_new', label: 'Replacement Material', type: 'select', options: ['Copper','PEX','PVC','CPVC'], span: false },
+    { name: 'access_difficulty', label: 'Access', type: 'select', options: ['Easy (exposed)','Behind drywall','Under slab'], span: false },
+  ],
+  'Drain Cleaning': [
+    { name: 'drain_location', label: 'Drain Location', type: 'select', options: ['Kitchen sink','Bathroom sink','Bathtub/shower','Main sewer line','Floor drain','Multiple'], span: false },
+    { name: 'blockage_severity', label: 'Blockage Severity', type: 'select', options: ['Slow drain','Completely blocked','Recurring issue'], span: false },
+    { name: 'method', label: 'Method Needed', type: 'select', options: ['Snake/auger','Hydro-jetting','Camera inspection + clean','Not sure'], span: false },
+  ],
+  'Electrical Panel Upgrade': [
+    { name: 'current_amps', label: 'Current Panel Amperage', type: 'select', options: ['60 amp','100 amp','150 amp','200 amp','Unknown'], span: false },
+    { name: 'new_amps', label: 'Upgrade To', type: 'select', options: ['100 amp','150 amp','200 amp','400 amp'], span: false },
+    { name: 'num_circuits', label: 'Number of Circuits', type: 'number', placeholder: 'e.g. 20', span: false },
+    { name: 'permit_required', label: 'Permit', type: 'select', options: ['Yes — pulling permit','No permit needed','Not sure'], span: false },
+  ],
+  'Outlet Installation': [
+    { name: 'num_outlets', label: 'Number of Outlets', type: 'number', placeholder: 'e.g. 6', span: false },
+    { name: 'outlet_type', label: 'Outlet Type', type: 'select', options: ['Standard 15A','20A','GFCI','USB combo','Outdoor weatherproof'], span: false },
+    { name: 'wall_material', label: 'Wall Material', type: 'select', options: ['Drywall','Brick/concrete','Plaster','Other'], span: false },
+    { name: 'permit_required', label: 'Permit', type: 'select', options: ['Yes','No','Not sure'], span: false },
+  ],
+  'Wiring': [
+    { name: 'wire_type', label: 'Wiring Type', type: 'select', options: ['New construction','Rewire existing','Add circuits','Low voltage (data/coax)'], span: false },
+    { name: 'home_sqft', label: 'Area (sq ft)', type: 'number', placeholder: 'e.g. 1200', span: false },
+    { name: 'num_circuits', label: 'Circuits Needed', type: 'number', placeholder: 'e.g. 8', span: false },
+    { name: 'permit_required', label: 'Permit', type: 'select', options: ['Yes','No','Not sure'], span: false },
+  ],
+  'Lighting Installation': [
+    { name: 'num_fixtures', label: 'Number of Fixtures', type: 'number', placeholder: 'e.g. 12', span: false },
+    { name: 'fixture_type', label: 'Fixture Type', type: 'select', options: ['Recessed (can lights)','Pendant','Chandelier','Under-cabinet','Outdoor','Mixed'], span: false },
+    { name: 'dimmer_switches', label: 'Dimmer Switches?', type: 'select', options: ['Yes','No'], span: false },
+    { name: 'ceiling_height', label: 'Ceiling Height', type: 'select', options: ['Standard (8-9 ft)','Tall (10-12 ft)','Vaulted/cathedral'], span: false },
+  ],
+  'Roof Replacement': [
+    { name: 'roof_squares', label: 'Roof Size (squares)', type: 'number', placeholder: 'e.g. 25 (1 square = 100 sqft)', span: false },
+    { name: 'roof_pitch', label: 'Roof Pitch', type: 'select', options: ['Low (1-3/12)','Medium (4-6/12)','Steep (7-12/12)','Very steep (12+/12)'], span: false },
+    { name: 'current_material', label: 'Current Material', type: 'select', options: ['Asphalt shingles','Wood shake','Metal','Tile','Flat/TPO','Other'], span: false },
+    { name: 'new_material', label: 'New Material', type: 'select', options: ['Asphalt shingles','Architectural shingles','Metal standing seam','Tile','TPO flat','Other'], span: false },
+  ],
+  'Roof Repair': [
+    { name: 'damage_type', label: 'Type of Damage', type: 'select', options: ['Storm damage','Missing shingles','Leaking','Flashing','Sagging','Other'], span: false },
+    { name: 'damage_area', label: 'Damage Area (sq ft)', type: 'number', placeholder: 'e.g. 200', span: false },
+    { name: 'roof_material', label: 'Roof Material', type: 'select', options: ['Asphalt shingles','Metal','Tile','Flat/TPO','Wood shake'], span: false },
+    { name: 'num_stories', label: 'Stories', type: 'select', options: ['1 story','2 story','3+ story'], span: false },
+  ],
+  'Gutter Installation': [
+    { name: 'linear_footage', label: 'Linear Footage', type: 'number', placeholder: 'e.g. 180', span: false },
+    { name: 'gutter_type', label: 'Gutter Type', type: 'select', options: ['5" K-style aluminum','6" K-style aluminum','Half-round','Seamless','Copper'], span: false },
+    { name: 'downspouts', label: 'Downspouts Needed', type: 'number', placeholder: 'e.g. 6', span: false },
+    { name: 'guards', label: 'Gutter Guards?', type: 'select', options: ['Yes','No','Quote both'], span: false },
+  ],
+  'Landscaping': [
+    { name: 'yard_size', label: 'Yard Size (sq ft)', type: 'number', placeholder: 'e.g. 5000', span: false },
+    { name: 'landscape_scope', label: 'Scope', type: 'select', options: ['Design + install','Plant installation only','Hardscaping (pavers/walls)','Sod installation','Mixed'], span: false },
+    { name: 'plant_types', label: 'Plant Preferences', type: 'text', placeholder: 'e.g. native plants, low-maintenance, specific flowers', span: false },
+    { name: 'irrigation', label: 'Irrigation Needed?', type: 'select', options: ['Yes','No','Just drainage'], span: false },
+  ],
+  'Lawn Care': [
+    { name: 'lawn_size', label: 'Lawn Size (sq ft)', type: 'number', placeholder: 'e.g. 8000', span: false },
+    { name: 'service_freq', label: 'Service Frequency', type: 'select', options: ['One-time','Weekly','Bi-weekly','Monthly'], span: false },
+    { name: 'services_included', label: 'Services Included', type: 'text', placeholder: 'e.g. mow, edge, blow, fertilize', span: false },
+    { name: 'lawn_condition', label: 'Current Condition', type: 'select', options: ['Well-maintained','Overgrown','Patchy/needs seeding','Poor'], span: false },
+  ],
+  'Tree Removal': [
+    { name: 'num_trees', label: 'Number of Trees', type: 'number', placeholder: 'e.g. 2', span: false },
+    { name: 'tree_size', label: 'Tree Size', type: 'select', options: ['Small (under 15 ft)','Medium (15-30 ft)','Large (30-60 ft)','Very large (60+ ft)'], span: false },
+    { name: 'stump_removal', label: 'Stump Removal?', type: 'select', options: ['Yes','No','Grind only'], span: false },
+    { name: 'access_difficulty', label: 'Access', type: 'select', options: ['Open yard','Near house','Near power lines','Tight access'], span: false },
+  ],
+  'Painting — Interior': [
+    { name: 'num_rooms', label: 'Number of Rooms', type: 'number', placeholder: 'e.g. 4', span: false },
+    { name: 'home_sqft', label: 'Total Square Footage', type: 'number', placeholder: 'e.g. 1800', span: false },
+    { name: 'num_coats', label: 'Number of Coats', type: 'select', options: ['1 coat','2 coats','3 coats'], span: false },
+    { name: 'includes_trim', label: 'Includes Trim/Ceilings?', type: 'select', options: ['Walls only','Walls + trim','Walls + trim + ceilings'], span: false },
+  ],
+  'Painting — Exterior': [
+    { name: 'home_sqft', label: 'Home Square Footage', type: 'number', placeholder: 'e.g. 2200', span: false },
+    { name: 'siding_type', label: 'Siding Type', type: 'select', options: ['Wood','Vinyl','Stucco','Brick','Fiber cement','Other'], span: false },
+    { name: 'num_stories', label: 'Stories', type: 'select', options: ['1 story','2 story','3+ story'], span: false },
+    { name: 'surface_prep', label: 'Surface Prep Needed', type: 'select', options: ['Power wash only','Scrape + prime','Full prep + prime','Minimal prep'], span: false },
+  ],
+  'Flooring': [
+    { name: 'floor_sqft', label: 'Square Footage', type: 'number', placeholder: 'e.g. 900', span: false },
+    { name: 'floor_material', label: 'Flooring Material', type: 'select', options: ['Hardwood','LVP (luxury vinyl plank)','Laminate','Carpet','Engineered hardwood','Other'], span: false },
+    { name: 'subfloor_condition', label: 'Subfloor Condition', type: 'select', options: ['Good (no work needed)','Needs repair','Needs leveling','Unknown'], span: false },
+    { name: 'furniture_move', label: 'Furniture Moving?', type: 'select', options: ['Yes — include in quote','No — homeowner moves','Some furniture'], span: false },
+  ],
+  'Tile Work': [
+    { name: 'tile_sqft', label: 'Square Footage', type: 'number', placeholder: 'e.g. 250', span: false },
+    { name: 'tile_location', label: 'Location', type: 'select', options: ['Bathroom floor','Shower walls','Kitchen backsplash','Kitchen floor','Outdoor/patio','Multiple areas'], span: false },
+    { name: 'tile_size', label: 'Tile Size', type: 'select', options: ['Small mosaic (< 4")','Standard (4-12")','Large format (12-24")','Extra large (24"+)'], span: false },
+    { name: 'demo_needed', label: 'Demo Existing Tile?', type: 'select', options: ['Yes','No','Partial'], span: false },
+  ],
+  'Drywall': [
+    { name: 'drywall_sqft', label: 'Square Footage', type: 'number', placeholder: 'e.g. 600', span: false },
+    { name: 'drywall_scope', label: 'Scope', type: 'select', options: ['New installation','Repair patches','Full replacement','Water damage repair'], span: false },
+    { name: 'finish_level', label: 'Finish Level', type: 'select', options: ['Level 3 (standard)','Level 4 (smooth)','Level 5 (paint-ready)'], span: false },
+    { name: 'ceiling_height', label: 'Ceiling Height', type: 'select', options: ['Standard (8-9 ft)','Tall (10-12 ft)','Vaulted'], span: false },
+  ],
+  'Epoxy Flooring': [
+    { name: 'floor_sqft', label: 'Square Footage', type: 'number', placeholder: 'e.g. 500', span: false },
+    { name: 'floor_location', label: 'Location', type: 'select', options: ['Garage','Basement','Commercial warehouse','Showroom','Other'], span: false },
+    { name: 'floor_condition', label: 'Current Floor Condition', type: 'select', options: ['Good (clean, no cracks)','Minor cracks/pitting','Significant damage','Previously coated'], span: false },
+    { name: 'epoxy_system', label: 'Coating System', type: 'select', options: ['Single coat epoxy','Base + topcoat (standard)','Flake broadcast system','Metallic epoxy','Polyurea topcoat'], span: false },
+  ],
+  'Pressure Washing': [
+    { name: 'surface_type', label: 'Surface Type', type: 'text', placeholder: 'e.g. driveway, deck, house siding, sidewalk', span: false },
+    { name: 'surface_sqft', label: 'Total Square Footage', type: 'number', placeholder: 'e.g. 2000', span: false },
+    { name: 'stain_level', label: 'Stain / Condition', type: 'select', options: ['Light (routine clean)','Moderate (visible staining/dirt)','Heavy (deep stains, mold, mildew)'], span: false },
+    { name: 'num_stories', label: 'Number of Stories (if siding)', type: 'select', options: ['1 story','2 story','3+ story','N/A (ground level only)'], span: false },
+  ],
+  'Window Washing': [
+    { name: 'num_windows', label: 'Number of Windows', type: 'number', placeholder: 'e.g. 24', span: false },
+    { name: 'num_stories', label: 'Number of Stories', type: 'select', options: ['1 story','2 story','3 story','4+ story'], span: false },
+    { name: 'window_scope', label: 'Scope', type: 'select', options: ['Exterior only','Interior only','Interior + Exterior'], span: false },
+    { name: 'property_type', label: 'Property Type', type: 'select', options: ['Residential','Commercial / office','Storefront'], span: false },
+  ],
+  'General Construction': [
+    { name: 'project_area', label: 'Project Area (sq ft)', type: 'number', placeholder: 'e.g. 400', span: false },
+    { name: 'construction_type', label: 'Type', type: 'select', options: ['Addition','Deck/patio','Shed/garage','Interior framing','Foundation work','Other'], span: false },
+    { name: 'permit_required', label: 'Permit Required?', type: 'select', options: ['Yes','No','Not sure'], span: false },
+    { name: 'num_subcontractors', label: 'Subcontractors Needed?', type: 'select', options: ['No — self-perform all','Electrical sub','Plumbing sub','Multiple trades'], span: false },
+  ],
+  'Remodel': [
+    { name: 'remodel_area', label: 'Area (sq ft)', type: 'number', placeholder: 'e.g. 300', span: false },
+    { name: 'remodel_type', label: 'Remodel Type', type: 'select', options: ['Kitchen','Bathroom','Basement','Whole home','Other'], span: false },
+    { name: 'scope_level', label: 'Scope Level', type: 'select', options: ['Cosmetic (paint, fixtures)','Moderate (cabinets, flooring)','Full gut renovation','Addition'], span: false },
+    { name: 'permit_required', label: 'Permit Required?', type: 'select', options: ['Yes','No','Not sure'], span: false },
+  ],
+};
+
+function buildServiceFields(jobType) {
+  const container = document.getElementById('service-fields');
+  const inner = document.getElementById('service-fields-inner');
+  const fields = SERVICE_FIELDS[jobType];
+
+  if (!fields || fields.length === 0) {
+    container.style.display = 'none';
+    inner.innerHTML = '';
+    return;
+  }
+
+  inner.innerHTML = '';
+  fields.forEach(f => {
+    const wrapper = document.createElement('div');
+    if (f.span) wrapper.style.gridColumn = '1/-1';
+
+    const label = document.createElement('label');
+    label.className = 'ctj-label';
+    label.textContent = f.label;
+
+    let input;
+    if (f.type === 'select') {
+      input = document.createElement('select');
+      input.className = 'ctj-input';
+      input.name = 'svc_' + f.name;
+      const blank = document.createElement('option');
+      blank.value = '';
+      blank.textContent = 'Select...';
+      input.appendChild(blank);
+      f.options.forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt;
+        o.textContent = opt;
+        input.appendChild(o);
+      });
+    } else {
+      input = document.createElement('input');
+      input.type = f.type;
+      input.className = 'ctj-input';
+      input.name = 'svc_' + f.name;
+      input.placeholder = f.placeholder || '';
+    }
+
+    wrapper.appendChild(label);
+    wrapper.appendChild(input);
+    inner.appendChild(wrapper);
+  });
+
+  container.style.display = 'block';
+}
+
+// Init on page load (handles form re-render after error)
+const sel = document.getElementById('job-type-select');
+if (sel.value) buildServiceFields(sel.value);
+sel.addEventListener('change', function() {
+  buildServiceFields(this.value);
+});
+
 document.getElementById('proposal-form').addEventListener('submit', function() {
   const btn = document.getElementById('submit-btn');
   const text = document.getElementById('submit-text');
