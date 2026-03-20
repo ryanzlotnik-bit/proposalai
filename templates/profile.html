@@ -39,7 +39,7 @@
         <div>
           <label class="ctj-label">Your Trade</label>
           <select name="trade_type" class="ctj-input">
-            {% for t in ['HVAC','Plumbing','Electrical','Roofing','Landscaping','General Contractor','Painting','Flooring','Pest Control','Other'] %}
+            {% for t in ['HVAC','Plumbing','Electrical','Roofing','Landscaping','General Contractor','Painting','Flooring','Epoxy Flooring','Pressure Washing','Window Washing','Pest Control','Other'] %}
             <option value="{{ t }}" {% if current_user.trade_type == t %}selected{% endif %}>{{ t }}</option>
             {% endfor %}
           </select>
