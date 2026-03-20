@@ -216,6 +216,7 @@
             <th>Expenses</th>
             <th>Net</th>
             <th>Invoice</th>
+            <th>Follow-up</th>
             <th></th>
           </tr>
         </thead>
@@ -251,6 +252,17 @@
                 </form>
               {% else %}
                 <span style="font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;">NO EMAIL</span>
+              {% endif %}
+            </td>
+            <td style="min-width:90px;">
+              {% if job.paid_at %}
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);">✓ PAID</span>
+              {% elif job.payment_reminder_sent_at %}
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);">NUDGED</span>
+              {% elif job.review_sent_at %}
+                <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--blue);">★ REVIEW REQ.</span>
+              {% else %}
+                <span style="font-size:11px;color:var(--text-dim);">—</span>
               {% endif %}
             </td>
             <td>

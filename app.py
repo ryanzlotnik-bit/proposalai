@@ -225,6 +225,8 @@ class Job(db.Model):
     invoice_sent_at = db.Column(db.DateTime, nullable=True)
     pay_token = db.Column(db.String(64), unique=True, nullable=True)
     paid_at = db.Column(db.DateTime, nullable=True)
+    payment_reminder_sent_at = db.Column(db.DateTime, nullable=True)
+    review_sent_at = db.Column(db.DateTime, nullable=True)
     notes = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     job_expenses = db.relationship('Expense', backref='job', lazy=True)
@@ -503,6 +505,142 @@ def send_followup_reminder(proposal_id, user_id):
                 msg = MailMessage(subject=subject, recipients=[p.client_email], html=html_body)
                 mail.send(msg)
                 p.reminder_sent_at = datetime.utcnow()
+                db.session.commit()
+            except Exception:
+                pass
+
+    threading.Thread(target=do_send, daemon=True).start()
+
+
+def auto_send_payment_reminders(user_id):
+    """Send payment reminders for invoices sent 7+ days ago that are still unpaid."""
+    cutoff = datetime.utcnow() - timedelta(days=7)
+    unpaid = Job.query.filter(
+        Job.user_id == user_id,
+        Job.invoice_sent == True,
+        Job.invoice_sent_at <= cutoff,
+        Job.paid_at == None,
+        Job.payment_reminder_sent_at == None,
+        Job.client_email != '',
+        Job.client_email != None,
+    ).all()
+    for j in unpaid:
+        send_payment_reminder(j.id, user_id)
+
+
+def send_payment_reminder(job_id, user_id):
+    """Email client a polite reminder that their invoice is still outstanding."""
+    if not app.config.get('MAIL_USERNAME'):
+        return
+
+    def do_send():
+        with app.app_context():
+            j = Job.query.get(job_id)
+            u = User.query.get(user_id)
+            if not j or not u or not j.client_email:
+                return
+            if j.paid_at or j.payment_reminder_sent_at:
+                return
+            company = u.company_name or u.name
+            invoice_num = f"INV-{j.id:04d}"
+            bc = u.effective_brand_color
+            base_url = os.getenv('APP_URL', '').rstrip('/')
+            pay_url = f"{base_url}/invoice/{j.pay_token}" if base_url and j.pay_token and stripe.api_key else None
+            pay_btn = f'<p style="text-align:center;margin:20px 0;"><a href="{pay_url}" style="display:inline-block;background:{bc};color:#fff;font-size:14px;font-weight:700;padding:12px 28px;text-decoration:none;">PAY NOW →</a></p>' if pay_url else ''
+            subject = f"Reminder: Invoice {invoice_num} is still outstanding — {company}"
+            html = f"""<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;max-width:600px;">
+<tr><td style="background:{bc};padding:14px 32px;"><span style="font-size:18px;font-weight:800;color:#fff;">{company}</span></td></tr>
+<tr><td style="padding:32px;">
+  <p style="font-size:16px;font-weight:700;color:#111;margin-bottom:8px;">Hi {j.client_name},</p>
+  <p style="font-size:14px;color:#444;line-height:1.6;margin-bottom:20px;">
+    Just a friendly reminder that invoice <strong>{invoice_num}</strong> for <strong>{j.job_type or 'your recent job'}</strong>
+    is still outstanding. The total due is <strong>${j.revenue:,.2f}</strong>.
+  </p>
+  {pay_btn}
+  <p style="font-size:13px;color:#666;margin-top:20px;">
+    If you have any questions or have already sent payment, please disregard this message or reply to let us know.
+  </p>
+  <p style="font-size:13px;color:#666;margin-top:16px;">Thanks,<br /><strong>{u.name}</strong><br />{company}</p>
+</td></tr>
+<tr><td style="background:#1a1a1a;padding:12px 32px;text-align:center;">
+  <p style="font-size:10px;color:#666;margin:0;">{company}</p>
+</td></tr>
+</table></td></tr></table>
+</body></html>"""
+            try:
+                from flask_mail import Message as MailMessage
+                msg = MailMessage(subject=subject, recipients=[j.client_email], html=html)
+                mail.send(msg)
+                j.payment_reminder_sent_at = datetime.utcnow()
+                db.session.commit()
+            except Exception:
+                pass
+
+    threading.Thread(target=do_send, daemon=True).start()
+
+
+def auto_send_review_requests(user_id):
+    """Send review request emails for jobs completed 1+ day ago."""
+    cutoff = datetime.utcnow() - timedelta(days=1)
+    jobs = Job.query.filter(
+        Job.user_id == user_id,
+        Job.created_at <= cutoff,
+        Job.review_sent_at == None,
+        Job.client_email != '',
+        Job.client_email != None,
+    ).all()
+    for j in jobs:
+        send_review_request(j.id, user_id)
+
+
+def send_review_request(job_id, user_id):
+    """Send a Google review request to the client after job completion."""
+    if not app.config.get('MAIL_USERNAME'):
+        return
+
+    def do_send():
+        with app.app_context():
+            j = Job.query.get(job_id)
+            u = User.query.get(user_id)
+            if not j or not u or not j.client_email:
+                return
+            if j.review_sent_at:
+                return
+            company = u.company_name or u.name
+            bc = u.effective_brand_color
+            # Build Google review search link
+            search_query = company.replace(' ', '+')
+            review_url = f"https://search.google.com/local/writereview?placeid=&query={search_query}"
+            subject = f"How did we do? — {company}"
+            html = f"""<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;max-width:600px;">
+<tr><td style="background:{bc};padding:14px 32px;"><span style="font-size:18px;font-weight:800;color:#fff;">{company}</span></td></tr>
+<tr><td style="padding:32px;text-align:center;">
+  <p style="font-size:28px;margin-bottom:8px;">⭐⭐⭐⭐⭐</p>
+  <p style="font-size:18px;font-weight:700;color:#111;margin-bottom:12px;">How did we do, {j.client_name.split()[0]}?</p>
+  <p style="font-size:14px;color:#444;line-height:1.6;margin-bottom:24px;text-align:left;">
+    It was great working on your {j.job_type or 'project'}. If you were happy with the work, we'd really appreciate
+    a quick Google review — it only takes 30 seconds and means the world to a small business.
+  </p>
+  <a href="{review_url}" style="display:inline-block;background:{bc};color:#fff;font-size:15px;font-weight:700;padding:14px 32px;text-decoration:none;border-radius:2px;">Leave a Google Review →</a>
+  <p style="font-size:12px;color:#999;margin-top:24px;text-align:left;">
+    Not satisfied? Please reply to this email and let us know how we can make it right.
+  </p>
+  <p style="font-size:13px;color:#666;margin-top:16px;text-align:left;">Thank you,<br /><strong>{u.name}</strong><br />{company}</p>
+</td></tr>
+<tr><td style="background:#1a1a1a;padding:12px 32px;text-align:center;">
+  <p style="font-size:10px;color:#666;margin:0;">{company}</p>
+</td></tr>
+</table></td></tr></table>
+</body></html>"""
+            try:
+                from flask_mail import Message as MailMessage
+                msg = MailMessage(subject=subject, recipients=[j.client_email], html=html)
+                mail.send(msg)
+                j.review_sent_at = datetime.utcnow()
                 db.session.commit()
             except Exception:
                 pass
@@ -1013,6 +1151,8 @@ def logout():
 def dashboard():
     auto_invoice_past_scheduled_jobs(uid())
     auto_send_followup_reminders(uid())
+    auto_send_payment_reminders(uid())
+    auto_send_review_requests(uid())
     today = date.today()
 
     proposals = Proposal.query.filter_by(user_id=uid())\
@@ -1422,6 +1562,8 @@ def pricing():
 @login_required
 def financials():
     auto_invoice_past_scheduled_jobs(uid())
+    auto_send_payment_reminders(uid())
+    auto_send_review_requests(uid())
     jobs = Job.query.filter_by(user_id=uid()).order_by(Job.completed_date.desc()).all()
     expenses = Expense.query.filter_by(user_id=uid()).order_by(Expense.date.desc()).all()
     tips = Tip.query.filter_by(user_id=uid()).order_by(Tip.date.desc()).all()
@@ -2108,6 +2250,8 @@ with app.app_context():
         'ALTER TABLE proposal ADD COLUMN reminder_sent_at DATETIME',
         'ALTER TABLE job ADD COLUMN pay_token VARCHAR(64)',
         'ALTER TABLE job ADD COLUMN paid_at DATETIME',
+        'ALTER TABLE job ADD COLUMN payment_reminder_sent_at DATETIME',
+        'ALTER TABLE job ADD COLUMN review_sent_at DATETIME',
         'ALTER TABLE "user" ADD COLUMN logo_url TEXT',
         'ALTER TABLE "user" ADD COLUMN brand_color VARCHAR(7) DEFAULT \'#F97316\'',
         'ALTER TABLE "user" ADD COLUMN team_owner_id INTEGER',
