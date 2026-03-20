@@ -386,6 +386,7 @@
             <label class="ctj-label">Notes</label>
             <input type="text" name="notes" class="ctj-input" placeholder="Optional…" />
           </div>
+          {% if current_user.can_auto_invoice %}
           <div class="fin-field" style="grid-column:1/-1;display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border-bright);">
             <input type="checkbox" name="invoice_on_complete" id="invoiceCheck" checked style="width:16px;height:16px;accent-color:var(--orange);cursor:pointer;margin-top:2px;" />
             <label for="invoiceCheck" style="font-size:13px;color:var(--text);cursor:pointer;">
@@ -393,6 +394,12 @@
               <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-top:2px;">PDF invoice emails to client automatically</div>
             </label>
           </div>
+          {% else %}
+          <div class="fin-field" style="grid-column:1/-1;padding:12px 14px;background:rgba(249,115,22,0.04);border:1px solid rgba(249,115,22,0.2);">
+            <div style="font-size:13px;font-weight:600;color:var(--orange);margin-bottom:2px;">Auto-invoicing — Pro feature</div>
+            <div style="font-size:11px;color:var(--text-muted);">Jobs will invoice themselves when the date passes. <a href="{{ url_for('pricing') }}" style="color:var(--orange);">Upgrade to Pro →</a></div>
+          </div>
+          {% endif %}
         </div>
         <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
           <button type="button" class="btn-ghost" onclick="document.getElementById('scheduleModal').classList.remove('active')">Cancel</button>

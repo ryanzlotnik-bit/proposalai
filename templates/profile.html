@@ -15,8 +15,8 @@
     <div>
       <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px;">Current Plan</div>
       <div style="font-size:14px;font-weight:600;color:var(--text);">
-        {% if current_user.is_subscribed %}{{ current_user.plan|capitalize }} — Unlimited proposals
-        {% else %}Free Trial — {{ current_user.proposal_count }}/3 proposals used{% endif %}
+        {% if current_user.is_subscribed %}{{ current_user.plan_display }} — Unlimited proposals + auto-invoicing
+        {% else %}Free — {{ current_user.proposal_count }}/3 proposals used{% endif %}
       </div>
     </div>
     {% if not current_user.is_subscribed %}

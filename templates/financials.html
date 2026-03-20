@@ -161,6 +161,7 @@
   </div>
 
   <!-- Chart -->
+  {% if can_see_charts %}
   <div class="ctj-card" style="padding:28px;margin-bottom:40px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
       <div>
@@ -183,6 +184,15 @@
       <canvas id="revenueChart"></canvas>
     </div>
   </div>
+  {% else %}
+  <div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--orange);padding:20px 24px;margin-bottom:40px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+    <div>
+      <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;">Revenue charts — Pro feature</div>
+      <p style="font-size:13px;color:var(--text-muted);">Upgrade to Pro to see monthly revenue trends, expense breakdowns, and P&amp;L charts.</p>
+    </div>
+    <a href="{{ url_for('pricing') }}" class="btn-orange" style="padding:10px 22px;font-size:13px;clip-path:none;">Upgrade to Pro</a>
+  </div>
+  {% endif %}
 
   <!-- Tabs -->
   <div style="border:1px solid var(--border);">
@@ -499,6 +509,7 @@ function switchTab(name, btn) {
 }
 
 // ── Chart ─────────────────────────────────────────────────────────────────────
+{% if can_see_charts %}
 const chartData = {{ chart_data | safe }};
 const ctx = document.getElementById('revenueChart').getContext('2d');
 new Chart(ctx, {
@@ -565,5 +576,6 @@ new Chart(ctx, {
     },
   },
 });
+{% endif %}
 </script>
 {% endblock %}

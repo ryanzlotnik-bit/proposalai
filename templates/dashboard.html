@@ -189,8 +189,8 @@
       <h1 class="font-display" style="font-size:clamp(40px,5vw,60px);color:var(--text);line-height:1;">{{ current_user.name.split()[0] }}'s<br />Business.</h1>
       <p style="color:var(--text-muted);font-size:12px;margin-top:8px;font-family:'JetBrains Mono',monospace;">
         {{ today.strftime('%A, %B %d').upper() }} ·
-        {% if current_user.is_subscribed %}{{ current_user.plan.upper() }} PLAN
-        {% else %}TRIAL · {{ proposals|length }}/3 PROPOSALS{% endif %}
+        {% if current_user.is_subscribed %}{{ current_user.plan_display.upper() }} PLAN
+        {% else %}FREE · {{ proposals|length }}/3 PROPOSALS USED{% endif %}
       </p>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -220,8 +220,8 @@
   {% if not current_user.is_subscribed and proposals|length >= 3 %}
   <div style="background:rgba(249,115,22,0.06);border:1px solid rgba(249,115,22,0.25);border-left:3px solid var(--orange);padding:14px 20px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
     <div>
-      <p style="font-weight:600;color:var(--text);font-size:13px;">Trial limit reached</p>
-      <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">Upgrade to Starter ($49/mo) for unlimited proposals and all features.</p>
+      <p style="font-weight:600;color:var(--text);font-size:13px;">Free plan — 3 proposals used</p>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">Upgrade to Pro ($49/mo) for unlimited proposals, auto-invoicing, and financial charts.</p>
     </div>
     <a href="{{ url_for('pricing') }}" class="btn-orange" style="padding:9px 18px;font-size:12px;">Upgrade Now</a>
   </div>

@@ -119,6 +119,20 @@ class User(db.Model, UserMixin):
     def is_subscribed(self):
         return self.plan in ('starter', 'pro')
 
+    @property
+    def can_auto_invoice(self):
+        """Auto-invoicing is a Pro/Business feature."""
+        return self.plan in ('starter', 'pro')
+
+    @property
+    def can_see_charts(self):
+        """Financial charts are a Pro/Business feature."""
+        return self.plan in ('starter', 'pro')
+
+    @property
+    def plan_display(self):
+        return {'trial': 'Free', 'starter': 'Pro', 'pro': 'Business'}.get(self.plan, self.plan.capitalize())
+
 
 class Proposal(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -344,6 +358,7 @@ def build_monthly_chart_data(user_id, months=12):
 def auto_invoice_past_scheduled_jobs(user_id):
     """Find scheduled jobs whose date has passed, create Job records, send invoices."""
     today = date.today()
+    user = User.query.get(user_id)
     past = ScheduledJob.query.filter(
         ScheduledJob.user_id == user_id,
         ScheduledJob.scheduled_date <= today,
@@ -352,6 +367,7 @@ def auto_invoice_past_scheduled_jobs(user_id):
     for sj in past:
         job = Job(
             user_id=user_id,
+            client_id=sj.client_id,
             client_name=sj.client_name,
             client_email=sj.client_email,
             client_phone=sj.client_phone,
@@ -365,8 +381,8 @@ def auto_invoice_past_scheduled_jobs(user_id):
         db.session.flush()  # get job.id
         sj.status = 'invoiced'
         db.session.commit()
-        if sj.invoice_on_complete and sj.client_email:
-            send_invoice_email(job, User.query.get(user_id))
+        if sj.invoice_on_complete and sj.client_email and user and user.can_auto_invoice:
+            send_invoice_email(job, user)
 
 
 def generate_invoice_pdf(job, user):
@@ -939,7 +955,7 @@ def generate():
     cost_templates = CostTemplate.query.filter_by(user_id=current_user.id).order_by(CostTemplate.created_at).all()
 
     if not current_user.can_generate:
-        flash('You have used all your free proposals. Upgrade to continue.', 'warning')
+        flash('You\'ve used your 3 free proposals. Upgrade to Pro for unlimited proposals + auto-invoicing.', 'warning')
         return redirect(url_for('pricing'))
 
     if request.method == 'POST':
@@ -1273,6 +1289,7 @@ def financials():
         total_tips=total_tips, net_profit=net_profit,
         chart_data=chart_data,
         today=date.today().isoformat(),
+        can_see_charts=current_user.can_see_charts,
     )
 
 
