@@ -3,137 +3,174 @@
 
 {% block head %}
 <style>
+  /* ── Modal ──────────────────────────────────────────────────────────────────── */
   .fin-modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.75);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75); z-index: 1000;
+    align-items: center; justify-content: center; padding: 20px;
   }
   .fin-modal-overlay.active { display: flex; }
   .fin-modal {
-    background: var(--surface);
-    border: 1px solid var(--border-bright);
-    width: 100%;
-    max-width: 520px;
-    max-height: 90vh;
-    overflow-y: auto;
+    background: var(--surface); border: 1px solid var(--border-bright);
+    width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
   }
   .fin-modal-header {
-    background: var(--surface-2);
-    border-bottom: 1px solid var(--border);
-    padding: 16px 24px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    background: var(--surface-2); border-bottom: 1px solid var(--border);
+    padding: 16px 24px; display: flex; justify-content: space-between; align-items: center;
   }
-  .fin-modal-title {
-    font-family: 'Bebas Neue', cursive;
-    font-size: 20px;
-    color: var(--text);
-    letter-spacing: 0.04em;
-  }
-  .fin-modal-close {
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    font-size: 20px;
-    cursor: pointer;
-    line-height: 1;
-    padding: 0;
-    transition: color 0.15s;
-  }
+  .fin-modal-title { font-family: 'Bebas Neue', cursive; font-size: 20px; color: var(--text); letter-spacing: 0.04em; }
+  .fin-modal-close { background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; line-height: 1; padding: 0; transition: color 0.15s; }
   .fin-modal-close:hover { color: var(--text); }
   .fin-modal-body { padding: 24px; }
   .fin-field { margin-bottom: 16px; }
 
-  .data-table { width: 100%; border-collapse: collapse; }
-  .data-table th {
+  /* ── Calendar ───────────────────────────────────────────────────────────────── */
+  .cal-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+  .cal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .cal-nav {
+    background: none; border: 1px solid var(--border-bright);
+    color: var(--text-muted); font-size: 16px; width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .cal-nav:hover { color: var(--text); border-color: var(--text-muted); }
+  .cal-month-label {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 28px; color: var(--text); letter-spacing: 0.06em; line-height: 1;
+  }
+  .cal-month-label span { color: var(--orange); }
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0;
+  }
+  .cal-dow {
+    padding: 10px 4px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 10px;
     font-weight: 600;
     color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    font-family: 'JetBrains Mono', monospace;
-    padding: 10px 14px;
-    text-align: left;
+    letter-spacing: 0.08em;
     border-bottom: 1px solid var(--border);
-    background: var(--surface);
+    border-right: 1px solid var(--border);
+  }
+  .cal-dow:last-child { border-right: none; }
+  .cal-cell {
+    min-height: 96px;
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    vertical-align: top;
+    position: relative;
+    transition: background 0.1s;
+  }
+  .cal-cell:nth-child(7n) { border-right: none; }
+  .cal-cell.other-month { opacity: 0.3; }
+  .cal-cell.is-today { box-shadow: inset 0 0 0 2px var(--orange); }
+  .cal-cell:hover { background: rgba(249,115,22,0.04); }
+  .cal-day-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    line-height: 1;
+  }
+  .is-today .cal-day-num {
+    color: var(--orange);
+  }
+  .cal-job-chip {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 6px;
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    border-left: 2px solid;
+  }
+  .cal-job-chip:hover { opacity: 0.8; }
+  .cal-job-chip.upcoming {
+    background: rgba(249,115,22,0.12);
+    color: var(--orange);
+    border-color: var(--orange);
+  }
+  .cal-job-chip.invoiced {
+    background: rgba(74,222,128,0.08);
+    color: var(--green);
+    border-color: var(--green);
+  }
+  .cal-job-chip.cancelled {
+    background: rgba(248,113,113,0.08);
+    color: var(--red);
+    border-color: var(--red);
+    text-decoration: line-through;
+  }
+  .cal-more {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    cursor: pointer;
+    padding: 1px 4px;
+  }
+  .cal-more:hover { color: var(--orange); }
+
+  /* ── Table ──────────────────────────────────────────────────────────────────── */
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th {
+    font-size: 10px; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.1em;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 10px 14px; text-align: left;
+    border-bottom: 1px solid var(--border); background: var(--surface);
   }
   .data-table td {
-    padding: 14px;
-    font-size: 13px;
-    color: var(--text);
-    border-bottom: 1px solid var(--border);
-    vertical-align: middle;
+    padding: 14px; font-size: 13px; color: var(--text);
+    border-bottom: 1px solid var(--border); vertical-align: middle;
   }
   .data-table tr:last-child td { border-bottom: none; }
   .data-table tr:hover td { background: rgba(249,115,22,0.03); }
-
   .action-btn {
-    background: none;
-    border: 1px solid var(--border-bright);
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 11px;
-    font-family: 'JetBrains Mono', monospace;
-    padding: 4px 10px;
-    transition: all 0.15s;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    background: none; border: 1px solid var(--border-bright);
+    color: var(--text-muted); cursor: pointer;
+    font-size: 11px; font-family: 'JetBrains Mono', monospace;
+    padding: 4px 10px; transition: all 0.15s;
+    text-transform: uppercase; letter-spacing: 0.06em;
   }
   .action-btn:hover { color: var(--text); border-color: var(--text-muted); }
   .action-btn.danger:hover { color: var(--red); border-color: rgba(248,113,113,0.4); }
-
-  .stat-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    padding: 20px 24px;
-  }
-  .stat-card-value {
-    font-family: 'Bebas Neue', cursive;
-    font-size: 40px;
-    color: var(--text);
-    line-height: 1;
-  }
-  .stat-card-value span { color: var(--orange); }
-  .stat-card-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-top: 4px;
-  }
-
-  .days-badge {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--orange);
-  }
-
-  .past-section {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    margin-top: 32px;
-  }
+  .days-badge { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; color: var(--orange); }
+  .past-section { background: var(--surface); border: 1px solid var(--border); margin-top: 32px; }
   .past-section-header {
-    padding: 14px 20px;
-    background: var(--surface-2);
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    cursor: pointer;
-    user-select: none;
+    padding: 14px 20px; background: var(--surface-2); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; user-select: none;
   }
   .past-section-header:hover { background: var(--border); }
-  .past-table td { opacity: 0.7; font-size: 12px; padding: 10px 14px; }
-  .past-table th { font-size: 9px; padding: 8px 14px; }
+
+  /* ── Job detail tooltip ─────────────────────────────────────────────────────── */
+  .job-tooltip {
+    display: none; position: fixed; z-index: 500;
+    background: var(--surface-2); border: 1px solid var(--border-bright);
+    padding: 14px 16px; width: 220px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    pointer-events: none;
+  }
+  .job-tooltip.visible { display: block; }
 </style>
 {% endblock %}
 
@@ -145,89 +182,75 @@
     <div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">// Job Schedule</div>
       <h1 class="font-display" style="font-size:clamp(40px,5vw,64px);line-height:1;color:var(--text);">Schedule.</h1>
-      <p style="color:var(--text-muted);font-size:14px;margin-top:8px;">Upcoming jobs auto-invoice when the date passes.</p>
+      <p style="color:var(--text-muted);font-size:14px;margin-top:8px;">Jobs auto-invoice when their date passes.</p>
     </div>
-    <button class="btn-orange" onclick="document.getElementById('scheduleModal').classList.add('active')">
+    <button class="btn-orange" onclick="document.getElementById('scheduleModal').classList.add('active')" style="padding:12px 24px;">
       + Schedule Job
     </button>
   </div>
 
-  <!-- Stats Row -->
-  {% set this_week_count = upcoming | selectattr('scheduled_date', 'defined') | list %}
-  {% set week_jobs = [] %}
-  {% for j in upcoming %}
-    {% set delta = (j.scheduled_date | string) %}
-  {% endfor %}
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--border);margin-bottom:40px;">
-    <div class="stat-card">
-      <div class="stat-card-value"><span>{{ upcoming | length }}</span></div>
-      <div class="stat-card-label">Upcoming Jobs</div>
+  <!-- Stats -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--border);margin-bottom:32px;">
+    <div style="background:var(--surface);padding:20px 24px;">
+      <div class="font-display" style="font-size:40px;color:var(--orange);line-height:1;">{{ upcoming|length }}</div>
+      <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">Upcoming Jobs</div>
     </div>
-    <div class="stat-card">
-      <div class="stat-card-value">
-        <span>
-          {% set week_count = namespace(n=0) %}
-          {% for j in upcoming %}
-            {% set days = (j.scheduled_date.toordinal() - today | string | replace('-','') | int) %}
-          {% endfor %}
-          {% for j in upcoming %}
-            {% if (j.scheduled_date.isoformat() <= (today[:8] + '%02d' % (today[8:] | int + 7))) %}
-              {% set week_count.n = week_count.n + 1 %}
-            {% endif %}
-          {% endfor %}
-          {{ week_count.n }}
-        </span>
-      </div>
-      <div class="stat-card-label">This Week</div>
+    <div style="background:var(--surface);padding:20px 24px;">
+      <div class="font-display" style="font-size:40px;color:var(--text);line-height:1;" id="week-count">—</div>
+      <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">This Week</div>
     </div>
-    <div class="stat-card">
-      <div class="stat-card-value">
-        <span>$</span>{{ "{:,.0f}".format(upcoming | sum(attribute='estimated_revenue')) }}
-      </div>
-      <div class="stat-card-label">Est. Revenue (Upcoming)</div>
+    <div style="background:var(--surface);padding:20px 24px;">
+      <div class="font-display" style="font-size:40px;color:var(--green);line-height:1;"><span style="font-size:28px;">$</span>{{ "{:,.0f}".format(upcoming|sum(attribute='estimated_revenue')) }}</div>
+      <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">Est. Pipeline</div>
     </div>
   </div>
 
-  <!-- Upcoming Jobs Table -->
+  <!-- Calendar -->
+  <div class="cal-wrap">
+    <div class="cal-header">
+      <button class="cal-nav" onclick="changeMonth(-1)">&#8249;</button>
+      <div class="cal-month-label" id="cal-label">—</div>
+      <button class="cal-nav" onclick="changeMonth(1)">&#8250;</button>
+    </div>
+    <div class="cal-grid" id="cal-dow-row">
+      {% for d in ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] %}
+      <div class="cal-dow">{{ d }}</div>
+      {% endfor %}
+    </div>
+    <div class="cal-grid" id="cal-body"></div>
+  </div>
+
+  <!-- Tooltip -->
+  <div class="job-tooltip" id="job-tooltip"></div>
+
+  <!-- Upcoming list -->
   {% if upcoming %}
   <div style="background:var(--surface);border:1px solid var(--border);">
-    <div style="padding:16px 20px;background:var(--surface-2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;">
-      <div style="width:8px;height:8px;background:var(--orange);border-radius:50%;animation:pulse 2s infinite;"></div>
+    <div style="padding:14px 20px;background:var(--surface-2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+      <div style="width:8px;height:8px;background:var(--orange);border-radius:50%;animation:ldotBounce 2s infinite;"></div>
       <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--text);text-transform:uppercase;letter-spacing:0.08em;">Upcoming Jobs</span>
     </div>
     <div style="overflow-x:auto;">
       <table class="data-table">
-        <thead>
-          <tr>
-            <th>Client</th>
-            <th>Job Type</th>
-            <th>Date</th>
-            <th>Est. Revenue</th>
-            <th>Auto-Invoice</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
+        <thead><tr>
+          <th>Client</th><th>Job Type</th><th>Date</th><th>Est. Revenue</th><th>Auto-Invoice</th><th>Actions</th>
+        </tr></thead>
         <tbody>
           {% for j in upcoming %}
           {% set days_until = (j.scheduled_date.toordinal() - j.scheduled_date.today().toordinal()) %}
           <tr>
             <td>
-              <div style="font-weight:600;color:var(--text);">{{ j.client_name }}</div>
+              <div style="font-weight:600;">{{ j.client_name }}</div>
               {% if j.client_email %}<div style="font-size:11px;color:var(--text-muted);margin-top:2px;">{{ j.client_email }}</div>{% endif %}
-              {% if j.client_phone %}<div style="font-size:11px;color:var(--text-muted);">{{ j.client_phone }}</div>{% endif %}
             </td>
             <td style="color:var(--text-muted);">{{ j.job_type or '—' }}</td>
             <td>
-              <div style="display:flex;flex-direction:column;gap:4px;">
-                <div style="font-size:13px;">{{ j.scheduled_date.strftime('%b %d, %Y') }}</div>
-                {% if days_until == 0 %}
-                  <span class="badge" style="color:var(--orange);border-color:rgba(249,115,22,0.4);background:rgba(249,115,22,0.08);width:fit-content;">TODAY</span>
-                {% elif days_until <= 7 and days_until > 0 %}
-                  <span class="days-badge">in {{ days_until }} day{% if days_until != 1 %}s{% endif %}</span>
-                {% else %}
-                  <span class="badge badge-sent" style="width:fit-content;">UPCOMING</span>
-                {% endif %}
-              </div>
+              <div style="font-size:13px;">{{ j.scheduled_date.strftime('%b %d, %Y') }}</div>
+              {% if days_until == 0 %}
+                <span class="badge" style="color:var(--orange);border-color:rgba(249,115,22,0.4);background:rgba(249,115,22,0.08);">TODAY</span>
+              {% elif days_until > 0 and days_until <= 7 %}
+                <span class="days-badge">in {{ days_until }} day{% if days_until != 1 %}s{% endif %}</span>
+              {% endif %}
             </td>
             <td style="font-weight:600;color:var(--green);">${{ "{:,.2f}".format(j.estimated_revenue) }}</td>
             <td>
@@ -238,12 +261,12 @@
               {% endif %}
             </td>
             <td>
-              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <div style="display:flex;gap:6px;">
                 <form method="POST" action="{{ url_for('cancel_scheduled_job', sj_id=j.id) }}" style="margin:0;">
                   <button type="submit" class="action-btn" onclick="return confirm('Cancel this job?')">Cancel</button>
                 </form>
                 <form method="POST" action="{{ url_for('delete_scheduled_job', sj_id=j.id) }}" style="margin:0;">
-                  <button type="submit" class="action-btn danger" onclick="return confirm('Delete this scheduled job?')">Delete</button>
+                  <button type="submit" class="action-btn danger" onclick="return confirm('Delete?')">Delete</button>
                 </form>
               </div>
             </td>
@@ -255,52 +278,38 @@
   </div>
   {% else %}
   <div style="background:var(--surface);border:1px solid var(--border);padding:48px 24px;text-align:center;">
-    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">No upcoming jobs</div>
-    <p style="color:var(--text-muted);font-size:14px;margin-bottom:20px;">Schedule your first job to get started.</p>
-    <button class="btn-orange" onclick="document.getElementById('scheduleModal').classList.add('active')">+ Schedule Job</button>
+    <p style="color:var(--text-muted);font-size:14px;margin-bottom:20px;">No upcoming jobs yet.</p>
+    <button class="btn-orange" onclick="document.getElementById('scheduleModal').classList.add('active')">+ Schedule First Job</button>
   </div>
   {% endif %}
 
-  <!-- Past / Invoiced Section -->
+  <!-- Past / Invoiced -->
   {% if past %}
   <div class="past-section">
     <div class="past-section-header" onclick="togglePast()">
-      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">
-        Past &amp; Invoiced ({{ past | length }})
-      </span>
-      <span id="pastChevron" style="color:var(--text-muted);font-size:14px;transition:transform 0.2s;">▼</span>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Past &amp; Invoiced ({{ past|length }})</span>
+      <span id="pastChevron" style="color:var(--text-muted);transition:transform 0.2s;">▼</span>
     </div>
     <div id="pastTable" style="display:none;overflow-x:auto;">
-      <table class="data-table past-table">
-        <thead>
-          <tr>
-            <th>Client</th>
-            <th>Job Type</th>
-            <th>Scheduled Date</th>
-            <th>Est. Revenue</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
+      <table class="data-table">
+        <thead><tr>
+          <th>Client</th><th>Job Type</th><th>Date</th><th>Est. Revenue</th><th>Status</th><th></th>
+        </tr></thead>
         <tbody>
           {% for j in past %}
-          <tr>
-            <td style="font-weight:500;">{{ j.client_name }}</td>
-            <td style="color:var(--text-muted);">{{ j.job_type or '—' }}</td>
-            <td>{{ j.scheduled_date.strftime('%b %d, %Y') }}</td>
-            <td>${{ "{:,.2f}".format(j.estimated_revenue) }}</td>
+          <tr style="opacity:0.7;">
+            <td style="font-size:12px;font-weight:500;">{{ j.client_name }}</td>
+            <td style="font-size:12px;color:var(--text-muted);">{{ j.job_type or '—' }}</td>
+            <td style="font-size:12px;">{{ j.scheduled_date.strftime('%b %d, %Y') }}</td>
+            <td style="font-size:12px;">${{ "{:,.2f}".format(j.estimated_revenue) }}</td>
             <td>
-              {% if j.status == 'invoiced' %}
-                <span class="badge badge-accepted">Invoiced</span>
-              {% elif j.status == 'cancelled' %}
-                <span class="badge badge-declined">Cancelled</span>
-              {% else %}
-                <span class="badge badge-draft">{{ j.status }}</span>
-              {% endif %}
+              {% if j.status == 'invoiced' %}<span class="badge badge-accepted">Invoiced</span>
+              {% elif j.status == 'cancelled' %}<span class="badge badge-declined">Cancelled</span>
+              {% else %}<span class="badge badge-draft">{{ j.status }}</span>{% endif %}
             </td>
             <td>
               <form method="POST" action="{{ url_for('delete_scheduled_job', sj_id=j.id) }}" style="margin:0;">
-                <button type="submit" class="action-btn danger" onclick="return confirm('Delete this record?')">Delete</button>
+                <button type="submit" class="action-btn danger" onclick="return confirm('Delete?')">Delete</button>
               </form>
             </td>
           </tr>
@@ -314,10 +323,10 @@
 </div>
 
 <!-- Schedule Job Modal -->
-<div class="fin-modal-overlay" id="scheduleModal">
+<div class="fin-modal-overlay" id="scheduleModal" onclick="if(event.target===this)this.classList.remove('active')">
   <div class="fin-modal">
     <div class="fin-modal-header">
-      <span class="fin-modal-title">Schedule Job</span>
+      <span class="fin-modal-title">Schedule a Job</span>
       <button class="fin-modal-close" onclick="document.getElementById('scheduleModal').classList.remove('active')">&times;</button>
     </div>
     <div class="fin-modal-body">
@@ -337,15 +346,15 @@
           </div>
           <div class="fin-field">
             <label class="ctj-label">Job Type</label>
-            <input type="text" name="job_type" class="ctj-input" placeholder="e.g. AC Installation" />
+            <input type="text" name="job_type" class="ctj-input" placeholder="e.g. AC Repair, Roof Fix…" />
           </div>
           <div class="fin-field">
             <label class="ctj-label">Scheduled Date <span>*</span></label>
-            <input type="date" name="scheduled_date" class="ctj-input" value="{{ today }}" required />
+            <input type="date" name="scheduled_date" id="modal-date" class="ctj-input" value="{{ today }}" required />
           </div>
           <div class="fin-field" style="grid-column:1/-1;">
             <label class="ctj-label">Description</label>
-            <textarea name="description" class="ctj-input" rows="3" placeholder="Brief description of the job..."></textarea>
+            <textarea name="description" class="ctj-input" rows="2" placeholder="Brief job description…" style="resize:vertical;"></textarea>
           </div>
           <div class="fin-field">
             <label class="ctj-label">Estimated Revenue ($)</label>
@@ -353,12 +362,13 @@
           </div>
           <div class="fin-field">
             <label class="ctj-label">Notes</label>
-            <input type="text" name="notes" class="ctj-input" placeholder="Optional notes..." />
+            <input type="text" name="notes" class="ctj-input" placeholder="Optional…" />
           </div>
-          <div class="fin-field" style="grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border-bright);">
-            <input type="checkbox" name="invoice_on_complete" id="invoiceCheck" checked style="width:16px;height:16px;accent-color:var(--orange);cursor:pointer;" />
-            <label for="invoiceCheck" style="font-size:13px;color:var(--text);cursor:pointer;user-select:none;">
-              Auto-send invoice when job date passes
+          <div class="fin-field" style="grid-column:1/-1;display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border-bright);">
+            <input type="checkbox" name="invoice_on_complete" id="invoiceCheck" checked style="width:16px;height:16px;accent-color:var(--orange);cursor:pointer;margin-top:2px;" />
+            <label for="invoiceCheck" style="font-size:13px;color:var(--text);cursor:pointer;">
+              Auto-send invoice when date passes
+              <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-top:2px;">PDF invoice emails to client automatically</div>
             </label>
           </div>
         </div>
@@ -370,26 +380,181 @@
     </div>
   </div>
 </div>
-
 {% endblock %}
 
 {% block scripts %}
 <script>
-  // Close modal on overlay click
-  document.getElementById('scheduleModal').addEventListener('click', function(e) {
-    if (e.target === this) this.classList.remove('active');
+// ── Jobs data from server ────────────────────────────────────────────────────
+const ALL_JOBS = [
+  {% for j in upcoming + past %}
+  {
+    id: {{ j.id }},
+    client: {{ j.client_name | tojson }},
+    job_type: {{ (j.job_type or '') | tojson }},
+    date: {{ j.scheduled_date.isoformat() | tojson }},
+    revenue: {{ j.estimated_revenue }},
+    status: {{ j.status | tojson }},
+    invoice: {{ 'true' if j.invoice_on_complete else 'false' }},
+    email: {{ (j.client_email or '') | tojson }},
+  },
+  {% endfor %}
+];
+
+// ── Calendar state ───────────────────────────────────────────────────────────
+const today = new Date();
+today.setHours(0,0,0,0);
+let viewYear = today.getFullYear();
+let viewMonth = today.getMonth();  // 0-indexed
+
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function changeMonth(delta) {
+  viewMonth += delta;
+  if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+  if (viewMonth < 0)  { viewMonth = 11; viewYear--; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const label = document.getElementById('cal-label');
+  label.innerHTML = `${MONTHS[viewMonth]} <span>${viewYear}</span>`;
+
+  const body = document.getElementById('cal-body');
+  body.innerHTML = '';
+
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const daysInPrev = new Date(viewYear, viewMonth, 0).getDate();
+
+  // Build job map: key = "YYYY-MM-DD"
+  const jobMap = {};
+  ALL_JOBS.forEach(j => {
+    if (!jobMap[j.date]) jobMap[j.date] = [];
+    jobMap[j.date].push(j);
   });
 
-  function togglePast() {
-    const table = document.getElementById('pastTable');
-    const chevron = document.getElementById('pastChevron');
-    if (table.style.display === 'none') {
-      table.style.display = 'block';
-      chevron.style.transform = 'rotate(180deg)';
+  const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+
+  for (let i = 0; i < totalCells; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell';
+
+    let day, month, year, isCurrentMonth = true;
+    if (i < firstDay) {
+      day = daysInPrev - firstDay + i + 1;
+      month = viewMonth === 0 ? 11 : viewMonth - 1;
+      year = viewMonth === 0 ? viewYear - 1 : viewYear;
+      isCurrentMonth = false;
+      cell.classList.add('other-month');
+    } else if (i >= firstDay + daysInMonth) {
+      day = i - firstDay - daysInMonth + 1;
+      month = viewMonth === 11 ? 0 : viewMonth + 1;
+      year = viewMonth === 11 ? viewYear + 1 : viewYear;
+      isCurrentMonth = false;
+      cell.classList.add('other-month');
     } else {
-      table.style.display = 'none';
-      chevron.style.transform = 'rotate(0deg)';
+      day = i - firstDay + 1;
+      month = viewMonth;
+      year = viewYear;
     }
+
+    const cellDate = new Date(year, month, day);
+    const isToday = cellDate.getTime() === today.getTime();
+    if (isToday) cell.classList.add('is-today');
+
+    const pad = n => String(n).padStart(2,'0');
+    const dateKey = `${year}-${pad(month+1)}-${pad(day)}`;
+
+    // Day number
+    const dayNum = document.createElement('div');
+    dayNum.className = 'cal-day-num';
+    dayNum.textContent = day;
+    cell.appendChild(dayNum);
+
+    // Jobs on this date
+    const jobs = jobMap[dateKey] || [];
+    const maxShow = 3;
+    jobs.slice(0, maxShow).forEach(j => {
+      const chip = document.createElement('span');
+      chip.className = `cal-job-chip ${j.status}`;
+      chip.textContent = j.client + (j.job_type ? ` · ${j.job_type}` : '');
+      chip.title = `${j.client} — $${j.revenue.toLocaleString()}`;
+      chip.addEventListener('mouseenter', e => showTooltip(e, j));
+      chip.addEventListener('mouseleave', hideTooltip);
+      cell.appendChild(chip);
+    });
+    if (jobs.length > maxShow) {
+      const more = document.createElement('span');
+      more.className = 'cal-more';
+      more.textContent = `+${jobs.length - maxShow} more`;
+      cell.appendChild(more);
+    }
+
+    // Click empty area to pre-fill date in modal
+    cell.addEventListener('click', e => {
+      if (e.target === cell || e.target === dayNum) {
+        document.getElementById('modal-date').value = dateKey;
+        document.getElementById('scheduleModal').classList.add('active');
+      }
+    });
+
+    body.appendChild(cell);
   }
+}
+
+// ── Tooltip ──────────────────────────────────────────────────────────────────
+function showTooltip(e, job) {
+  const tip = document.getElementById('job-tooltip');
+  tip.innerHTML = `
+    <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px;">${job.client}</div>
+    ${job.job_type ? `<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">${job.job_type}</div>` : ''}
+    <div style="font-size:11px;color:var(--green);font-family:'JetBrains Mono',monospace;">$${job.revenue.toLocaleString('en-US',{minimumFractionDigits:2})}</div>
+    ${job.email ? `<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">${job.email}</div>` : ''}
+    <div style="margin-top:6px;font-size:10px;font-family:'JetBrains Mono',monospace;color:${job.status==='invoiced'?'var(--green)':job.status==='cancelled'?'var(--red)':'var(--orange)'};">${job.status.toUpperCase()}</div>
+  `;
+  tip.classList.add('visible');
+  positionTooltip(e);
+}
+function positionTooltip(e) {
+  const tip = document.getElementById('job-tooltip');
+  const x = e.clientX + 12;
+  const y = e.clientY - 10;
+  tip.style.left = Math.min(x, window.innerWidth - 240) + 'px';
+  tip.style.top = Math.min(y, window.innerHeight - 160) + 'px';
+}
+function hideTooltip() {
+  document.getElementById('job-tooltip').classList.remove('visible');
+}
+document.addEventListener('mousemove', e => {
+  const tip = document.getElementById('job-tooltip');
+  if (tip.classList.contains('visible')) positionTooltip(e);
+});
+
+// ── This-week count ──────────────────────────────────────────────────────────
+function countThisWeek() {
+  const start = new Date(today);
+  start.setDate(today.getDate() - today.getDay()); // Sunday
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6); // Saturday
+  const count = ALL_JOBS.filter(j => {
+    const d = new Date(j.date);
+    return j.status === 'scheduled' && d >= start && d <= end;
+  }).length;
+  document.getElementById('week-count').textContent = count;
+}
+
+// ── Toggle past section ──────────────────────────────────────────────────────
+function togglePast() {
+  const t = document.getElementById('pastTable');
+  const c = document.getElementById('pastChevron');
+  if (!t) return;
+  const open = t.style.display === 'none';
+  t.style.display = open ? 'block' : 'none';
+  c.style.transform = open ? 'rotate(180deg)' : '';
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+renderCalendar();
+countThisWeek();
 </script>
 {% endblock %}
