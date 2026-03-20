@@ -1,245 +1,273 @@
 {% extends "base.html" %}
-{% block title %}Proposal {{ proposal.proposal_number }} — ProposalAI{% endblock %}
+{% block title %}{{ proposal.proposal_number }} — CloseTheJob{% endblock %}
 
 {% block head %}
 <style>
+  .proposal-doc {
+    background: #fff;
+    color: #111;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .proposal-header {
+    background: #111;
+    color: #fff;
+    padding: 40px 48px;
+  }
+  .proposal-body { padding: 40px 48px; }
+  .prop-label {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: #999;
+    margin-bottom: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .prop-val { font-size: 14px; color: #111; line-height: 1.5; }
+  .prop-section-title {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 22px;
+    color: #111;
+    letter-spacing: 0.04em;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #111;
+    margin-bottom: 16px;
+  }
+  .scope-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 13px;
+    color: #333;
+    padding: 6px 0;
+    border-bottom: 1px solid #F0F0F0;
+    line-height: 1.5;
+  }
+  .scope-dot { width: 6px; height: 6px; background: #F97316; flex-shrink: 0; margin-top: 5px; }
+  .mat-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .mat-table th { text-align: right; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #999; padding: 8px 12px; background: #F8F8F8; font-family: 'JetBrains Mono', monospace; }
+  .mat-table th:first-child { text-align: left; }
+  .mat-table td { padding: 10px 12px; text-align: right; border-bottom: 1px solid #F0F0F0; color: #333; }
+  .mat-table td:first-child { text-align: left; color: #111; font-weight: 500; }
+  .total-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .total-row.grand { border-top: 2px solid #111; padding-top: 12px; margin-top: 4px; }
+  .total-label { font-size: 13px; color: #666; }
+  .total-val { font-size: 14px; color: #111; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  .total-row.grand .total-label { font-size: 15px; font-weight: 700; color: #111; font-family: 'Bebas Neue', cursive; letter-spacing: 0.04em; font-size: 20px; }
+  .total-row.grand .total-val { font-size: 24px; font-weight: 700; color: #F97316; }
+  .sig-line { border-bottom: 1px solid #999; height: 40px; margin-bottom: 6px; }
+  .sig-label { font-size: 10px; color: #999; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.06em; }
+  .closing-box { background: #F8F8F8; border-left: 3px solid #F97316; padding: 16px 20px; }
   @media print {
     nav, footer, .no-print { display: none !important; }
     body { background: white !important; }
-    .proposal-card { box-shadow: none !important; border: none !important; }
-    .page-header { padding-top: 0 !important; }
+    .proposal-wrapper { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
+    .proposal-doc { box-shadow: none !important; }
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 py-8 page-header">
-
-  <!-- Controls (hidden on print) -->
-  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 no-print">
-    <a href="{{ url_for('dashboard') }}" class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-      </svg>
-      Back to Dashboard
-    </a>
-    <div class="flex items-center gap-3">
+<div class="no-print" style="max-width:960px;margin:0 auto;padding:24px 24px 0;">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+    <a href="{{ url_for('dashboard') }}" style="font-size:12px;color:var(--text-muted);text-decoration:none;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:6px;">← DASHBOARD</a>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
       {% if proposal.client_email %}
-      <a href="mailto:{{ proposal.client_email }}?subject=Proposal {{ proposal.proposal_number }} — {{ user.company_name or user.name }}&body=Please see the attached proposal."
-         class="text-sm font-medium text-gray-600 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50 transition flex items-center gap-2">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-        </svg>
-        Email Client
+      <a href="mailto:{{ proposal.client_email }}?subject=Proposal {{ proposal.proposal_number }}&body=Please find your proposal attached."
+         style="font-size:12px;color:var(--text-muted);border:1px solid var(--border-bright);padding:8px 16px;text-decoration:none;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:6px;transition:color 0.15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">
+        EMAIL CLIENT
       </a>
       {% endif %}
-      <button onclick="window.print()"
-        class="bg-blue-600 text-white text-sm font-semibold px-5 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
-        </svg>
-        Print / Save PDF
+      <button onclick="window.print()" class="btn-orange" style="padding:8px 20px;font-size:12px;border:none;cursor:pointer;font-family:'JetBrains Mono',monospace;clip-path:none;">
+        PRINT / SAVE PDF
       </button>
     </div>
   </div>
-
-  <!-- Proposal Document -->
-  <div class="proposal-card bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-
-    <!-- Header -->
-    <div class="bg-blue-600 px-8 py-8 text-white">
-      <div class="flex flex-col sm:flex-row sm:justify-between gap-6">
-        <div>
-          <h1 class="text-2xl font-bold">{{ user.company_name or user.name }}</h1>
-          <p class="text-blue-200 text-sm mt-1">{{ user.trade_type }}</p>
-          {% if user.phone %}<p class="text-blue-100 text-sm mt-1">{{ user.phone }}</p>{% endif %}
-          {% if user.license_number %}<p class="text-blue-100 text-sm">Lic #{{ user.license_number }}</p>{% endif %}
-          {% if user.address %}<p class="text-blue-100 text-sm">{{ user.address }}</p>{% endif %}
-        </div>
-        <div class="text-right">
-          <p class="text-blue-200 text-xs uppercase tracking-wider font-medium">Proposal</p>
-          <p class="text-3xl font-bold mt-1">{{ proposal.proposal_number }}</p>
-          <p class="text-blue-200 text-sm mt-1">{{ proposal.formatted_date }}</p>
-          <p class="text-blue-200 text-sm">Valid for {{ proposal.content.get('validity_period','30 days') }}</p>
-        </div>
-      </div>
-    </div>
-
-    <div class="px-8 py-8">
-
-      <!-- Prepared For -->
-      <div class="flex flex-col sm:flex-row gap-8 mb-8 pb-8 border-b border-gray-100">
-        <div class="flex-1">
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Prepared For</p>
-          <p class="font-semibold text-gray-900 text-lg">{{ proposal.client_name }}</p>
-          {% if proposal.client_address %}<p class="text-gray-600 text-sm mt-1">{{ proposal.client_address }}</p>{% endif %}
-          {% if proposal.client_phone %}<p class="text-gray-600 text-sm">{{ proposal.client_phone }}</p>{% endif %}
-          {% if proposal.client_email %}<p class="text-gray-600 text-sm">{{ proposal.client_email }}</p>{% endif %}
-        </div>
-        <div class="flex-1">
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Job Type</p>
-          <p class="font-semibold text-gray-900">{{ proposal.job_type }}</p>
-          {% if proposal.content.get('project_timeline') %}
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 mt-4">Timeline</p>
-          <p class="text-gray-700 text-sm">{{ proposal.content.get('project_timeline') }}</p>
-          {% endif %}
-        </div>
-      </div>
-
-      <!-- Executive Summary -->
-      {% if proposal.content.get('executive_summary') %}
-      <div class="mb-8">
-        <h2 class="text-lg font-bold text-gray-900 mb-3">Project Overview</h2>
-        <p class="text-gray-700 leading-relaxed">{{ proposal.content.get('executive_summary') }}</p>
-      </div>
-      {% endif %}
-
-      <!-- Scope of Work -->
-      {% if proposal.content.get('scope_of_work') %}
-      <div class="mb-8">
-        <h2 class="text-lg font-bold text-gray-900 mb-3">Scope of Work</h2>
-        <ul class="space-y-2">
-          {% for item in proposal.content.get('scope_of_work', []) %}
-          <li class="flex items-start gap-3 text-sm text-gray-700">
-            <svg class="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-            </svg>
-            {{ item }}
-          </li>
-          {% endfor %}
-        </ul>
-      </div>
-      {% endif %}
-
-      <!-- Materials -->
-      {% if proposal.content.get('materials_list') and proposal.content.get('materials_list')|length > 0 %}
-      <div class="mb-8">
-        <h2 class="text-lg font-bold text-gray-900 mb-3">Materials & Parts</h2>
-        <div class="overflow-x-auto rounded-xl border border-gray-200">
-          <table class="w-full text-sm">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Item</th>
-                <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Qty</th>
-                <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Unit</th>
-                <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Unit Cost</th>
-                <th class="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Total</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              {% for mat in proposal.content.get('materials_list', []) %}
-              <tr>
-                <td class="px-4 py-3 text-gray-800">{{ mat.get('name','') }}</td>
-                <td class="px-4 py-3 text-right text-gray-600">{{ mat.get('quantity','') }}</td>
-                <td class="px-4 py-3 text-right text-gray-600">{{ mat.get('unit','') }}</td>
-                <td class="px-4 py-3 text-right text-gray-600">${{ '{:,.2f}'.format(mat.get('unit_cost', 0)) }}</td>
-                <td class="px-4 py-3 text-right font-medium text-gray-900">${{ '{:,.2f}'.format(mat.get('total', 0)) }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      {% endif %}
-
-      <!-- Labor -->
-      {% if proposal.content.get('labor_description') %}
-      <div class="mb-8">
-        <h2 class="text-lg font-bold text-gray-900 mb-3">Labor</h2>
-        <div class="bg-gray-50 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <p class="text-gray-700 text-sm">{{ proposal.content.get('labor_description') }}</p>
-            <p class="text-gray-500 text-xs mt-1">
-              {{ proposal.content.get('labor_hours', proposal.labor_hours) }} hours ×
-              ${{ '{:,.0f}'.format(proposal.content.get('labor_rate', proposal.labor_rate)) }}/hour
-            </p>
-          </div>
-          <p class="font-bold text-gray-900 text-lg whitespace-nowrap">
-            ${{ '{:,.2f}'.format(proposal.content.get('labor_total', proposal.labor_hours * proposal.labor_rate)) }}
-          </p>
-        </div>
-      </div>
-      {% endif %}
-
-      <!-- Totals -->
-      <div class="mb-8">
-        <div class="bg-gray-50 rounded-xl p-6 max-w-sm ml-auto">
-          {% if proposal.content.get('total_materials') %}
-          <div class="flex justify-between text-sm text-gray-600 mb-2">
-            <span>Materials Subtotal</span>
-            <span>${{ '{:,.2f}'.format(proposal.content.get('total_materials', 0)) }}</span>
-          </div>
-          {% endif %}
-          {% if proposal.content.get('labor_total') %}
-          <div class="flex justify-between text-sm text-gray-600 mb-2">
-            <span>Labor</span>
-            <span>${{ '{:,.2f}'.format(proposal.content.get('labor_total', 0)) }}</span>
-          </div>
-          {% endif %}
-          {% if proposal.content.get('tax_amount') and proposal.content.get('tax_amount') > 0 %}
-          <div class="flex justify-between text-sm text-gray-600 mb-2">
-            <span>Tax</span>
-            <span>${{ '{:,.2f}'.format(proposal.content.get('tax_amount', 0)) }}</span>
-          </div>
-          {% endif %}
-          <div class="border-t border-gray-300 mt-3 pt-3 flex justify-between font-bold text-xl">
-            <span class="text-gray-900">Total Estimate</span>
-            <span class="text-blue-600">${{ '{:,.2f}'.format(proposal.grand_total) }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Terms & Warranty -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8 pt-8 border-t border-gray-100">
-        {% if proposal.content.get('payment_terms') %}
-        <div>
-          <h3 class="font-semibold text-gray-900 mb-2 text-sm uppercase tracking-wider text-gray-500">Payment Terms</h3>
-          <p class="text-gray-700 text-sm">{{ proposal.content.get('payment_terms') }}</p>
-        </div>
-        {% endif %}
-        {% if proposal.content.get('warranty_terms') %}
-        <div>
-          <h3 class="font-semibold text-gray-900 mb-2 text-sm uppercase tracking-wider text-gray-500">Warranty</h3>
-          <p class="text-gray-700 text-sm">{{ proposal.content.get('warranty_terms') }}</p>
-        </div>
-        {% endif %}
-      </div>
-
-      <!-- Closing -->
-      {% if proposal.content.get('closing_statement') %}
-      <div class="bg-blue-50 rounded-xl p-5 mb-8">
-        <p class="text-gray-700 text-sm leading-relaxed">{{ proposal.content.get('closing_statement') }}</p>
-        {% if proposal.content.get('call_to_action') %}
-        <p class="text-blue-700 font-semibold text-sm mt-3">{{ proposal.content.get('call_to_action') }}</p>
-        {% endif %}
-      </div>
-      {% endif %}
-
-      <!-- Signature -->
-      <div class="border-t border-gray-200 pt-8 grid grid-cols-1 sm:grid-cols-2 gap-8">
-        <div>
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-6">Client Signature</p>
-          <div class="border-b border-gray-400 h-8 mb-2"></div>
-          <p class="text-xs text-gray-400">{{ proposal.client_name }} · Date</p>
-        </div>
-        <div>
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-6">Contractor Signature</p>
-          <div class="border-b border-gray-400 h-8 mb-2"></div>
-          <p class="text-xs text-gray-400">{{ user.name }} · {{ user.company_name }} · Date</p>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Footer -->
-    <div class="bg-gray-50 border-t border-gray-200 px-8 py-4">
-      <p class="text-xs text-gray-400 text-center">
-        Generated by ProposalAI · This proposal is valid for {{ proposal.content.get('validity_period', '30 days') }} from {{ proposal.formatted_date }}
-      </p>
-    </div>
-
-  </div>
 </div>
+
+<!-- Proposal Document -->
+<div class="proposal-wrapper" style="max-width:960px;margin:0 auto;padding:0 24px 60px;">
+<div class="proposal-doc" style="box-shadow:0 4px 60px rgba(0,0,0,0.5);">
+
+  <!-- Header -->
+  <div class="proposal-header">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;">
+      <div>
+        <div style="font-family:'Bebas Neue',cursive;font-size:32px;color:#fff;line-height:1;margin-bottom:4px;">{{ user.company_name or user.name }}</div>
+        <div style="font-size:13px;color:#888;margin-bottom:12px;">{{ user.trade_type }}</div>
+        {% if user.phone %}<div style="font-size:13px;color:#aaa;">{{ user.phone }}</div>{% endif %}
+        {% if user.license_number %}<div style="font-size:12px;color:#666;">LIC #{{ user.license_number }}</div>{% endif %}
+        {% if user.address %}<div style="font-size:12px;color:#666;margin-top:4px;">{{ user.address }}</div>{% endif %}
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:0.12em;font-family:'JetBrains Mono',monospace;margin-bottom:4px;">Proposal</div>
+        <div style="font-family:'Bebas Neue',cursive;font-size:48px;color:#F97316;line-height:1;letter-spacing:0.04em;">{{ proposal.proposal_number }}</div>
+        <div style="font-size:12px;color:#888;margin-top:6px;font-family:'JetBrains Mono',monospace;">{{ proposal.formatted_date }}</div>
+        <div style="font-size:11px;color:#555;margin-top:2px;font-family:'JetBrains Mono',monospace;">Valid: {{ proposal.content.get('validity_period','30 days') }}</div>
+      </div>
+    </div>
+    <!-- Orange accent line -->
+    <div style="height:2px;background:linear-gradient(90deg,#F97316,transparent);margin-top:28px;"></div>
+  </div>
+
+  <div class="proposal-body">
+
+    <!-- Prepared For -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-bottom:36px;padding-bottom:28px;border-bottom:1px solid #EBEBEB;">
+      <div>
+        <div class="prop-label">Prepared For</div>
+        <div style="font-size:18px;font-weight:700;color:#111;margin-bottom:6px;">{{ proposal.client_name }}</div>
+        {% if proposal.client_address %}<div class="prop-val" style="color:#555;">{{ proposal.client_address }}</div>{% endif %}
+        {% if proposal.client_phone %}<div class="prop-val" style="color:#555;">{{ proposal.client_phone }}</div>{% endif %}
+        {% if proposal.client_email %}<div class="prop-val" style="color:#555;">{{ proposal.client_email }}</div>{% endif %}
+      </div>
+      <div>
+        <div class="prop-label">Job Type</div>
+        <div style="font-size:16px;font-weight:600;color:#111;margin-bottom:12px;">{{ proposal.job_type }}</div>
+        {% if proposal.content.get('project_timeline') %}
+        <div class="prop-label">Timeline</div>
+        <div class="prop-val" style="color:#555;">{{ proposal.content.get('project_timeline') }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Executive Summary -->
+    {% if proposal.content.get('executive_summary') %}
+    <div style="margin-bottom:32px;">
+      <div class="prop-section-title">Project Overview</div>
+      <p style="font-size:14px;color:#444;line-height:1.7;">{{ proposal.content.get('executive_summary') }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Scope of Work -->
+    {% if proposal.content.get('scope_of_work') %}
+    <div style="margin-bottom:32px;">
+      <div class="prop-section-title">Scope of Work</div>
+      {% for item in proposal.content.get('scope_of_work', []) %}
+      <div class="scope-item">
+        <div class="scope-dot"></div>
+        <span>{{ item }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Materials -->
+    {% if proposal.content.get('materials_list') and proposal.content.get('materials_list')|length > 0 %}
+    <div style="margin-bottom:32px;">
+      <div class="prop-section-title">Materials & Parts</div>
+      <table class="mat-table">
+        <thead>
+          <tr>
+            <th style="text-align:left;">Item</th>
+            <th>Qty</th>
+            <th>Unit</th>
+            <th>Unit Cost</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for mat in proposal.content.get('materials_list', []) %}
+          <tr>
+            <td>{{ mat.get('name','') }}</td>
+            <td>{{ mat.get('quantity','') }}</td>
+            <td>{{ mat.get('unit','') }}</td>
+            <td>${{ '{:,.2f}'.format(mat.get('unit_cost',0)) }}</td>
+            <td>${{ '{:,.2f}'.format(mat.get('total',0)) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    <!-- Labor -->
+    {% if proposal.content.get('labor_description') %}
+    <div style="margin-bottom:32px;">
+      <div class="prop-section-title">Labor</div>
+      <div style="background:#F8F8F8;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:14px;color:#333;">{{ proposal.content.get('labor_description') }}</div>
+          <div style="font-size:12px;color:#888;margin-top:4px;font-family:'JetBrains Mono',monospace;">{{ proposal.content.get('labor_hours', proposal.labor_hours) }} hrs × ${{ '{:,.0f}'.format(proposal.content.get('labor_rate', proposal.labor_rate)) }}/hr</div>
+        </div>
+        <div style="font-size:20px;font-weight:700;color:#111;font-family:'JetBrains Mono',monospace;">${{ '{:,.2f}'.format(proposal.content.get('labor_total', proposal.labor_hours * proposal.labor_rate)) }}</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Totals -->
+    <div style="margin-bottom:32px;">
+      <div style="max-width:320px;margin-left:auto;">
+        {% if proposal.content.get('total_materials') %}
+        <div class="total-row" style="padding:6px 0;border-bottom:1px solid #EBEBEB;">
+          <span class="total-label">Materials</span>
+          <span class="total-val">${{ '{:,.2f}'.format(proposal.content.get('total_materials',0)) }}</span>
+        </div>
+        {% endif %}
+        {% if proposal.content.get('labor_total') %}
+        <div class="total-row" style="padding:6px 0;border-bottom:1px solid #EBEBEB;">
+          <span class="total-label">Labor</span>
+          <span class="total-val">${{ '{:,.2f}'.format(proposal.content.get('labor_total',0)) }}</span>
+        </div>
+        {% endif %}
+        {% if proposal.content.get('tax_amount') and proposal.content.get('tax_amount') > 0 %}
+        <div class="total-row" style="padding:6px 0;border-bottom:1px solid #EBEBEB;">
+          <span class="total-label">Tax</span>
+          <span class="total-val">${{ '{:,.2f}'.format(proposal.content.get('tax_amount',0)) }}</span>
+        </div>
+        {% endif %}
+        <div class="total-row grand" style="margin-top:12px;">
+          <span class="total-label">TOTAL ESTIMATE</span>
+          <span class="total-val">${{ '{:,.2f}'.format(proposal.grand_total) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Terms -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-bottom:32px;padding-top:24px;border-top:1px solid #EBEBEB;">
+      {% if proposal.content.get('payment_terms') %}
+      <div>
+        <div class="prop-label">Payment Terms</div>
+        <div style="font-size:13px;color:#444;line-height:1.6;margin-top:4px;">{{ proposal.content.get('payment_terms') }}</div>
+      </div>
+      {% endif %}
+      {% if proposal.content.get('warranty_terms') %}
+      <div>
+        <div class="prop-label">Warranty</div>
+        <div style="font-size:13px;color:#444;line-height:1.6;margin-top:4px;">{{ proposal.content.get('warranty_terms') }}</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Closing -->
+    {% if proposal.content.get('closing_statement') %}
+    <div class="closing-box" style="margin-bottom:36px;">
+      <p style="font-size:13px;color:#444;line-height:1.7;">{{ proposal.content.get('closing_statement') }}</p>
+      {% if proposal.content.get('call_to_action') %}
+      <p style="font-size:13px;font-weight:600;color:#F97316;margin-top:8px;">{{ proposal.content.get('call_to_action') }}</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Signature -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;padding-top:32px;border-top:1px solid #EBEBEB;">
+      <div>
+        <div class="sig-line"></div>
+        <div class="sig-label">{{ proposal.client_name }} · Date</div>
+      </div>
+      <div>
+        <div class="sig-line"></div>
+        <div class="sig-label">{{ user.name }} · {{ user.company_name }} · Date</div>
+      </div>
+    </div>
+
+    <!-- Doc footer -->
+    <div style="margin-top:40px;padding-top:16px;border-top:1px solid #F0F0F0;text-align:center;">
+      <p style="font-size:10px;color:#BBBBB8;font-family:'JetBrains Mono',monospace;letter-spacing:0.06em;">GENERATED BY CLOSETHEJOB · VALID {{ proposal.content.get('validity_period','30 DAYS')|upper }} FROM {{ proposal.formatted_date.upper() }}</p>
+    </div>
+
+  </div><!-- /proposal-body -->
+</div><!-- /proposal-doc -->
+</div><!-- /wrapper -->
+
 {% endblock %}

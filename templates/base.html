@@ -3,81 +3,342 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}ProposalAI{% endblock %}</title>
+  <title>{% block title %}CloseTheJob{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            brand: { 50:'#eff6ff', 100:'#dbeafe', 500:'#3b82f6', 600:'#2563eb', 700:'#1d4ed8' }
-          }
-        }
-      }
-    }
-  </script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-    body { font-family: 'Inter', sans-serif; }
-    .flash-success { background:#d1fae5; border:1px solid #6ee7b7; color:#065f46; }
-    .flash-error   { background:#fee2e2; border:1px solid #fca5a5; color:#991b1b; }
-    .flash-warning { background:#fef3c7; border:1px solid #fcd34d; color:#92400e; }
+    :root {
+      --bg: #0C0C0C;
+      --surface: #141414;
+      --surface-2: #1E1E1E;
+      --border: #252525;
+      --border-bright: #363636;
+      --orange: #F97316;
+      --orange-dim: rgba(249, 115, 22, 0.12);
+      --orange-glow: 0 0 40px rgba(249, 115, 22, 0.2);
+      --text: #F0EDE8;
+      --text-muted: #6B6860;
+      --text-dim: #3A3835;
+      --green: #4ADE80;
+      --red: #F87171;
+      --blue: #60A5FA;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+    .font-display { font-family: 'Bebas Neue', cursive; letter-spacing: 0.02em; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* Dot grid */
+    .dot-grid {
+      background-image: radial-gradient(circle, #252525 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+    /* Noise texture overlay */
+    .noise::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      opacity: 0.4;
+      border-radius: inherit;
+    }
+
+    /* Nav */
+    .ctj-nav {
+      background: rgba(12, 12, 12, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .ctj-nav-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+    }
+    .ctj-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+    .ctj-logo-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--orange);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      clip-path: polygon(0 0, 90% 0, 100% 10%, 100% 100%, 10% 100%, 0 90%);
+    }
+    .ctj-logo-text {
+      font-family: 'Bebas Neue', cursive;
+      font-size: 22px;
+      color: var(--text);
+      letter-spacing: 0.04em;
+    }
+    .ctj-logo-text span { color: var(--orange); }
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+    .nav-link:hover { color: var(--text); }
+    .btn-orange {
+      background: var(--orange);
+      color: #000;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 8px 18px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+      clip-path: polygon(0 0, 95% 0, 100% 15%, 100% 100%, 5% 100%, 0 85%);
+      letter-spacing: 0.03em;
+    }
+    .btn-orange:hover {
+      background: #FB923C;
+      box-shadow: var(--orange-glow);
+    }
+    .btn-ghost {
+      color: var(--text-muted);
+      background: transparent;
+      border: 1px solid var(--border-bright);
+      font-weight: 500;
+      font-size: 13px;
+      padding: 7px 16px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s;
+    }
+    .btn-ghost:hover { color: var(--text); border-color: var(--text-muted); }
+
+    /* Dropdown */
+    .nav-dropdown { position: relative; }
+    .nav-avatar {
+      width: 32px; height: 32px;
+      background: var(--orange-dim);
+      border: 1px solid var(--orange);
+      color: var(--orange);
+      font-weight: 700;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      clip-path: polygon(0 0, 90% 0, 100% 10%, 100% 100%, 10% 100%, 0 90%);
+    }
+    .dropdown-menu {
+      position: absolute;
+      right: 0;
+      top: calc(100% + 8px);
+      width: 200px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-bright);
+      padding: 4px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-4px);
+      transition: all 0.15s;
+      z-index: 200;
+    }
+    .nav-dropdown:hover .dropdown-menu {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+    .dropdown-header {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+    .dropdown-header p:first-child { font-size: 13px; font-weight: 600; color: var(--text); }
+    .dropdown-header p:last-child { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+    .dropdown-item {
+      display: block;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: all 0.1s;
+    }
+    .dropdown-item:hover { background: var(--surface); color: var(--text); }
+    .dropdown-item.danger { color: #F87171; }
+    .dropdown-item.danger:hover { background: rgba(248, 113, 113, 0.08); }
+
+    /* Flash messages */
+    .flash {
+      max-width: 1280px;
+      margin: 16px auto;
+      padding: 0 24px;
+    }
+    .flash-inner {
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      border-left: 3px solid;
+    }
+    .flash-success { background: rgba(74, 222, 128, 0.08); border-color: #4ADE80; color: #86EFAC; }
+    .flash-error   { background: rgba(248, 113, 113, 0.08); border-color: #F87171; color: #FCA5A5; }
+    .flash-warning { background: rgba(251, 191, 36, 0.08); border-color: #FBB824; color: #FCD34D; }
+
+    /* Orange accent line */
+    .accent-line {
+      height: 2px;
+      background: linear-gradient(90deg, var(--orange) 0%, transparent 100%);
+    }
+
+    /* Cards */
+    .ctj-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+    .ctj-card-2 {
+      background: var(--surface-2);
+      border: 1px solid var(--border-bright);
+    }
+
+    /* Inputs */
+    .ctj-input {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border-bright);
+      color: var(--text);
+      padding: 10px 14px;
+      font-size: 14px;
+      font-family: 'DM Sans', sans-serif;
+      outline: none;
+      transition: border-color 0.15s;
+      appearance: none;
+    }
+    .ctj-input:focus { border-color: var(--orange); }
+    .ctj-input::placeholder { color: var(--text-dim); }
+    .ctj-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 6px;
+    }
+    .ctj-label span { color: var(--orange); }
+
+    /* Section headings */
+    .section-number {
+      font-family: 'Bebas Neue', cursive;
+      font-size: 13px;
+      color: var(--orange);
+      letter-spacing: 0.1em;
+    }
+    .section-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* Status badges */
+    .badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border: 1px solid;
+    }
+    .badge-draft { color: var(--text-muted); border-color: var(--border-bright); background: var(--surface-2); }
+    .badge-sent { color: var(--blue); border-color: rgba(96, 165, 250, 0.3); background: rgba(96, 165, 250, 0.06); }
+    .badge-accepted { color: var(--green); border-color: rgba(74, 222, 128, 0.3); background: rgba(74, 222, 128, 0.06); }
+    .badge-declined { color: var(--red); border-color: rgba(248, 113, 113, 0.3); background: rgba(248, 113, 113, 0.06); }
+
+    /* Footer */
+    .ctj-footer {
+      border-top: 1px solid var(--border);
+      margin-top: 80px;
+      padding: 32px 24px;
+    }
+    .ctj-footer-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    /* Animations */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.5s ease forwards; }
+    .fade-up-2 { animation: fadeUp 0.5s 0.1s ease both; }
+    .fade-up-3 { animation: fadeUp 0.5s 0.2s ease both; }
+    .fade-up-4 { animation: fadeUp 0.5s 0.3s ease both; }
   </style>
   {% block head %}{% endblock %}
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body>
 
   <!-- Nav -->
-  <nav class="bg-white border-b border-gray-200 sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between items-center h-16">
-        <a href="{{ url_for('index') }}" class="flex items-center gap-2">
-          <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-            </svg>
-          </div>
-          <span class="font-bold text-gray-900 text-lg">ProposalAI</span>
-        </a>
-
-        <div class="flex items-center gap-4">
-          {% if current_user.is_authenticated %}
-            <a href="{{ url_for('dashboard') }}"
-               class="text-sm text-gray-600 hover:text-gray-900 font-medium">Dashboard</a>
-            <a href="{{ url_for('generate') }}"
-               class="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition">
-              + New Proposal
-            </a>
-            <div class="relative group">
-              <button class="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900">
-                <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-semibold">
-                  {{ current_user.name[0].upper() }}
-                </div>
-              </button>
-              <div class="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100
-                          opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                <div class="px-4 py-3 border-b border-gray-100">
-                  <p class="text-sm font-semibold text-gray-900">{{ current_user.name }}</p>
-                  <p class="text-xs text-gray-500">{{ current_user.email }}</p>
-                </div>
-                <a href="{{ url_for('profile') }}"
-                   class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Profile Settings</a>
-                <a href="{{ url_for('pricing') }}"
-                   class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Upgrade Plan</a>
-                <a href="{{ url_for('logout') }}"
-                   class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-50 rounded-b-xl">Sign Out</a>
-              </div>
-            </div>
-          {% else %}
-            <a href="{{ url_for('pricing') }}" class="text-sm text-gray-600 hover:text-gray-900 font-medium">Pricing</a>
-            <a href="{{ url_for('login') }}" class="text-sm text-gray-600 hover:text-gray-900 font-medium">Log in</a>
-            <a href="{{ url_for('register') }}"
-               class="bg-blue-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-blue-700 transition">
-              Start Free Trial
-            </a>
-          {% endif %}
+  <nav class="ctj-nav">
+    <div class="ctj-nav-inner">
+      <a href="{{ url_for('index') }}" class="ctj-logo">
+        <div class="ctj-logo-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.5">
+            <path d="M9 12h6m-6 4h6M5 5h14l2 2v12l-2 2H5l-2-2V7l2-2z"/>
+          </svg>
         </div>
+        <span class="ctj-logo-text">Close<span>The</span>Job</span>
+      </a>
+
+      <div style="display:flex;align-items:center;gap:24px;">
+        {% if current_user.is_authenticated %}
+          <a href="{{ url_for('dashboard') }}" class="nav-link">Dashboard</a>
+          <a href="{{ url_for('generate') }}" class="btn-orange">+ New Proposal</a>
+          <div class="nav-dropdown">
+            <div class="nav-avatar">{{ current_user.name[0].upper() }}</div>
+            <div class="dropdown-menu">
+              <div class="dropdown-header">
+                <p>{{ current_user.name }}</p>
+                <p>{{ current_user.email }}</p>
+              </div>
+              <a href="{{ url_for('profile') }}" class="dropdown-item">Profile Settings</a>
+              <a href="{{ url_for('pricing') }}" class="dropdown-item">Upgrade Plan</a>
+              <a href="{{ url_for('logout') }}" class="dropdown-item danger">Sign Out</a>
+            </div>
+          </div>
+        {% else %}
+          <a href="{{ url_for('pricing') }}" class="nav-link">Pricing</a>
+          <a href="{{ url_for('login') }}" class="nav-link">Log in</a>
+          <a href="{{ url_for('register') }}" class="btn-orange">Start Free</a>
+        {% endif %}
       </div>
     </div>
   </nav>
@@ -85,34 +346,27 @@
   <!-- Flash Messages -->
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
-      <div class="max-w-7xl mx-auto px-4 pt-4 space-y-2">
+      <div class="flash">
         {% for category, message in messages %}
-          <div class="flash-{{ category }} px-4 py-3 rounded-lg text-sm font-medium">
-            {{ message }}
-          </div>
+          <div class="flash-inner flash-{{ category }}">{{ message }}</div>
         {% endfor %}
       </div>
     {% endif %}
   {% endwith %}
 
-  <!-- Main Content -->
-  <main>
-    {% block content %}{% endblock %}
-  </main>
+  <main>{% block content %}{% endblock %}</main>
 
-  <!-- Footer -->
-  <footer class="bg-white border-t border-gray-200 mt-16">
-    <div class="max-w-7xl mx-auto px-4 py-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-      <div class="flex items-center gap-2">
-        <div class="w-6 h-6 bg-blue-600 rounded-md flex items-center justify-center">
-          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+  <footer class="ctj-footer">
+    <div class="ctj-footer-inner">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="ctj-logo-icon" style="width:24px;height:24px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.5">
+            <path d="M9 12h6m-6 4h6M5 5h14l2 2v12l-2 2H5l-2-2V7l2-2z"/>
           </svg>
         </div>
-        <span class="text-sm font-semibold text-gray-700">ProposalAI</span>
+        <span class="font-display" style="font-size:18px;color:var(--text);">CloseTheJob</span>
       </div>
-      <p class="text-sm text-gray-400">© 2026 ProposalAI · Win more jobs, faster.</p>
+      <p style="font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">© 2026 · Win more work. Send better proposals.</p>
     </div>
   </footer>
 

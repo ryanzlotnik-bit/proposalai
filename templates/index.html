@@ -1,144 +1,371 @@
 {% extends "base.html" %}
-{% block title %}ProposalAI — Win More Jobs with AI-Powered Proposals{% endblock %}
+{% block title %}CloseTheJob — Win More Jobs. Send Better Proposals.{% endblock %}
+
+{% block head %}
+<style>
+  .hero {
+    min-height: 88vh;
+    display: flex;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, #202020 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .hero-glow {
+    position: absolute;
+    bottom: -100px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 300px;
+    background: radial-gradient(ellipse, rgba(249, 115, 22, 0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .hero-diagonal {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 40%;
+    height: 100%;
+    background: repeating-linear-gradient(
+      -55deg,
+      transparent,
+      transparent 30px,
+      rgba(249, 115, 22, 0.025) 30px,
+      rgba(249, 115, 22, 0.025) 32px
+    );
+    pointer-events: none;
+  }
+  .hero-content {
+    position: relative;
+    z-index: 2;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 24px;
+    width: 100%;
+  }
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--orange);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    border: 1px solid rgba(249, 115, 22, 0.3);
+    padding: 6px 14px;
+    margin-bottom: 28px;
+    background: rgba(249, 115, 22, 0.06);
+  }
+  .hero-eyebrow::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: var(--orange);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+  .hero-headline {
+    font-family: 'Bebas Neue', cursive;
+    font-size: clamp(72px, 10vw, 140px);
+    line-height: 0.9;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .hero-headline span { color: var(--orange); }
+  .hero-subline {
+    font-family: 'Bebas Neue', cursive;
+    font-size: clamp(32px, 4vw, 56px);
+    line-height: 1;
+    color: var(--text-muted);
+    margin-bottom: 28px;
+  }
+  .hero-body {
+    font-size: 17px;
+    color: var(--text-muted);
+    max-width: 520px;
+    line-height: 1.65;
+    margin-bottom: 40px;
+  }
+  .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .btn-primary-lg {
+    background: var(--orange);
+    color: #000;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 14px 28px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.15s;
+    clip-path: polygon(0 0, 95% 0, 100% 20%, 100% 100%, 5% 100%, 0 80%);
+    letter-spacing: 0.04em;
+  }
+  .btn-primary-lg:hover { background: #FB923C; box-shadow: 0 0 50px rgba(249,115,22,0.3); transform: translateY(-1px); }
+  .btn-secondary-lg {
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 13px 20px;
+    border: 1px solid var(--border-bright);
+    transition: all 0.15s;
+  }
+  .btn-secondary-lg:hover { color: var(--text); border-color: var(--text-muted); }
+
+  .stats-row {
+    display: flex;
+    gap: 40px;
+    margin-top: 56px;
+    padding-top: 40px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .stat-item {}
+  .stat-number {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 48px;
+    color: var(--text);
+    line-height: 1;
+  }
+  .stat-number span { color: var(--orange); }
+  .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
+
+  /* How it works */
+  .steps-section { padding: 100px 0; }
+  .section-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--orange);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 16px;
+  }
+  .section-heading {
+    font-family: 'Bebas Neue', cursive;
+    font-size: clamp(40px, 5vw, 64px);
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 56px;
+  }
+  .step-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 32px;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+  .step-card:hover { border-color: var(--orange); }
+  .step-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--orange), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .step-card:hover::before { opacity: 1; }
+  .step-num {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 64px;
+    color: var(--border-bright);
+    line-height: 1;
+    margin-bottom: 16px;
+    transition: color 0.2s;
+  }
+  .step-card:hover .step-num { color: var(--orange); }
+  .step-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+  .step-body { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+
+  /* Features */
+  .features-section { padding: 80px 0; background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .feature-item {
+    padding: 24px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .feature-icon {
+    width: 36px; height: 36px;
+    background: var(--orange-dim);
+    border: 1px solid rgba(249,115,22,0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    color: var(--orange);
+  }
+  .feature-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+  .feature-body { font-size: 13px; color: var(--text-muted); line-height: 1.55; }
+
+  /* Quote */
+  .quote-section { padding: 100px 24px; max-width: 800px; margin: 0 auto; text-align: center; }
+  .quote-mark { font-family: 'Bebas Neue', cursive; font-size: 100px; color: var(--orange); line-height: 0.6; margin-bottom: 24px; opacity: 0.6; }
+  .quote-text { font-size: clamp(20px, 3vw, 28px); color: var(--text); line-height: 1.5; font-weight: 300; font-style: italic; margin-bottom: 28px; }
+  .quote-author { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .quote-author span { color: var(--orange); }
+
+  /* CTA section */
+  .cta-section {
+    padding: 100px 24px;
+    position: relative;
+    overflow: hidden;
+    text-align: center;
+  }
+  .cta-section::before {
+    content: 'CLOSE THE JOB';
+    position: absolute;
+    font-family: 'Bebas Neue', cursive;
+    font-size: 200px;
+    color: var(--border);
+    white-space: nowrap;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    letter-spacing: 0.02em;
+    line-height: 1;
+  }
+  .cta-inner { position: relative; z-index: 2; }
+</style>
+{% endblock %}
 
 {% block content %}
 
-<!-- Hero -->
-<section class="bg-white">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24 text-center">
-    <div class="inline-flex items-center gap-2 bg-blue-50 text-blue-700 text-sm font-medium px-4 py-1.5 rounded-full mb-6">
-      <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
-      Built for HVAC, Plumbing, Electrical, Roofing & more
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-diagonal"></div>
+  <div class="hero-glow"></div>
+  <div class="hero-content">
+    <div class="fade-up">
+      <div class="hero-eyebrow">For HVAC · Plumbing · Electrical · Roofing</div>
     </div>
-    <h1 class="text-5xl sm:text-6xl font-extrabold text-gray-900 leading-tight mb-6">
-      Win More Jobs.<br />
-      <span class="text-blue-600">Professional Proposals<br />in 60 Seconds.</span>
-    </h1>
-    <p class="text-xl text-gray-500 max-w-2xl mx-auto mb-10">
-      Stop losing bids to contractors who look more professional. ProposalAI turns your job details
-      into a polished, client-ready proposal instantly — no Word docs, no guesswork.
-    </p>
-    <div class="flex flex-col sm:flex-row gap-4 justify-center">
-      <a href="{{ url_for('register') }}"
-         class="bg-blue-600 text-white font-semibold px-8 py-4 rounded-xl hover:bg-blue-700 transition text-lg shadow-lg shadow-blue-200">
-        Start Free — 3 Proposals on Us
+    <div class="fade-up-2">
+      <h1 class="hero-headline">Win More<br /><span>Jobs.</span></h1>
+      <p class="hero-subline">Send Better Proposals.</p>
+    </div>
+    <div class="fade-up-3">
+      <p class="hero-body">
+        Stop losing bids to contractors who look more professional.
+        Fill in the job details — we write the proposal. Done in 60 seconds.
+      </p>
+    </div>
+    <div class="hero-ctas fade-up-4">
+      <a href="{{ url_for('register') }}" class="btn-primary-lg">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+        Start Free — 3 Proposals
       </a>
-      <a href="{{ url_for('pricing') }}"
-         class="bg-gray-100 text-gray-700 font-semibold px-8 py-4 rounded-xl hover:bg-gray-200 transition text-lg">
-        See Pricing
-      </a>
+      <a href="{{ url_for('pricing') }}" class="btn-secondary-lg">See Pricing →</a>
     </div>
-    <p class="text-sm text-gray-400 mt-4">No credit card required · Cancel anytime</p>
-  </div>
-</section>
-
-<!-- Social Proof Strip -->
-<section class="bg-gray-50 border-y border-gray-200 py-6">
-  <div class="max-w-4xl mx-auto px-4 flex flex-wrap justify-center gap-8 text-center">
-    <div>
-      <p class="text-3xl font-bold text-gray-900">60s</p>
-      <p class="text-sm text-gray-500">Avg. proposal time</p>
-    </div>
-    <div class="hidden sm:block w-px bg-gray-300"></div>
-    <div>
-      <p class="text-3xl font-bold text-gray-900">$0</p>
-      <p class="text-sm text-gray-500">To get started</p>
-    </div>
-    <div class="hidden sm:block w-px bg-gray-300"></div>
-    <div>
-      <p class="text-3xl font-bold text-gray-900">100%</p>
-      <p class="text-sm text-gray-500">Professional output</p>
-    </div>
-    <div class="hidden sm:block w-px bg-gray-300"></div>
-    <div>
-      <p class="text-3xl font-bold text-gray-900">AI</p>
-      <p class="text-sm text-gray-500">Powered by Claude</p>
+    <div class="stats-row fade-up-4">
+      <div class="stat-item">
+        <div class="stat-number"><span>60</span>s</div>
+        <div class="stat-label">Avg. proposal time</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number"><span>$0</span></div>
+        <div class="stat-label">To get started</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number"><span>3</span></div>
+        <div class="stat-label">Free proposals included</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number"><span>AI</span></div>
+        <div class="stat-label">Powered writing</div>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- How It Works -->
-<section class="py-20 bg-white">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="text-center mb-14">
-      <h2 class="text-3xl font-bold text-gray-900">How it works</h2>
-      <p class="text-gray-500 mt-3">Three steps to a proposal that wins the job</p>
+<!-- HOW IT WORKS -->
+<section class="steps-section">
+  <div style="max-width:1280px;margin:0 auto;padding:0 24px;">
+    <div class="section-eyebrow">// How it works</div>
+    <div class="section-heading">Three steps.<br />One winning proposal.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1px;background:var(--border);">
+      <div class="step-card" style="background:var(--bg);">
+        <div class="step-num">01</div>
+        <div class="step-title">Fill in the job details</div>
+        <div class="step-body">Client name, job type, materials, labor hours. Takes under 2 minutes — no prior experience needed.</div>
+      </div>
+      <div class="step-card" style="background:var(--bg);">
+        <div class="step-num">02</div>
+        <div class="step-title">AI writes your proposal</div>
+        <div class="step-body">Detailed scope of work, itemized materials, labor breakdown, payment terms — generated instantly and professionally.</div>
+      </div>
+      <div class="step-card" style="background:var(--bg);">
+        <div class="step-num">03</div>
+        <div class="step-title">Send it. Close the deal.</div>
+        <div class="step-body">Print, email, or share directly. Mark it accepted when the client signs off. Track your pipeline.</div>
+      </div>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-      {% for step in [
-        ('1', 'Fill in the job details', 'Enter the client name, job type, materials, labor hours, and any notes. Takes under 2 minutes.', 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z'),
-        ('2', 'AI writes your proposal', 'Our AI generates a detailed scope of work, materials list, pricing, timeline, and professional language — instantly.', 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z'),
-        ('3', 'Send it & close the deal', 'Print, email, or share the proposal directly. Mark it accepted when the client signs off.', 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'),
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features-section">
+  <div style="max-width:1280px;margin:0 auto;padding:0 24px;">
+    <div class="section-eyebrow" style="margin-bottom:40px;">// What you get</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0;border-left:1px solid var(--border);border-top:1px solid var(--border);">
+      {% for icon, title, body in [
+        ('M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z', 'AI-Written Scope of Work', 'Professional language that shows clients exactly what they are getting — detailed, specific, convincing.'),
+        ('M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 20h16a2 2 0 002-2V6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2z', 'Auto-Calculated Pricing', 'Enter your labor rate and hours — materials and totals are calculated and formatted automatically.'),
+        ('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', 'Itemized Materials List', 'Parts, quantities, unit costs, and totals — organized in a clean table that builds client confidence.'),
+        ('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', 'Terms & Warranty Included', 'Payment schedules, warranty language, and validity periods auto-generated. Looks like you hired a lawyer.'),
+        ('M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', 'Pipeline Tracking', 'Mark proposals as Draft, Sent, Accepted, or Declined. See your total pipeline value at a glance.'),
+        ('M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z', 'Print-Ready Format', 'One click to print or save as PDF. Clean layout with signature lines — ready to hand to any client.'),
       ] %}
-      <div class="bg-gray-50 rounded-2xl p-8 text-center">
-        <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ step[3] }}"/>
+      <div class="feature-item">
+        <div class="feature-icon">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="{{ icon }}"/>
           </svg>
         </div>
-        <div class="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">Step {{ step[0] }}</div>
-        <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ step[1] }}</h3>
-        <p class="text-gray-500 text-sm">{{ step[2] }}</p>
+        <div class="feature-title">{{ title }}</div>
+        <div class="feature-body">{{ body }}</div>
       </div>
       {% endfor %}
     </div>
   </div>
 </section>
 
-<!-- Features -->
-<section class="py-20 bg-gray-50">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="text-center mb-14">
-      <h2 class="text-3xl font-bold text-gray-900">Everything you need to close more jobs</h2>
-    </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-      {% for f in [
-        ('AI-Written Scope of Work', 'Detailed, professional language that shows clients exactly what they are getting.'),
-        ('Auto-Calculated Pricing', 'Enter your labor rate and hours — AI builds a complete cost breakdown.'),
-        ('Materials List', 'Itemized parts and materials with quantities and costs, automatically organized.'),
-        ('Payment Terms & Warranty', 'Standard contractor terms included automatically. Edit if needed.'),
-        ('Proposal Tracking', 'Mark proposals as Sent, Accepted, or Declined. Always know your pipeline.'),
-        ('Print-Ready Format', 'Clean, professional layout. One click to print or save as PDF from your browser.'),
-      ] %}
-      <div class="bg-white rounded-xl p-6 border border-gray-200">
-        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-          <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-          </svg>
-        </div>
-        <h3 class="font-semibold text-gray-900 mb-1">{{ f[0] }}</h3>
-        <p class="text-sm text-gray-500">{{ f[1] }}</p>
-      </div>
-      {% endfor %}
-    </div>
+<!-- QUOTE -->
+<section style="padding:100px 0;border-bottom:1px solid var(--border);">
+  <div class="quote-section">
+    <div class="quote-mark">"</div>
+    <p class="quote-text">I used to spend 45 minutes writing proposals that looked sloppy. Now I do it in 60 seconds and they look like they came from a big company. Won 3 extra jobs this month.</p>
+    <div class="quote-author">Mike R. · <span>HVAC Contractor · Chicago, IL</span></div>
   </div>
 </section>
 
-<!-- Testimonial -->
-<section class="py-20 bg-blue-600">
-  <div class="max-w-3xl mx-auto px-4 text-center">
-    <svg class="w-10 h-10 text-blue-300 mx-auto mb-6" fill="currentColor" viewBox="0 0 24 24">
-      <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/>
-    </svg>
-    <p class="text-2xl font-medium text-white leading-relaxed mb-8">
-      "I used to spend 30–45 minutes writing proposals. Now I do it in 60 seconds and they look
-      10x more professional. I've won 3 extra jobs this month just because my proposals came back same-day."
-    </p>
-    <div>
-      <p class="font-semibold text-white">Mike R.</p>
-      <p class="text-blue-200 text-sm">HVAC Contractor · Chicago, IL</p>
-    </div>
-  </div>
-</section>
-
-<!-- CTA -->
-<section class="py-20 bg-white">
-  <div class="max-w-2xl mx-auto px-4 text-center">
-    <h2 class="text-3xl font-bold text-gray-900 mb-4">Start winning more jobs today</h2>
-    <p class="text-gray-500 mb-8">Your first 3 proposals are completely free. No credit card needed.</p>
-    <a href="{{ url_for('register') }}"
-       class="bg-blue-600 text-white font-semibold px-10 py-4 rounded-xl hover:bg-blue-700 transition text-lg shadow-lg shadow-blue-200 inline-block">
-      Create Your Free Account
+<!-- BOTTOM CTA -->
+<section class="cta-section">
+  <div class="cta-inner">
+    <div class="section-eyebrow" style="margin-bottom:16px;">// Ready to win?</div>
+    <h2 style="font-family:'Bebas Neue',cursive;font-size:clamp(48px,7vw,96px);color:var(--text);line-height:1;margin-bottom:16px;">
+      Your first 3 proposals<br />are on us.
+    </h2>
+    <p style="color:var(--text-muted);font-size:16px;margin-bottom:36px;">No credit card. No commitment. Just better proposals.</p>
+    <a href="{{ url_for('register') }}" class="btn-primary-lg" style="font-size:15px;padding:16px 36px;">
+      Create Free Account →
     </a>
   </div>
 </section>

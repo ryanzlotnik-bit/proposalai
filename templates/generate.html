@@ -1,72 +1,61 @@
 {% extends "base.html" %}
-{% block title %}New Proposal — ProposalAI{% endblock %}
+{% block title %}New Proposal — CloseTheJob{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-4 py-10">
+<div style="max-width:800px;margin:0 auto;padding:40px 24px;">
 
-  <div class="mb-8">
-    <a href="{{ url_for('dashboard') }}" class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-4">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-      </svg>
-      Back to Dashboard
-    </a>
-    <h1 class="text-2xl font-bold text-gray-900">Generate New Proposal</h1>
-    <p class="text-gray-500 text-sm mt-1">Fill in the job details — AI will do the rest.</p>
+  <div style="margin-bottom:36px;">
+    <a href="{{ url_for('dashboard') }}" style="font-size:12px;color:var(--text-muted);text-decoration:none;font-family:'JetBrains Mono',monospace;display:inline-flex;align-items:center;gap:6px;margin-bottom:20px;transition:color 0.15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">← BACK</a>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">// New proposal</div>
+    <h1 class="font-display" style="font-size:56px;color:var(--text);line-height:1;">Build Your<br />Proposal.</h1>
+    <p style="color:var(--text-muted);font-size:14px;margin-top:10px;">Fill in the details below — we'll write the rest.</p>
   </div>
 
   <form method="POST" action="{{ url_for('generate') }}" id="proposal-form">
 
-    <!-- Client Section -->
-    <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
-      <h2 class="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
-        <div class="w-6 h-6 bg-blue-100 rounded-md flex items-center justify-center">
-          <span class="text-blue-600 text-xs font-bold">1</span>
+    <!-- Section 1: Client -->
+    <div class="ctj-card" style="margin-bottom:2px;padding:28px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border);">
+        <div style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--border-bright);line-height:1;">01</div>
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text);">Client Information</div>
+          <div style="font-size:12px;color:var(--text-muted);">Who are you writing this for?</div>
         </div>
-        Client Information
-      </h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div class="sm:col-span-2">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Client Name <span class="text-red-500">*</span></label>
-          <input type="text" name="client_name" required value="{{ form_data.get('client_name','') }}"
-            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="John & Mary Johnson" />
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="grid-column:1/-1;">
+          <label class="ctj-label">Client Name <span style="color:var(--orange);">*</span></label>
+          <input type="text" name="client_name" required value="{{ form_data.get('client_name','') }}" class="ctj-input" placeholder="John & Mary Johnson" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Client Email</label>
-          <input type="email" name="client_email" value="{{ form_data.get('client_email','') }}"
-            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="john@email.com" />
+          <label class="ctj-label">Client Email</label>
+          <input type="email" name="client_email" value="{{ form_data.get('client_email','') }}" class="ctj-input" placeholder="john@email.com" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Client Phone</label>
-          <input type="text" name="client_phone" value="{{ form_data.get('client_phone','') }}"
-            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="(555) 867-5309" />
+          <label class="ctj-label">Client Phone</label>
+          <input type="text" name="client_phone" value="{{ form_data.get('client_phone','') }}" class="ctj-input" placeholder="(555) 867-5309" />
         </div>
-        <div class="sm:col-span-2">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Job Site Address</label>
-          <input type="text" name="client_address" value="{{ form_data.get('client_address','') }}"
-            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="123 Main St, Chicago, IL 60601" />
+        <div style="grid-column:1/-1;">
+          <label class="ctj-label">Job Site Address</label>
+          <input type="text" name="client_address" value="{{ form_data.get('client_address','') }}" class="ctj-input" placeholder="123 Main St, Chicago, IL 60601" />
         </div>
       </div>
     </div>
 
-    <!-- Job Section -->
-    <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
-      <h2 class="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
-        <div class="w-6 h-6 bg-blue-100 rounded-md flex items-center justify-center">
-          <span class="text-blue-600 text-xs font-bold">2</span>
-        </div>
-        Job Details
-      </h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <!-- Section 2: Job -->
+    <div class="ctj-card" style="margin-bottom:2px;padding:28px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border);">
+        <div style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--border-bright);line-height:1;">02</div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Job Type <span class="text-red-500">*</span></label>
-          <select name="job_type" required
-            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-            <option value="">Select a type...</option>
+          <div style="font-size:14px;font-weight:600;color:var(--text);">Job Details</div>
+          <div style="font-size:12px;color:var(--text-muted);">More detail = better proposal</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <label class="ctj-label">Job Type <span style="color:var(--orange);">*</span></label>
+          <select name="job_type" required class="ctj-input">
+            <option value="">Select...</option>
             {% for jt in ['AC Installation','AC Repair','Furnace Installation','Furnace Repair','Duct Work',
               'Plumbing Repair','Water Heater Installation','Pipe Replacement','Drain Cleaning',
               'Electrical Panel Upgrade','Outlet Installation','Wiring','Lighting Installation',
@@ -80,75 +69,55 @@
           </select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Timeline / Start Date</label>
-          <input type="text" name="timeline" value="{{ form_data.get('timeline','') }}"
-            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g. 2 days, start within 1 week" />
+          <label class="ctj-label">Timeline / Start Date</label>
+          <input type="text" name="timeline" value="{{ form_data.get('timeline','') }}" class="ctj-input" placeholder="e.g. 2 days, start next week" />
         </div>
-        <div class="sm:col-span-2">
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Describe the Job <span class="text-red-500">*</span>
-            <span class="text-gray-400 font-normal">(more detail = better proposal)</span>
-          </label>
-          <textarea name="job_description" required rows="4"
-            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            placeholder="Example: Replace existing 3-ton central AC unit. Old unit is 18 years old and failing. Need to replace condenser and air handler. House is 2,400 sq ft, two-story. Existing ductwork is in good shape and will be reused.">{{ form_data.get('job_description','') }}</textarea>
+        <div style="grid-column:1/-1;">
+          <label class="ctj-label">Describe the Job <span style="color:var(--orange);">*</span> <span style="color:var(--text-muted);text-transform:none;letter-spacing:0;">(more detail = better output)</span></label>
+          <textarea name="job_description" required rows="5" class="ctj-input" style="resize:vertical;" placeholder="Example: Replace existing 3-ton central AC unit. Old unit is 18 years old and failing. Need to replace condenser and air handler. House is 2,400 sq ft, two-story. Existing ductwork is in good shape and will be reused.">{{ form_data.get('job_description','') }}</textarea>
         </div>
-        <div class="sm:col-span-2">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Materials / Parts Needed</label>
-          <textarea name="materials_input" rows="3"
-            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-            placeholder="Example: Carrier 3-ton AC unit, refrigerant R-410A, copper line set (25 ft), disconnect box, pad, whip kit. Or just describe generally if you don't have specifics yet.">{{ form_data.get('materials_input','') }}</textarea>
+        <div style="grid-column:1/-1;">
+          <label class="ctj-label">Materials / Parts Needed</label>
+          <textarea name="materials_input" rows="3" class="ctj-input" style="resize:vertical;" placeholder="Example: Carrier 3-ton AC unit, R-410A refrigerant, 25ft copper line set, disconnect box, pad, whip kit. Or describe generally if you don't have specifics.">{{ form_data.get('materials_input','') }}</textarea>
         </div>
       </div>
     </div>
 
-    <!-- Pricing Section -->
-    <div class="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
-      <h2 class="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
-        <div class="w-6 h-6 bg-blue-100 rounded-md flex items-center justify-center">
-          <span class="text-blue-600 text-xs font-bold">3</span>
-        </div>
-        Labor & Pricing
-      </h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <!-- Section 3: Pricing -->
+    <div class="ctj-card" style="margin-bottom:28px;padding:28px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border);">
+        <div style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--border-bright);line-height:1;">03</div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Estimated Labor Hours</label>
-          <input type="number" name="labor_hours" min="0" step="0.5"
-            value="{{ form_data.get('labor_hours', '') }}"
-            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="8" />
+          <div style="font-size:14px;font-weight:600;color:var(--text);">Labor & Pricing</div>
+          <div style="font-size:12px;color:var(--text-muted);">Used to calculate your total estimate</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <label class="ctj-label">Estimated Labor Hours</label>
+          <input type="number" name="labor_hours" min="0" step="0.5" value="{{ form_data.get('labor_hours', '') }}" class="ctj-input" placeholder="8" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Your Hourly Labor Rate ($)</label>
-          <input type="number" name="labor_rate" min="0" step="5"
-            value="{{ form_data.get('labor_rate', 85) }}"
-            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="85" />
+          <label class="ctj-label">Your Hourly Rate ($)</label>
+          <input type="number" name="labor_rate" min="0" step="5" value="{{ form_data.get('labor_rate', 85) }}" class="ctj-input" placeholder="85" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Warranty Offered</label>
-          <input type="text" name="warranty" value="{{ form_data.get('warranty','') }}"
-            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g. 1 year labor, 5 year parts" />
+          <label class="ctj-label">Warranty Offered</label>
+          <input type="text" name="warranty" value="{{ form_data.get('warranty','') }}" class="ctj-input" placeholder="e.g. 1 year labor, 5 year parts" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Additional Notes</label>
-          <input type="text" name="notes" value="{{ form_data.get('notes','') }}"
-            class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="e.g. Permit required, access through side gate" />
+          <label class="ctj-label">Additional Notes</label>
+          <input type="text" name="notes" value="{{ form_data.get('notes','') }}" class="ctj-input" placeholder="e.g. Permit required, access through side gate" />
         </div>
       </div>
     </div>
 
     <!-- Submit -->
-    <div class="flex items-center justify-between">
-      <a href="{{ url_for('dashboard') }}" class="text-sm text-gray-500 hover:text-gray-700">Cancel</a>
-      <button type="submit" id="submit-btn"
-        class="bg-blue-600 text-white font-semibold px-8 py-3 rounded-xl hover:bg-blue-700 transition flex items-center gap-2">
-        <svg id="submit-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M13 10V3L4 14h7v7l9-11h-7z"/>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <a href="{{ url_for('dashboard') }}" style="font-size:13px;color:var(--text-muted);text-decoration:none;">Cancel</a>
+      <button type="submit" id="submit-btn" class="btn-orange" style="padding:14px 36px;font-size:14px;border:none;cursor:pointer;">
+        <svg id="submit-icon" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
         </svg>
         <span id="submit-text">Generate Proposal</span>
       </button>
@@ -164,8 +133,9 @@ document.getElementById('proposal-form').addEventListener('submit', function() {
   const btn = document.getElementById('submit-btn');
   const text = document.getElementById('submit-text');
   btn.disabled = true;
-  btn.classList.add('opacity-75', 'cursor-not-allowed');
-  text.textContent = 'Generating... (takes ~15 seconds)';
+  btn.style.opacity = '0.6';
+  btn.style.cursor = 'not-allowed';
+  text.textContent = 'Generating... (~15 seconds)';
 });
 </script>
 {% endblock %}

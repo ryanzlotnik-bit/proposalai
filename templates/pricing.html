@@ -1,138 +1,100 @@
 {% extends "base.html" %}
-{% block title %}Pricing — ProposalAI{% endblock %}
+{% block title %}Pricing — CloseTheJob{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto px-4 py-16">
+<div style="max-width:1100px;margin:0 auto;padding:80px 24px;">
 
-  <div class="text-center mb-12">
-    <h1 class="text-4xl font-bold text-gray-900">Simple, transparent pricing</h1>
-    <p class="text-gray-500 mt-3 text-lg">Start free. Upgrade when you're ready to win more jobs.</p>
+  <div style="text-align:center;margin-bottom:64px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:16px;">// Pricing</div>
+    <h1 class="font-display" style="font-size:clamp(56px,8vw,100px);color:var(--text);line-height:0.95;">Simple Pricing.<br />No Surprises.</h1>
+    <p style="color:var(--text-muted);font-size:16px;margin-top:20px;max-width:480px;margin-left:auto;margin-right:auto;">Start free. Upgrade when you're ready. Cancel anytime.</p>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1px;background:var(--border);">
 
-    <!-- Free Trial -->
-    <div class="bg-white rounded-2xl border border-gray-200 p-8">
-      <div class="mb-6">
-        <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Free Trial</p>
-        <div class="flex items-end gap-1">
-          <span class="text-5xl font-extrabold text-gray-900">$0</span>
-        </div>
-        <p class="text-gray-500 text-sm mt-2">3 proposals included</p>
-      </div>
-      <ul class="space-y-3 mb-8">
-        {% for f in ['3 AI-generated proposals','Professional PDF layout','Print & email sharing','Proposal status tracking'] %}
-        <li class="flex items-center gap-2 text-sm text-gray-600">
-          <svg class="w-4 h-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-          </svg>
+    <!-- Free -->
+    <div style="background:var(--bg);padding:40px 36px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:20px;">Free Trial</div>
+      <div class="font-display" style="font-size:72px;color:var(--text);line-height:1;">$0</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:4px;margin-bottom:32px;font-family:'JetBrains Mono',monospace;">3 proposals included</div>
+      <div style="border-top:1px solid var(--border);padding-top:24px;margin-bottom:32px;">
+        {% for f in ['3 AI-generated proposals','Professional print layout','Email & print sharing','Proposal status tracking'] %}
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;color:var(--text-muted);">
+          <div style="width:5px;height:5px;background:var(--border-bright);flex-shrink:0;"></div>
           {{ f }}
-        </li>
+        </div>
         {% endfor %}
-      </ul>
+      </div>
       {% if current_user.is_authenticated %}
-        <div class="bg-gray-100 text-gray-500 text-sm text-center font-medium py-3 rounded-xl">Current Plan</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;padding:12px;border:1px solid var(--border);text-align:center;">CURRENT PLAN</div>
       {% else %}
-        <a href="{{ url_for('register') }}"
-           class="block w-full text-center bg-gray-100 text-gray-700 font-semibold py-3 rounded-xl hover:bg-gray-200 transition text-sm">
-          Start Free
-        </a>
+        <a href="{{ url_for('register') }}" class="btn-ghost" style="width:100%;justify-content:center;padding:13px;">Start Free →</a>
       {% endif %}
     </div>
 
-    <!-- Starter -->
-    <div class="bg-blue-600 rounded-2xl p-8 relative">
-      <div class="absolute -top-3 left-1/2 -translate-x-1/2">
-        <span class="bg-amber-400 text-amber-900 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Most Popular</span>
-      </div>
-      <div class="mb-6">
-        <p class="text-sm font-semibold text-blue-200 uppercase tracking-wider mb-2">Starter</p>
-        <div class="flex items-end gap-1">
-          <span class="text-5xl font-extrabold text-white">$49</span>
-          <span class="text-blue-200 mb-2">/month</span>
-        </div>
-        <p class="text-blue-200 text-sm mt-2">Up to 30 proposals/month</p>
-      </div>
-      <ul class="space-y-3 mb-8">
-        {% for f in ['30 AI proposals per month','Everything in Free','Priority AI generation','Custom company branding','Email support'] %}
-        <li class="flex items-center gap-2 text-sm text-white">
-          <svg class="w-4 h-4 text-blue-200 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-          </svg>
+    <!-- Starter (FEATURED) -->
+    <div style="background:var(--surface);padding:40px 36px;position:relative;border-top:3px solid var(--orange);">
+      <div style="position:absolute;top:-12px;left:36px;background:var(--orange);color:#000;font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;padding:4px 10px;">Most Popular</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--orange);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:20px;">Starter</div>
+      <div class="font-display" style="font-size:72px;color:var(--text);line-height:1;">$49</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:4px;margin-bottom:32px;font-family:'JetBrains Mono',monospace;">per month</div>
+      <div style="border-top:1px solid var(--border);padding-top:24px;margin-bottom:32px;">
+        {% for f in ['30 proposals per month','Everything in Free','Priority generation','Custom company branding','Email support'] %}
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;color:var(--text-muted);">
+          <div style="width:5px;height:5px;background:var(--orange);flex-shrink:0;"></div>
           {{ f }}
-        </li>
+        </div>
         {% endfor %}
-      </ul>
+      </div>
       {% if current_user.is_authenticated %}
         <form method="POST" action="{{ url_for('create_checkout_session') }}">
           <input type="hidden" name="plan" value="starter" />
-          <button type="submit"
-            class="w-full bg-white text-blue-700 font-semibold py-3 rounded-xl hover:bg-blue-50 transition text-sm">
-            Upgrade to Starter
-          </button>
+          <button type="submit" class="btn-orange" style="width:100%;justify-content:center;padding:14px;font-size:13px;border:none;cursor:pointer;clip-path:none;font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;">UPGRADE TO STARTER →</button>
         </form>
       {% else %}
-        <a href="{{ url_for('register') }}"
-           class="block w-full text-center bg-white text-blue-700 font-semibold py-3 rounded-xl hover:bg-blue-50 transition text-sm">
-          Get Started
-        </a>
+        <a href="{{ url_for('register') }}" class="btn-orange" style="width:100%;justify-content:center;padding:14px;font-size:13px;clip-path:none;font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;">GET STARTED →</a>
       {% endif %}
     </div>
 
     <!-- Pro -->
-    <div class="bg-white rounded-2xl border border-gray-200 p-8">
-      <div class="mb-6">
-        <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Pro</p>
-        <div class="flex items-end gap-1">
-          <span class="text-5xl font-extrabold text-gray-900">$99</span>
-          <span class="text-gray-400 mb-2">/month</span>
-        </div>
-        <p class="text-gray-500 text-sm mt-2">Unlimited proposals</p>
-      </div>
-      <ul class="space-y-3 mb-8">
-        {% for f in ['Unlimited proposals','Everything in Starter','Multi-user (up to 3 seats)','White-label branding','Priority support','Monthly usage report'] %}
-        <li class="flex items-center gap-2 text-sm text-gray-600">
-          <svg class="w-4 h-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-          </svg>
+    <div style="background:var(--bg);padding:40px 36px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.12em;margin-bottom:20px;">Pro</div>
+      <div class="font-display" style="font-size:72px;color:var(--text);line-height:1;">$99</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:4px;margin-bottom:32px;font-family:'JetBrains Mono',monospace;">per month</div>
+      <div style="border-top:1px solid var(--border);padding-top:24px;margin-bottom:32px;">
+        {% for f in ['Unlimited proposals','Everything in Starter','Up to 3 team members','White-label branding','Priority support','Monthly reports'] %}
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;color:var(--text-muted);">
+          <div style="width:5px;height:5px;background:var(--border-bright);flex-shrink:0;"></div>
           {{ f }}
-        </li>
+        </div>
         {% endfor %}
-      </ul>
+      </div>
       {% if current_user.is_authenticated %}
         <form method="POST" action="{{ url_for('create_checkout_session') }}">
           <input type="hidden" name="plan" value="pro" />
-          <button type="submit"
-            class="w-full bg-gray-900 text-white font-semibold py-3 rounded-xl hover:bg-gray-800 transition text-sm">
-            Upgrade to Pro
-          </button>
+          <button type="submit" class="btn-ghost" style="width:100%;justify-content:center;padding:13px;cursor:pointer;border:none;font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;font-size:13px;background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border-bright);">UPGRADE TO PRO →</button>
         </form>
       {% else %}
-        <a href="{{ url_for('register') }}"
-           class="block w-full text-center bg-gray-900 text-white font-semibold py-3 rounded-xl hover:bg-gray-800 transition text-sm">
-          Get Started
-        </a>
+        <a href="{{ url_for('register') }}" class="btn-ghost" style="width:100%;justify-content:center;padding:13px;font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;font-size:13px;">GET STARTED →</a>
       {% endif %}
     </div>
 
   </div>
 
   <!-- FAQ -->
-  <div class="mt-16 max-w-2xl mx-auto">
-    <h2 class="text-xl font-bold text-gray-900 text-center mb-8">Common questions</h2>
-    <div class="space-y-4">
-      {% for q, a in [
-        ('Do I need a credit card to sign up?', 'No. Your first 3 proposals are completely free, no payment info needed.'),
-        ('Can I cancel anytime?', 'Yes. Cancel your subscription anytime from your account settings. No long-term contracts.'),
-        ('What if I need more than 30 proposals on Starter?', 'Upgrade to Pro for unlimited proposals. Or contact us — we can accommodate high-volume needs.'),
-        ('Will my proposals look professional?', 'Yes. Every proposal is formatted with a clean, professional layout with your company name, scope of work, materials list, pricing, terms, and signature line.'),
-      ] %}
-      <div class="bg-gray-50 rounded-xl p-5">
-        <h3 class="font-semibold text-gray-900 mb-2">{{ q }}</h3>
-        <p class="text-gray-600 text-sm">{{ a }}</p>
-      </div>
-      {% endfor %}
+  <div style="margin-top:80px;max-width:680px;margin-left:auto;margin-right:auto;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:32px;text-align:center;">// Common Questions</div>
+    {% for q, a in [
+      ('Do I need a credit card to start?', 'No. Your first 3 proposals are completely free with no payment info required.'),
+      ('Can I cancel anytime?', 'Yes. Cancel your subscription from your account settings. No contracts, no fees.'),
+      ('What if I need more than 30 proposals on Starter?', 'Upgrade to Pro for unlimited proposals, or contact us for a custom plan.'),
+      ('Will the proposals look professional?', 'Yes. Every proposal includes scope of work, materials table, labor breakdown, payment terms, warranty, and signature lines — formatted and ready to send.'),
+    ] %}
+    <div style="border-bottom:1px solid var(--border);padding:20px 0;">
+      <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px;">{{ q }}</div>
+      <div style="font-size:13px;color:var(--text-muted);line-height:1.6;">{{ a }}</div>
     </div>
+    {% endfor %}
   </div>
 
 </div>
