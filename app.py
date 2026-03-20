@@ -1316,6 +1316,71 @@ def delete_cost_template(ct_id):
     return redirect(url_for('generate'))
 
 
+@app.route('/api/scope-writer', methods=['POST'])
+@login_required
+def scope_writer():
+    data = request.get_json()
+    job_type = data.get('job_type', '').strip()
+    quick_desc = data.get('quick_description', '').strip()
+    if not quick_desc:
+        return jsonify({'error': 'No description provided'}), 400
+
+    cost_templates = CostTemplate.query.filter_by(user_id=uid()).order_by(CostTemplate.created_at).all()
+    templates_text = ''
+    if cost_templates:
+        lines = []
+        for ct in cost_templates:
+            if ct.cost_type == 'fixed':
+                lines.append(f'  ID {ct.id}: "{ct.name}" — ${ct.amount:.2f} fixed')
+            else:
+                lines.append(f'  ID {ct.id}: "{ct.name}" — ${ct.amount:.2f} per {ct.unit}')
+        templates_text = 'Contractor\'s saved cost templates:\n' + '\n'.join(lines)
+    else:
+        templates_text = 'Contractor has no saved cost templates.'
+
+    prompt = f"""You are an expert trade contractor proposal writer. A contractor has described a job in a few words. Expand it into professional proposal content.
+
+Job Type: {job_type or 'General Trade Work'}
+Contractor's quick description: "{quick_desc}"
+
+{templates_text}
+
+Return ONLY valid JSON with exactly this structure (no markdown, no extra text):
+{{
+  "job_description": "A 3-5 sentence professional description of the full scope of work, written from the contractor's perspective. Be specific, technical, and professional. Mention what will be removed/replaced/installed and any relevant conditions.",
+  "materials_notes": "A concise comma-separated list of the key materials/parts needed for this job. Keep it brief — 1-2 lines max.",
+  "suggested_template_ids": [list of integer IDs from the saved cost templates above that are clearly relevant to this job — empty array if none match],
+  "labor_hours_estimate": a single number (integer or float) for estimated labor hours for this job type
+}}"""
+
+    api_key = ''.join(os.getenv('ANTHROPIC_API_KEY', '').split())
+    try:
+        resp = http_requests.post(
+            'https://api.anthropic.com/v1/messages',
+            headers={
+                'x-api-key': api_key,
+                'anthropic-version': '2023-06-01',
+                'content-type': 'application/json',
+            },
+            json={
+                'model': 'claude-sonnet-4-6',
+                'max_tokens': 800,
+                'messages': [{'role': 'user', 'content': prompt}],
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        raw = resp.json()['content'][0]['text'].strip()
+        if raw.startswith('```'):
+            raw = raw.split('```')[1]
+            if raw.startswith('json'):
+                raw = raw[4:]
+        result = json.loads(raw)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/generate', methods=['GET', 'POST'])
 @login_required
 def generate():

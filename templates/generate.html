@@ -118,13 +118,34 @@
           <div id="service-fields-inner" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;"></div>
         </div>
 
+        <!-- AI Scope Writer -->
+        <div style="grid-column:1/-1;">
+          <div id="scope-writer-bar" style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:linear-gradient(135deg,rgba(249,115,22,0.08),rgba(249,115,22,0.04));border:1px solid rgba(249,115,22,0.3);margin-bottom:12px;cursor:pointer;" onclick="toggleScopeWriter()">
+            <svg width="14" height="14" fill="none" stroke="var(--orange)" stroke-width="2.5" viewBox="0 0 24 24" style="flex-shrink:0;"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            <span style="font-size:12px;color:var(--orange);font-family:'JetBrains Mono',monospace;letter-spacing:0.08em;text-transform:uppercase;font-weight:600;">AI Scope Writer</span>
+            <span style="font-size:11px;color:var(--text-muted);margin-left:4px;">— describe the job in one sentence, AI fills in the rest</span>
+            <svg id="scope-writer-chevron" width="12" height="12" fill="none" stroke="var(--text-muted)" stroke-width="2.5" viewBox="0 0 24 24" style="margin-left:auto;transition:transform 0.2s;"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+          <div id="scope-writer-panel" style="display:none;padding:16px;background:var(--surface-2);border:1px solid rgba(249,115,22,0.2);border-top:none;margin-bottom:12px;">
+            <label class="ctj-label" style="margin-bottom:8px;">Describe the job in one sentence</label>
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+              <textarea id="scope-quick-input" rows="2" class="ctj-input" style="flex:1;resize:none;margin-bottom:0;" placeholder="e.g. replace 40-gallon water heater, new gas line, expansion tank, 2nd floor utility closet"></textarea>
+              <button type="button" id="scope-writer-btn" onclick="runScopeWriter()" class="btn-orange" style="padding:10px 18px;font-size:12px;border:none;cursor:pointer;white-space:nowrap;flex-shrink:0;margin-top:0;">
+                <svg id="scope-btn-icon" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                <span id="scope-btn-text">Fill Form</span>
+              </button>
+            </div>
+            <div id="scope-writer-error" style="display:none;font-size:12px;color:var(--red);margin-top:8px;font-family:'JetBrains Mono',monospace;"></div>
+          </div>
+        </div>
+
         <div style="grid-column:1/-1;">
           <label class="ctj-label">Describe the Job <span style="color:var(--orange);">*</span> <span style="color:var(--text-muted);text-transform:none;letter-spacing:0;">(more detail = better output)</span></label>
-          <textarea name="job_description" required rows="5" class="ctj-input" style="resize:vertical;" placeholder="Example: Replace existing 3-ton central AC unit. Old unit is 18 years old and failing. Need to replace condenser and air handler. House is 2,400 sq ft, two-story. Existing ductwork is in good shape and will be reused.">{{ form_data.get('job_description','') }}</textarea>
+          <textarea name="job_description" id="f_job_description" required rows="5" class="ctj-input" style="resize:vertical;" placeholder="Example: Replace existing 3-ton central AC unit. Old unit is 18 years old and failing. Need to replace condenser and air handler. House is 2,400 sq ft, two-story. Existing ductwork is in good shape and will be reused.">{{ form_data.get('job_description','') }}</textarea>
         </div>
         <div style="grid-column:1/-1;">
           <label class="ctj-label">Materials / Parts Needed</label>
-          <textarea name="materials_input" rows="3" class="ctj-input" style="resize:vertical;" placeholder="Example: Carrier 3-ton AC unit, R-410A refrigerant, 25ft copper line set, disconnect box, pad, whip kit. Or describe generally if you don't have specifics.">{{ form_data.get('materials_input','') }}</textarea>
+          <textarea name="materials_input" id="f_materials_input" rows="3" class="ctj-input" style="resize:vertical;" placeholder="Example: Carrier 3-ton AC unit, R-410A refrigerant, 25ft copper line set, disconnect box, pad, whip kit. Or describe generally if you don't have specifics.">{{ form_data.get('materials_input','') }}</textarea>
         </div>
       </div>
     </div>
@@ -690,6 +711,87 @@ function fillClientFromPicker(sel) {
     document.getElementById('f_client_email').value = opt.dataset.email || '';
     document.getElementById('f_client_phone').value = opt.dataset.phone || '';
     document.getElementById('f_client_address').value = opt.dataset.address || '';
+  }
+}
+
+// ─── AI Scope Writer ─────────────────────────────────────────────────────────
+function toggleScopeWriter() {
+  const panel = document.getElementById('scope-writer-panel');
+  const chevron = document.getElementById('scope-writer-chevron');
+  const open = panel.style.display === 'block';
+  panel.style.display = open ? 'none' : 'block';
+  chevron.style.transform = open ? '' : 'rotate(180deg)';
+  if (!open) document.getElementById('scope-quick-input').focus();
+}
+
+async function runScopeWriter() {
+  const quickInput = document.getElementById('scope-quick-input');
+  const jobTypeEl = document.getElementById('job-type-select');
+  const errEl = document.getElementById('scope-writer-error');
+  const btn = document.getElementById('scope-writer-btn');
+  const btnText = document.getElementById('scope-btn-text');
+
+  const quickDesc = quickInput.value.trim();
+  if (!quickDesc) {
+    errEl.textContent = 'Enter a one-sentence description first.';
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+
+  btn.disabled = true;
+  btnText.textContent = 'Writing...';
+
+  try {
+    const resp = await fetch('/api/scope-writer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        job_type: jobTypeEl ? jobTypeEl.value : '',
+        quick_description: quickDesc
+      })
+    });
+    const data = await resp.json();
+
+    if (data.error) {
+      errEl.textContent = 'Error: ' + data.error;
+      errEl.style.display = 'block';
+      return;
+    }
+
+    if (data.job_description) {
+      document.getElementById('f_job_description').value = data.job_description;
+    }
+    if (data.materials_notes) {
+      document.getElementById('f_materials_input').value = data.materials_notes;
+    }
+    if (data.labor_hours_estimate) {
+      const laborEl = document.querySelector('input[name="labor_hours"]');
+      if (laborEl && !laborEl.value) laborEl.value = data.labor_hours_estimate;
+    }
+    if (data.suggested_template_ids && data.suggested_template_ids.length > 0) {
+      data.suggested_template_ids.forEach(id => {
+        const cb = document.getElementById('ct_' + id);
+        if (cb) cb.checked = true;
+      });
+    }
+
+    // Collapse and show success
+    document.getElementById('scope-writer-panel').style.display = 'none';
+    document.getElementById('scope-writer-chevron').style.transform = '';
+    const bar = document.getElementById('scope-writer-bar');
+    bar.style.background = 'linear-gradient(135deg,rgba(74,222,128,0.12),rgba(74,222,128,0.06))';
+    bar.style.borderColor = 'rgba(74,222,128,0.4)';
+    const spans = bar.querySelectorAll('span');
+    if (spans[0]) { spans[0].textContent = 'AI Scope Writer — form filled!'; spans[0].style.color = 'var(--green)'; }
+    if (spans[1]) { spans[1].textContent = 'Review the fields below and adjust as needed.'; }
+    bar.querySelector('svg').setAttribute('stroke', 'var(--green)');
+  } catch(e) {
+    errEl.textContent = 'Request failed. Check your connection and try again.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btnText.textContent = 'Fill Form';
   }
 }
 </script>
