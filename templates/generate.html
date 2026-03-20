@@ -22,23 +22,43 @@
           <div style="font-size:12px;color:var(--text-muted);">Who are you writing this for?</div>
         </div>
       </div>
+      {% if clients %}
+      <div style="margin-bottom:20px;padding:14px 16px;background:var(--surface-2);border:1px solid var(--border-bright);">
+        <label class="ctj-label" style="margin-bottom:8px;">Quick Fill from Contacts</label>
+        <select id="client-picker" class="ctj-input" onchange="fillClientFromPicker(this)" style="margin-bottom:0;">
+          <option value="">— Select a saved contact —</option>
+          {% for c in clients %}
+          <option value="{{ c.id }}" data-name="{{ c.name }}" data-email="{{ c.email }}" data-phone="{{ c.phone }}" data-address="{{ c.address }}">{{ c.name }}{% if c.phone %} · {{ c.phone }}{% endif %}</option>
+          {% endfor %}
+        </select>
+        <input type="hidden" name="client_id" id="client_id_field" value="" />
+      </div>
+      {% else %}
+      <input type="hidden" name="client_id" value="" />
+      {% endif %}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         <div style="grid-column:1/-1;">
           <label class="ctj-label">Client Name <span style="color:var(--orange);">*</span></label>
-          <input type="text" name="client_name" required value="{{ form_data.get('client_name','') }}" class="ctj-input" placeholder="John & Mary Johnson" />
+          <input type="text" name="client_name" id="f_client_name" required value="{{ form_data.get('client_name','') }}" class="ctj-input" placeholder="John & Mary Johnson" />
         </div>
         <div>
           <label class="ctj-label">Client Email</label>
-          <input type="email" name="client_email" value="{{ form_data.get('client_email','') }}" class="ctj-input" placeholder="john@email.com" />
+          <input type="email" name="client_email" id="f_client_email" value="{{ form_data.get('client_email','') }}" class="ctj-input" placeholder="john@email.com" />
         </div>
         <div>
           <label class="ctj-label">Client Phone</label>
-          <input type="text" name="client_phone" value="{{ form_data.get('client_phone','') }}" class="ctj-input" placeholder="(555) 867-5309" />
+          <input type="text" name="client_phone" id="f_client_phone" value="{{ form_data.get('client_phone','') }}" class="ctj-input" placeholder="(555) 867-5309" />
         </div>
         <div style="grid-column:1/-1;">
           <label class="ctj-label">Job Site Address</label>
-          <input type="text" name="client_address" value="{{ form_data.get('client_address','') }}" class="ctj-input" placeholder="123 Main St, Chicago, IL 60601" />
+          <input type="text" name="client_address" id="f_client_address" value="{{ form_data.get('client_address','') }}" class="ctj-input" placeholder="123 Main St, Chicago, IL 60601" />
         </div>
+        {% if not clients %}
+        <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border-bright);">
+          <input type="checkbox" name="save_client" id="save_client_check" style="width:15px;height:15px;accent-color:var(--orange);cursor:pointer;" />
+          <label for="save_client_check" style="font-size:13px;color:var(--text-muted);cursor:pointer;">Save as new contact</label>
+        </div>
+        {% endif %}
       </div>
     </div>
 
@@ -607,6 +627,17 @@ function togglePerUnit(select, idx) {
     puFields.style.display = 'none';
     hiddenUnit.name = 'adhoc_unit[]';
     hiddenQty.name = 'adhoc_qty[]';
+  }
+}
+
+function fillClientFromPicker(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('client_id_field').value = opt.value || '';
+  if (opt.value) {
+    document.getElementById('f_client_name').value = opt.dataset.name || '';
+    document.getElementById('f_client_email').value = opt.dataset.email || '';
+    document.getElementById('f_client_phone').value = opt.dataset.phone || '';
+    document.getElementById('f_client_address').value = opt.dataset.address || '';
   }
 }
 </script>

@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}Clients — CloseTheJob{% endblock %}
+
+{% block head %}
+<style>
+  .fin-modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75); z-index: 1000;
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  .fin-modal-overlay.active { display: flex; }
+  .fin-modal {
+    background: var(--surface); border: 1px solid var(--border-bright);
+    width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;
+  }
+  .fin-modal-header {
+    background: var(--surface-2); border-bottom: 1px solid var(--border);
+    padding: 16px 24px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .fin-modal-title { font-family: 'Bebas Neue', cursive; font-size: 20px; color: var(--text); letter-spacing: 0.04em; }
+  .fin-modal-close { background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 0; transition: color 0.15s; }
+  .fin-modal-close:hover { color: var(--text); }
+  .fin-modal-body { padding: 24px; }
+  .fin-field { margin-bottom: 16px; }
+
+  .client-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1px;
+    background: var(--border);
+  }
+  .client-card {
+    background: var(--surface);
+    padding: 20px 24px;
+    text-decoration: none;
+    display: block;
+    transition: background 0.15s;
+    position: relative;
+  }
+  .client-card:hover { background: var(--surface-2); }
+  .client-card::after {
+    content: '→';
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    font-size: 18px;
+    transition: color 0.15s, right 0.15s;
+  }
+  .client-card:hover::after { color: var(--orange); right: 16px; }
+  .client-name { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .client-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+  .client-stats {
+    display: flex; gap: 16px; margin-top: 10px;
+  }
+  .client-stat { font-size: 11px; color: var(--text-muted); }
+  .client-stat span { color: var(--orange); font-weight: 600; }
+
+  .search-wrap {
+    position: relative;
+  }
+  #client-search {
+    padding-left: 36px !important;
+  }
+  .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-dim);
+    font-size: 14px;
+    pointer-events: none;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:1280px;margin:0 auto;padding:48px 24px;">
+
+  <!-- Header -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:36px;flex-wrap:wrap;gap:16px;">
+    <div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">// CRM</div>
+      <h1 class="font-display" style="font-size:clamp(40px,5vw,64px);line-height:1;color:var(--text);">Clients.</h1>
+      <p style="color:var(--text-muted);font-size:14px;margin-top:8px;">{{ clients|length }} contact{% if clients|length != 1 %}s{% endif %} saved.</p>
+    </div>
+    <button class="btn-orange" onclick="document.getElementById('addClientModal').classList.add('active')" style="padding:12px 24px;">
+      + Add Contact
+    </button>
+  </div>
+
+  {% if clients %}
+  <!-- Search -->
+  <div style="margin-bottom:24px;max-width:400px;">
+    <div class="search-wrap">
+      <span class="search-icon">⌕</span>
+      <input type="text" id="client-search" class="ctj-input" placeholder="Search contacts…" oninput="filterClients(this.value)" />
+    </div>
+  </div>
+
+  <!-- Client grid -->
+  <div class="client-grid" id="client-grid">
+    {% for c in clients %}
+    <a href="{{ url_for('client_detail', client_id=c.id) }}" class="client-card" data-name="{{ c.name|lower }}" data-email="{{ c.email|lower }}">
+      <div class="client-name">{{ c.name }}</div>
+      {% if c.email %}<div class="client-meta">{{ c.email }}</div>{% endif %}
+      {% if c.phone %}<div class="client-meta">{{ c.phone }}</div>{% endif %}
+      <div class="client-stats">
+        <div class="client-stat"><span>{{ c.proposals|length }}</span> proposal{% if c.proposals|length != 1 %}s{% endif %}</div>
+        <div class="client-stat"><span>{{ c.jobs|length }}</span> job{% if c.jobs|length != 1 %}s{% endif %}</div>
+        {% if c.scheduled_jobs %}
+        <div class="client-stat"><span>{{ c.scheduled_jobs|selectattr('status','eq','scheduled')|list|length }}</span> upcoming</div>
+        {% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+
+  <div id="no-results" style="display:none;padding:48px 24px;text-align:center;background:var(--surface);border:1px solid var(--border);margin-top:1px;">
+    <p style="color:var(--text-muted);font-size:14px;">No contacts match your search.</p>
+  </div>
+
+  {% else %}
+  <div style="background:var(--surface);border:1px solid var(--border);padding:64px 24px;text-align:center;">
+    <div style="font-family:'Bebas Neue',cursive;font-size:48px;color:var(--border-bright);margin-bottom:12px;">0</div>
+    <p style="color:var(--text-muted);font-size:14px;margin-bottom:24px;">No contacts saved yet.<br />Add clients here to quickly fill proposals and track job history.</p>
+    <button class="btn-orange" onclick="document.getElementById('addClientModal').classList.add('active')">+ Add First Contact</button>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Add Client Modal -->
+<div class="fin-modal-overlay" id="addClientModal" onclick="if(event.target===this)this.classList.remove('active')">
+  <div class="fin-modal">
+    <div class="fin-modal-header">
+      <span class="fin-modal-title">New Contact</span>
+      <button class="fin-modal-close" onclick="document.getElementById('addClientModal').classList.remove('active')">&times;</button>
+    </div>
+    <div class="fin-modal-body">
+      <form method="POST" action="{{ url_for('add_client') }}">
+        <div class="fin-field">
+          <label class="ctj-label">Name <span style="color:var(--orange);">*</span></label>
+          <input type="text" name="name" class="ctj-input" placeholder="John Smith" required />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div class="fin-field">
+            <label class="ctj-label">Email</label>
+            <input type="email" name="email" class="ctj-input" placeholder="john@example.com" />
+          </div>
+          <div class="fin-field">
+            <label class="ctj-label">Phone</label>
+            <input type="text" name="phone" class="ctj-input" placeholder="(555) 000-0000" />
+          </div>
+        </div>
+        <div class="fin-field">
+          <label class="ctj-label">Address</label>
+          <input type="text" name="address" class="ctj-input" placeholder="123 Main St, Chicago, IL" />
+        </div>
+        <div class="fin-field">
+          <label class="ctj-label">Notes</label>
+          <textarea name="notes" class="ctj-input" rows="2" style="resize:vertical;" placeholder="Any notes about this client…"></textarea>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+          <button type="button" class="btn-ghost" onclick="document.getElementById('addClientModal').classList.remove('active')">Cancel</button>
+          <button type="submit" class="btn-orange">Save Contact</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterClients(q) {
+  q = q.toLowerCase().trim();
+  const cards = document.querySelectorAll('.client-card');
+  let shown = 0;
+  cards.forEach(card => {
+    const match = !q || card.dataset.name.includes(q) || card.dataset.email.includes(q);
+    card.style.display = match ? '' : 'none';
+    if (match) shown++;
+  });
+  document.getElementById('no-results').style.display = shown === 0 ? 'block' : 'none';
+}
+</script>
+{% endblock %}

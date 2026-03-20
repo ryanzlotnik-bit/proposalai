@@ -23,6 +23,14 @@ import random
 import string
 import secrets
 
+try:
+    from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import Flow
+    from googleapiclient.discovery import build
+    GOOGLE_CALENDAR_ENABLED = True
+except ImportError:
+    GOOGLE_CALENDAR_ENABLED = False
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -83,6 +91,9 @@ class User(db.Model, UserMixin):
     specialty = db.Column(db.String(200), default='')   # comma-separated specialties
     onboarding_done = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    google_access_token = db.Column(db.Text, nullable=True)
+    google_refresh_token = db.Column(db.Text, nullable=True)
+    google_token_expiry = db.Column(db.Float, nullable=True)
     proposals = db.relationship('Proposal', backref='user', lazy=True)
 
     @property
@@ -112,6 +123,7 @@ class User(db.Model, UserMixin):
 class Proposal(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=True)
     proposal_number = db.Column(db.String(50), nullable=False)
     # Client info
     client_name = db.Column(db.String(200), nullable=False)
@@ -171,6 +183,7 @@ class Job(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     proposal_id = db.Column(db.Integer, db.ForeignKey('proposal.id'), nullable=True)
+    client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=True)
     client_name = db.Column(db.String(200), nullable=False)
     client_email = db.Column(db.String(200), default='')
     client_phone = db.Column(db.String(50), default='')
@@ -222,6 +235,8 @@ class Tip(db.Model):
 class ScheduledJob(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    client_id = db.Column(db.Integer, db.ForeignKey('client.id'), nullable=True)
+    google_event_id = db.Column(db.String(200), nullable=True)
     client_name = db.Column(db.String(200), nullable=False)
     client_email = db.Column(db.String(200), default='')
     client_phone = db.Column(db.String(50), default='')
@@ -233,6 +248,20 @@ class ScheduledJob(db.Model):
     status = db.Column(db.String(50), default='scheduled')  # scheduled, invoiced, cancelled
     notes = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class Client(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    email = db.Column(db.String(200), default='')
+    phone = db.Column(db.String(50), default='')
+    address = db.Column(db.String(500), default='')
+    notes = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    proposals = db.relationship('Proposal', backref='client', lazy=True, foreign_keys='Proposal.client_id')
+    jobs = db.relationship('Job', backref='client', lazy=True, foreign_keys='Job.client_id')
+    scheduled_jobs = db.relationship('ScheduledJob', backref='client', lazy=True, foreign_keys='ScheduledJob.client_id')
 
 
 @login_manager.user_loader
@@ -582,6 +611,65 @@ def send_invoice_email(job, user):
     return True
 
 
+def push_to_google_calendar(user_id, sj_id):
+    """Push a scheduled job to Google Calendar in a background thread."""
+    if not GOOGLE_CALENDAR_ENABLED:
+        return
+    def do_push():
+        with app.app_context():
+            u = User.query.get(user_id)
+            sj = ScheduledJob.query.get(sj_id)
+            if not u or not sj or not u.google_access_token:
+                return
+            try:
+                creds = Credentials(
+                    token=u.google_access_token,
+                    refresh_token=u.google_refresh_token,
+                    token_uri='https://oauth2.googleapis.com/token',
+                    client_id=os.getenv('GOOGLE_CLIENT_ID'),
+                    client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+                )
+                service = build('calendar', 'v3', credentials=creds)
+                event_body = {
+                    'summary': f"{sj.job_type or 'Job'} — {sj.client_name}",
+                    'description': sj.description or '',
+                    'start': {'date': sj.scheduled_date.isoformat()},
+                    'end': {'date': sj.scheduled_date.isoformat()},
+                }
+                result = service.events().insert(calendarId='primary', body=event_body).execute()
+                sj.google_event_id = result.get('id')
+                if creds.token != u.google_access_token:
+                    u.google_access_token = creds.token
+                db.session.commit()
+            except Exception:
+                pass
+    threading.Thread(target=do_push, daemon=True).start()
+
+
+def delete_from_google_calendar(user_id, event_id):
+    """Delete a Google Calendar event in a background thread."""
+    if not GOOGLE_CALENDAR_ENABLED or not event_id:
+        return
+    def do_delete():
+        with app.app_context():
+            u = User.query.get(user_id)
+            if not u or not u.google_access_token:
+                return
+            try:
+                creds = Credentials(
+                    token=u.google_access_token,
+                    refresh_token=u.google_refresh_token,
+                    token_uri='https://oauth2.googleapis.com/token',
+                    client_id=os.getenv('GOOGLE_CLIENT_ID'),
+                    client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+                )
+                service = build('calendar', 'v3', credentials=creds)
+                service.events().delete(calendarId='primary', eventId=event_id).execute()
+            except Exception:
+                pass
+    threading.Thread(target=do_delete, daemon=True).start()
+
+
 def call_claude_for_proposal(job_data, user_data):
     # Build explicit costs text
     explicit_costs = job_data.get('explicit_costs', [])
@@ -896,10 +984,27 @@ def generate():
             content = call_claude_for_proposal(job_data, user_data)
         except Exception as e:
             flash(f'Error generating proposal: {str(e)}', 'error')
-            return render_template('generate.html', form_data=job_data, cost_templates=cost_templates, allowed_job_types=current_user.allowed_job_types)
+            clients = Client.query.filter_by(user_id=current_user.id).order_by(Client.name).all()
+            return render_template('generate.html', form_data=job_data, cost_templates=cost_templates, allowed_job_types=current_user.allowed_job_types, clients=clients)
+
+        # Handle client linking / saving
+        client_id = request.form.get('client_id', '').strip()
+        linked_client_id = int(client_id) if client_id.isdigit() else None
+        if not linked_client_id and request.form.get('save_client'):
+            new_client = Client(
+                user_id=current_user.id,
+                name=job_data['client_name'],
+                email=job_data['client_email'],
+                phone=job_data['client_phone'],
+                address=job_data['client_address'],
+            )
+            db.session.add(new_client)
+            db.session.flush()
+            linked_client_id = new_client.id
 
         proposal = Proposal(
             user_id=current_user.id,
+            client_id=linked_client_id,
             proposal_number=generate_proposal_number(),
             client_name=job_data['client_name'],
             client_email=job_data['client_email'],
@@ -922,7 +1027,8 @@ def generate():
         db.session.commit()
         return redirect(url_for('view_proposal', proposal_id=proposal.id))
 
-    return render_template('generate.html', form_data={}, cost_templates=cost_templates, allowed_job_types=current_user.allowed_job_types)
+    clients = Client.query.filter_by(user_id=current_user.id).order_by(Client.name).all()
+    return render_template('generate.html', form_data={}, cost_templates=cost_templates, allowed_job_types=current_user.allowed_job_types, clients=clients)
 
 
 @app.route('/proposal/<int:proposal_id>')
@@ -1031,7 +1137,8 @@ def profile():
         db.session.commit()
         flash('Profile updated successfully.', 'success')
         return redirect(url_for('profile'))
-    return render_template('profile.html')
+    google_configured = bool(os.getenv('GOOGLE_CLIENT_ID'))
+    return render_template('profile.html', google_configured=google_configured)
 
 
 @app.route('/pricing')
@@ -1245,8 +1352,11 @@ def schedule():
         except ValueError:
             flash('Invalid date.', 'error')
             return redirect(url_for('schedule'))
+        client_id_raw = request.form.get('client_id', '').strip()
+        linked_client_id = int(client_id_raw) if client_id_raw.isdigit() else None
         sj = ScheduledJob(
             user_id=current_user.id,
+            client_id=linked_client_id,
             client_name=client_name,
             client_email=request.form.get('client_email', '').strip(),
             client_phone=request.form.get('client_phone', '').strip(),
@@ -1259,6 +1369,7 @@ def schedule():
         )
         db.session.add(sj)
         db.session.commit()
+        push_to_google_calendar(current_user.id, sj.id)
         flash(f'Job scheduled for {sched_date.strftime("%b %d, %Y")}.', 'success')
         return redirect(url_for('schedule'))
 
@@ -1266,7 +1377,9 @@ def schedule():
         .order_by(ScheduledJob.scheduled_date).all()
     upcoming = [j for j in jobs if j.status == 'scheduled']
     past = [j for j in jobs if j.status != 'scheduled']
-    return render_template('schedule.html', upcoming=upcoming, past=past, today=date.today().isoformat())
+    clients = Client.query.filter_by(user_id=current_user.id).order_by(Client.name).all()
+    google_connected = bool(current_user.google_access_token)
+    return render_template('schedule.html', upcoming=upcoming, past=past, today=date.today().isoformat(), clients=clients, google_connected=google_connected)
 
 
 @app.route('/schedule/<int:sj_id>/cancel', methods=['POST'])
@@ -1276,6 +1389,8 @@ def cancel_scheduled_job(sj_id):
     if sj.user_id != current_user.id:
         flash('Access denied.', 'error')
         return redirect(url_for('schedule'))
+    if sj.google_event_id:
+        delete_from_google_calendar(current_user.id, sj.google_event_id)
     sj.status = 'cancelled'
     db.session.commit()
     flash('Job cancelled.', 'success')
@@ -1396,10 +1511,179 @@ def stripe_webhook():
     return jsonify({'received': True})
 
 
+# ─── Client CRM ────────────────────────────────────────────────────────────────
+
+@app.route('/clients')
+@login_required
+def clients():
+    all_clients = Client.query.filter_by(user_id=current_user.id).order_by(Client.name).all()
+    return render_template('clients.html', clients=all_clients)
+
+
+@app.route('/clients/add', methods=['POST'])
+@login_required
+def add_client():
+    name = request.form.get('name', '').strip()
+    if not name:
+        flash('Client name is required.', 'error')
+        return redirect(url_for('clients'))
+    c = Client(
+        user_id=current_user.id,
+        name=name,
+        email=request.form.get('email', '').strip(),
+        phone=request.form.get('phone', '').strip(),
+        address=request.form.get('address', '').strip(),
+        notes=request.form.get('notes', '').strip(),
+    )
+    db.session.add(c)
+    db.session.commit()
+    flash(f'{name} added to your contacts.', 'success')
+    return redirect(url_for('clients'))
+
+
+@app.route('/clients/<int:client_id>')
+@login_required
+def client_detail(client_id):
+    c = Client.query.get_or_404(client_id)
+    if c.user_id != current_user.id:
+        flash('Access denied.', 'error')
+        return redirect(url_for('clients'))
+    proposals = Proposal.query.filter_by(user_id=current_user.id, client_id=client_id).order_by(Proposal.created_at.desc()).all()
+    jobs = Job.query.filter_by(user_id=current_user.id, client_id=client_id).order_by(Job.completed_date.desc()).all()
+    scheduled = ScheduledJob.query.filter_by(user_id=current_user.id, client_id=client_id).order_by(ScheduledJob.scheduled_date.desc()).all()
+    return render_template('client_detail.html', client=c, proposals=proposals, jobs=jobs, scheduled=scheduled)
+
+
+@app.route('/clients/<int:client_id>/edit', methods=['POST'])
+@login_required
+def edit_client(client_id):
+    c = Client.query.get_or_404(client_id)
+    if c.user_id != current_user.id:
+        flash('Access denied.', 'error')
+        return redirect(url_for('clients'))
+    c.name = request.form.get('name', '').strip() or c.name
+    c.email = request.form.get('email', '').strip()
+    c.phone = request.form.get('phone', '').strip()
+    c.address = request.form.get('address', '').strip()
+    c.notes = request.form.get('notes', '').strip()
+    db.session.commit()
+    flash('Contact updated.', 'success')
+    return redirect(url_for('client_detail', client_id=client_id))
+
+
+@app.route('/clients/<int:client_id>/delete', methods=['POST'])
+@login_required
+def delete_client(client_id):
+    c = Client.query.get_or_404(client_id)
+    if c.user_id != current_user.id:
+        flash('Access denied.', 'error')
+        return redirect(url_for('clients'))
+    Proposal.query.filter_by(client_id=client_id).update({'client_id': None})
+    Job.query.filter_by(client_id=client_id).update({'client_id': None})
+    ScheduledJob.query.filter_by(client_id=client_id).update({'client_id': None})
+    db.session.delete(c)
+    db.session.commit()
+    flash('Contact deleted.', 'success')
+    return redirect(url_for('clients'))
+
+
+# ─── Google Calendar OAuth ─────────────────────────────────────────────────────
+
+@app.route('/auth/google')
+@login_required
+def google_auth():
+    if not GOOGLE_CALENDAR_ENABLED or not os.getenv('GOOGLE_CLIENT_ID'):
+        flash('Google Calendar integration is not configured.', 'warning')
+        return redirect(url_for('profile'))
+    try:
+        config = {
+            'web': {
+                'client_id': os.getenv('GOOGLE_CLIENT_ID'),
+                'client_secret': os.getenv('GOOGLE_CLIENT_SECRET'),
+                'auth_uri': 'https://accounts.google.com/o/oauth2/auth',
+                'token_uri': 'https://oauth2.googleapis.com/token',
+                'redirect_uris': [url_for('google_callback', _external=True)],
+            }
+        }
+        flow = Flow.from_client_config(config, scopes=['https://www.googleapis.com/auth/calendar.events'])
+        flow.redirect_uri = url_for('google_callback', _external=True)
+        auth_url, state = flow.authorization_url(access_type='offline', prompt='consent')
+        session['google_oauth_state'] = state
+        return redirect(auth_url)
+    except Exception:
+        flash('Could not start Google Calendar connection.', 'error')
+        return redirect(url_for('profile'))
+
+
+@app.route('/auth/google/callback')
+@login_required
+def google_callback():
+    if not GOOGLE_CALENDAR_ENABLED or not os.getenv('GOOGLE_CLIENT_ID'):
+        flash('Google Calendar integration is not configured.', 'warning')
+        return redirect(url_for('profile'))
+    try:
+        config = {
+            'web': {
+                'client_id': os.getenv('GOOGLE_CLIENT_ID'),
+                'client_secret': os.getenv('GOOGLE_CLIENT_SECRET'),
+                'auth_uri': 'https://accounts.google.com/o/oauth2/auth',
+                'token_uri': 'https://oauth2.googleapis.com/token',
+                'redirect_uris': [url_for('google_callback', _external=True)],
+            }
+        }
+        flow = Flow.from_client_config(config, scopes=['https://www.googleapis.com/auth/calendar.events'],
+                                        state=session.get('google_oauth_state'))
+        flow.redirect_uri = url_for('google_callback', _external=True)
+        flow.fetch_token(code=request.args.get('code'))
+        creds = flow.credentials
+        current_user.google_access_token = creds.token
+        if creds.refresh_token:
+            current_user.google_refresh_token = creds.refresh_token
+        current_user.google_token_expiry = creds.expiry.timestamp() if creds.expiry else None
+        db.session.commit()
+        flash('Google Calendar connected! Jobs you schedule will sync automatically.', 'success')
+    except Exception:
+        flash('Failed to connect Google Calendar. Please try again.', 'error')
+    return redirect(url_for('profile'))
+
+
+@app.route('/auth/google/disconnect', methods=['POST'])
+@login_required
+def google_disconnect():
+    current_user.google_access_token = None
+    current_user.google_refresh_token = None
+    current_user.google_token_expiry = None
+    db.session.commit()
+    flash('Google Calendar disconnected.', 'success')
+    return redirect(url_for('profile'))
+
+
 # ─── Init ──────────────────────────────────────────────────────────────────────
 
 with app.app_context():
     db.create_all()
+    # Migrate: add new columns to existing tables if missing
+    from sqlalchemy import text
+    _migrations = [
+        'ALTER TABLE "user" ADD COLUMN specialty VARCHAR(200) DEFAULT \'\'',
+        'ALTER TABLE "user" ADD COLUMN onboarding_done BOOLEAN DEFAULT 0',
+        'ALTER TABLE "user" ADD COLUMN google_access_token TEXT',
+        'ALTER TABLE "user" ADD COLUMN google_refresh_token TEXT',
+        'ALTER TABLE "user" ADD COLUMN google_token_expiry FLOAT',
+        'ALTER TABLE proposal ADD COLUMN client_id INTEGER',
+        'ALTER TABLE proposal ADD COLUMN public_token VARCHAR(64)',
+        'ALTER TABLE proposal ADD COLUMN accepted_at DATETIME',
+        'ALTER TABLE job ADD COLUMN client_id INTEGER',
+        'ALTER TABLE job ADD COLUMN invoice_sent_at DATETIME',
+        'ALTER TABLE scheduled_job ADD COLUMN client_id INTEGER',
+        'ALTER TABLE scheduled_job ADD COLUMN google_event_id VARCHAR(200)',
+    ]
+    for _sql in _migrations:
+        try:
+            db.session.execute(text(_sql))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5001))

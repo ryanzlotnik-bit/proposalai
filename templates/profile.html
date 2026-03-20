@@ -70,5 +70,34 @@
     </div>
   </form>
 
+  <!-- Google Calendar Integration -->
+  <div class="ctj-card" style="padding:28px;margin-top:24px;">
+    <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);">// Google Calendar Sync</div>
+    {% if current_user.google_access_token %}
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="width:8px;height:8px;background:var(--green);border-radius:50%;display:inline-block;"></span>
+          <span style="font-size:14px;font-weight:600;color:var(--text);">Connected</span>
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);">New scheduled jobs sync to your Google Calendar automatically.</p>
+      </div>
+      <form method="POST" action="{{ url_for('google_disconnect') }}" style="margin:0;">
+        <button type="submit" class="btn-ghost" style="padding:8px 18px;font-size:12px;" onclick="return confirm('Disconnect Google Calendar?')">Disconnect</button>
+      </form>
+    </div>
+    {% elif google_configured %}
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+      <div>
+        <div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px;">Sync jobs to Google Calendar</div>
+        <p style="font-size:12px;color:var(--text-muted);">Connect once — every job you schedule will appear in your Google Calendar.</p>
+      </div>
+      <a href="{{ url_for('google_auth') }}" class="btn-orange" style="padding:10px 22px;font-size:13px;clip-path:none;">Connect Google Calendar</a>
+    </div>
+    {% else %}
+    <p style="font-size:13px;color:var(--text-muted);">Google Calendar sync requires <code style="background:var(--surface-2);padding:2px 6px;font-family:'JetBrains Mono',monospace;font-size:11px;">GOOGLE_CLIENT_ID</code> and <code style="background:var(--surface-2);padding:2px 6px;font-family:'JetBrains Mono',monospace;font-size:11px;">GOOGLE_CLIENT_SECRET</code> to be set in your environment variables.</p>
+    {% endif %}
+  </div>
+
 </div>
 {% endblock %}

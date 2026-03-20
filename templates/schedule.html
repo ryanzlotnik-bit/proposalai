@@ -184,9 +184,19 @@
       <h1 class="font-display" style="font-size:clamp(40px,5vw,64px);line-height:1;color:var(--text);">Schedule.</h1>
       <p style="color:var(--text-muted);font-size:14px;margin-top:8px;">Jobs auto-invoice when their date passes.</p>
     </div>
-    <button class="btn-orange" onclick="document.getElementById('scheduleModal').classList.add('active')" style="padding:12px 24px;">
-      + Schedule Job
-    </button>
+    <div style="display:flex;align-items:center;gap:12px;">
+      {% if google_connected %}
+      <div style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);">
+        <span style="color:var(--green);font-size:11px;">●</span>
+        <span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--green);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">Google Cal Synced</span>
+      </div>
+      {% else %}
+      <a href="{{ url_for('profile') }}" style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--surface-2);border:1px solid var(--border-bright);text-decoration:none;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;transition:color 0.15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">Connect Google Cal →</a>
+      {% endif %}
+      <button class="btn-orange" onclick="document.getElementById('scheduleModal').classList.add('active')" style="padding:12px 24px;">
+        + Schedule Job
+      </button>
+    </div>
   </div>
 
   <!-- Stats -->
@@ -331,18 +341,30 @@
     </div>
     <div class="fin-modal-body">
       <form method="POST" action="{{ url_for('schedule') }}">
+        <input type="hidden" name="client_id" id="sched_client_id" value="" />
+        {% if clients %}
+        <div class="fin-field" style="padding:12px 14px;background:var(--surface-2);border:1px solid var(--border-bright);">
+          <label class="ctj-label" style="margin-bottom:8px;">Quick Fill from Contacts</label>
+          <select class="ctj-input" onchange="fillSchedClient(this)" style="margin-bottom:0;">
+            <option value="">— Select a saved contact —</option>
+            {% for c in clients %}
+            <option value="{{ c.id }}" data-name="{{ c.name }}" data-email="{{ c.email }}" data-phone="{{ c.phone }}">{{ c.name }}{% if c.phone %} · {{ c.phone }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
           <div class="fin-field" style="grid-column:1/-1;">
             <label class="ctj-label">Client Name <span>*</span></label>
-            <input type="text" name="client_name" class="ctj-input" placeholder="John Smith" required />
+            <input type="text" name="client_name" id="sched_name" class="ctj-input" placeholder="John Smith" required />
           </div>
           <div class="fin-field">
             <label class="ctj-label">Client Email</label>
-            <input type="email" name="client_email" class="ctj-input" placeholder="john@example.com" />
+            <input type="email" name="client_email" id="sched_email" class="ctj-input" placeholder="john@example.com" />
           </div>
           <div class="fin-field">
             <label class="ctj-label">Client Phone</label>
-            <input type="text" name="client_phone" class="ctj-input" placeholder="(555) 000-0000" />
+            <input type="text" name="client_phone" id="sched_phone" class="ctj-input" placeholder="(555) 000-0000" />
           </div>
           <div class="fin-field">
             <label class="ctj-label">Job Type</label>
@@ -556,5 +578,16 @@ function togglePast() {
 // ── Init ─────────────────────────────────────────────────────────────────────
 renderCalendar();
 countThisWeek();
+
+// ── Schedule modal client picker ──────────────────────────────────────────────
+function fillSchedClient(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('sched_client_id').value = opt.value || '';
+  if (opt.value) {
+    document.getElementById('sched_name').value = opt.dataset.name || '';
+    document.getElementById('sched_email').value = opt.dataset.email || '';
+    document.getElementById('sched_phone').value = opt.dataset.phone || '';
+  }
+}
 </script>
 {% endblock %}
