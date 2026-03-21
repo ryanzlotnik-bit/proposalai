@@ -2754,13 +2754,16 @@ def test_email():
     else:
         lines.append("SENDGRID_API_KEY: NOT SET (and MAIL_PASSWORD does not start with SG.)")
     lines.append("")
-    if not username:
-        lines.append("ERROR: MAIL_USERNAME not set — needed as From address")
+    sender = os.getenv('MAIL_DEFAULT_SENDER', '') or os.getenv('MAIL_USERNAME', '')
+    lines.append(f"MAIL_DEFAULT_SENDER: {sender or 'NOT SET'}")
+    lines.append("")
+    if not sender or sender == 'apikey':
+        lines.append("ERROR: Set MAIL_DEFAULT_SENDER to your real email address (e.g. closethejobapp@gmail.com)")
     else:
-        lines.append(f"Sending test email to {username} via SendGrid HTTP API...")
-        ok, err = send_email_sendgrid(username, 'CloseTheJob Test', '<p>Email working!</p>')
+        lines.append(f"Sending test email to {sender} via SendGrid HTTP API...")
+        ok, err = send_email_sendgrid(sender, 'CloseTheJob Test', '<p>Email working!</p>')
         if ok:
-            lines.append(f"SUCCESS — check {username} inbox")
+            lines.append(f"SUCCESS — check {sender} inbox")
         else:
             lines.append(f"FAILED: {err}")
     return "<pre style='font-family:monospace;padding:40px;background:#111;color:#eee;min-height:100vh;'>" + "\n".join(lines) + "</pre>"
