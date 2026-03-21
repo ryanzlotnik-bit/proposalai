@@ -117,36 +117,44 @@ class User(db.Model, UserMixin):
 
     @property
     def trial_active(self):
-        return (self.plan == 'trial'
-                and self.trial_expires_at is not None
-                and datetime.utcnow() < self.trial_expires_at)
+        # Stripe trial: paid plan but not yet charged
+        if self.subscription_status == 'trialing':
+            return True
+        return False
 
     @property
     def trial_days_left(self):
-        if not self.trial_active:
+        if not self.trial_expires_at:
             return 0
         return max(0, (self.trial_expires_at - datetime.utcnow()).days)
 
     @property
-    def can_generate(self):
-        return self.plan in ('starter', 'pro', 'enterprise') or self.trial_active
-
-    @property
-    def is_subscribed(self):
+    def on_paid_plan(self):
         return self.plan in ('starter', 'pro', 'enterprise')
 
     @property
+    def can_generate(self):
+        return self.on_paid_plan  # includes trialing (plan is set on checkout)
+
+    @property
+    def is_subscribed(self):
+        return self.on_paid_plan
+
+    @property
     def can_auto_invoice(self):
-        return self.plan in ('starter', 'pro', 'enterprise') or self.trial_active
+        return self.on_paid_plan
 
     @property
     def can_see_charts(self):
-        return self.plan in ('starter', 'pro', 'enterprise') or self.trial_active
+        return self.on_paid_plan
 
     @property
     def plan_display(self):
-        return {'trial': 'Free Trial', 'starter': 'Pro', 'pro': 'Business',
+        name = {'trial': 'Trial', 'starter': 'Pro', 'pro': 'Business',
                 'enterprise': 'Enterprise'}.get(self.plan, self.plan.capitalize())
+        if self.subscription_status == 'trialing':
+            return f'{name} (Trial)'
+        return name
 
     @property
     def can_use_branding(self):
@@ -1205,8 +1213,7 @@ def register():
 
         hashed = bcrypt.generate_password_hash(password).decode('utf-8')
         user = User(email=email, name=name, company_name=company,
-                    trade_type=trade, password=hashed,
-                    trial_expires_at=datetime.utcnow() + timedelta(days=TRIAL_DAYS))
+                    trade_type=trade, password=hashed)
         db.session.add(user)
         db.session.commit()
         login_user(user)
@@ -1223,8 +1230,8 @@ def onboarding():
         current_user.onboarding_done = True
         current_user.trade_type = selected[0] if selected else current_user.trade_type
         db.session.commit()
-        flash(f'Welcome, {current_user.name}! Your 30-day free trial is active — full access, no credit card needed.', 'success')
-        return redirect(url_for('dashboard'))
+        flash(f'Welcome, {current_user.name}! Pick a plan to start your 30-day free trial — no charge until day 31.', 'success')
+        return redirect(url_for('pricing'))
     return render_template('onboarding.html', specialties=list(SPECIALTIES.keys()))
 
 
@@ -1442,7 +1449,7 @@ def generate():
     cost_templates = CostTemplate.query.filter_by(user_id=uid()).order_by(CostTemplate.created_at).all()
 
     if not current_user.can_generate:
-        flash('Your free trial has expired. Choose a plan to keep generating proposals.', 'warning')
+        flash('Choose a plan to start generating proposals.', 'warning')
         return redirect(url_for('pricing'))
 
     if request.method == 'POST':
@@ -2343,7 +2350,7 @@ def create_checkout_session():
         return redirect(url_for('pricing'))
 
     try:
-        checkout_session = stripe.checkout.Session.create(
+        session_params = dict(
             customer_email=current_user.email,
             payment_method_types=['card'],
             line_items=[{'price': price_id, 'quantity': 1}],
@@ -2352,6 +2359,10 @@ def create_checkout_session():
             cancel_url=url_for('pricing', _external=True),
             metadata={'user_id': current_user.id, 'plan': plan},
         )
+        # Add 30-day free trial for new (unsubscribed) users
+        if not current_user.is_subscribed:
+            session_params['subscription_data'] = {'trial_period_days': TRIAL_DAYS}
+        checkout_session = stripe.checkout.Session.create(**session_params)
         return redirect(checkout_session.url)
     except Exception as e:
         flash(f'Payment error: {str(e)}', 'error')
@@ -2364,16 +2375,28 @@ def subscription_success():
     session_id = request.args.get('session_id')
     if session_id and stripe.api_key:
         try:
-            checkout_session = stripe.checkout.Session.retrieve(session_id)
+            checkout_session = stripe.checkout.Session.retrieve(session_id,
+                expand=['subscription'])
             plan = checkout_session.metadata.get('plan', 'starter')
             current_user.plan = plan
-            current_user.subscription_status = 'active'
             current_user.stripe_customer_id = checkout_session.customer
-            current_user.stripe_subscription_id = checkout_session.subscription
+            sub = checkout_session.subscription
+            if sub:
+                current_user.stripe_subscription_id = sub if isinstance(sub, str) else sub.get('id', '')
+                # Check if Stripe put the subscription in trial
+                sub_status = sub.get('status', 'active') if isinstance(sub, dict) else 'active'
+                if sub_status == 'trialing':
+                    current_user.subscription_status = 'trialing'
+                    current_user.trial_expires_at = datetime.utcnow() + timedelta(days=TRIAL_DAYS)
+                else:
+                    current_user.subscription_status = 'active'
+            else:
+                current_user.subscription_status = 'trialing'
+                current_user.trial_expires_at = datetime.utcnow() + timedelta(days=TRIAL_DAYS)
             db.session.commit()
         except Exception:
             pass
-    flash('Subscription activated! You now have unlimited proposals.', 'success')
+    flash('Your 30-day free trial has started! Your card won\'t be charged until the trial ends.', 'success')
     return redirect(url_for('dashboard'))
 
 
@@ -2418,6 +2441,18 @@ def stripe_webhook():
         event = stripe.Webhook.construct_event(payload, sig_header, webhook_secret)
     except Exception:
         return jsonify({'error': 'Invalid signature'}), 400
+
+    if event['type'] == 'customer.subscription.updated':
+        sub = event['data']['object']
+        user = User.query.filter_by(stripe_subscription_id=sub['id']).first()
+        if user:
+            if sub.get('status') == 'active' and user.subscription_status == 'trialing':
+                # Trial just converted to paid — card was charged
+                user.subscription_status = 'active'
+                db.session.commit()
+            elif sub.get('status') == 'past_due':
+                user.subscription_status = 'past_due'
+                db.session.commit()
 
     if event['type'] == 'customer.subscription.deleted':
         sub = event['data']['object']
