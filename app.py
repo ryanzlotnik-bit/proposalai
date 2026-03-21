@@ -65,12 +65,10 @@ stripe.api_key = ''.join(os.getenv('STRIPE_SECRET_KEY', '').split())
 @app.before_request
 def dev_auto_login():
     if os.getenv('DEV_AUTO_LOGIN') == '1':
-        from flask_login import current_user as cu
-        if not cu.is_authenticated:
-            with app.app_context():
-                u = User.query.first()
-                if u:
-                    login_user(u, remember=True)
+        if not current_user.is_authenticated:
+            u = User.query.first()
+            if u:
+                login_user(u, remember=True)
 
 TRIAL_DAYS = 30
 
