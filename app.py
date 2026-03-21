@@ -2698,34 +2698,27 @@ def subscription_success():
 
 
 @app.route('/test-email')
-@login_required
 def test_email():
-    """Send a test email synchronously and show the exact error."""
-    username = app.config.get('MAIL_USERNAME', '')
-    password = app.config.get('MAIL_PASSWORD', '')
-
+    """Check email config without sending anything."""
+    username = os.getenv('MAIL_USERNAME', '')
+    password = os.getenv('MAIL_PASSWORD', '')
     lines = []
     lines.append(f"MAIL_USERNAME set: {'YES — ' + username if username else 'NO'}")
-    lines.append(f"MAIL_PASSWORD set: {'YES' if password else 'NO'}")
+    lines.append(f"MAIL_PASSWORD set: {'YES (length=' + str(len(password)) + ')' if password else 'NO'}")
     lines.append(f"MAIL_SERVER: {app.config.get('MAIL_SERVER')}")
     lines.append(f"MAIL_PORT: {app.config.get('MAIL_PORT')}")
-    lines.append("")
-
-    if not username or not password:
-        lines.append("ERROR: Missing MAIL_USERNAME or MAIL_PASSWORD in environment variables.")
-        lines.append("Go to Railway → your service → Variables tab and add them.")
+    lines.append(f"DEV_AUTO_LOGIN: {os.getenv('DEV_AUTO_LOGIN', 'NOT SET')}")
+    lines.append(f"Logged in: {current_user.is_authenticated}")
+    if username and password:
+        lines.append("")
+        lines.append("Config looks OK. Make sure:")
+        lines.append("1. MAIL_PASSWORD is a Gmail App Password (not your account password)")
+        lines.append("2. IMAP is enabled: Gmail Settings → See all settings → Forwarding and POP/IMAP → Enable IMAP")
     else:
-        try:
-            msg = Message(
-                subject="CloseTheJob — Email Test",
-                recipients=[current_user.email],
-                html="<p>Email is working! Your invoice emails will deliver successfully.</p>",
-            )
-            mail.send(msg)
-            lines.append(f"SUCCESS: Test email sent to {current_user.email}")
-        except Exception as e:
-            lines.append(f"FAILED: {type(e).__name__}: {str(e)}")
-
+        lines.append("")
+        lines.append("ACTION NEEDED: Go to Railway → your service → Variables tab and add:")
+        lines.append("  MAIL_USERNAME = your Gmail address (e.g. you@gmail.com)")
+        lines.append("  MAIL_PASSWORD = your Gmail App Password")
     return "<pre style='font-family:monospace;padding:40px;background:#111;color:#eee;min-height:100vh;'>" + "\n".join(lines) + "</pre>"
 
 
