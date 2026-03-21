@@ -67,7 +67,28 @@ def dev_check():
     flag = os.getenv('DEV_AUTO_LOGIN', 'NOT SET')
     user_count = User.query.count()
     first_user = User.query.first()
-    return f"DEV_AUTO_LOGIN={flag} | users={user_count} | first={first_user.email if first_user else 'none'} | logged_in={current_user.is_authenticated}"
+    lines = [
+        f"DEV_AUTO_LOGIN={flag}",
+        f"users={user_count}",
+        f"first={first_user.email if first_user else 'none'}",
+        f"logged_in={current_user.is_authenticated}",
+        "",
+        "--- IMAP Test ---",
+    ]
+    user = os.getenv('MAIL_USERNAME', '')
+    pw = os.getenv('MAIL_PASSWORD', '')
+    if not user or not pw:
+        lines.append("IMAP: MAIL_USERNAME or MAIL_PASSWORD not set")
+    else:
+        try:
+            import imaplib as _imap
+            M = _imap.IMAP4_SSL('imap.gmail.com', 993)
+            M.login(user, pw)
+            lines.append(f"IMAP: LOGIN OK as {user}")
+            M.logout()
+        except Exception as e:
+            lines.append(f"IMAP ERROR: {type(e).__name__}: {e}")
+    return "<pre style='padding:40px;background:#111;color:#eee;min-height:100vh;'>" + "\n".join(lines) + "</pre>"
 
 # ─── Dev auto-login (set DEV_AUTO_LOGIN=1 in .env to bypass login during testing) ─
 @app.before_request
