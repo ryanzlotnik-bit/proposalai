@@ -61,6 +61,14 @@ mail = Mail(app)
 
 stripe.api_key = ''.join(os.getenv('STRIPE_SECRET_KEY', '').split())
 
+# ─── Dev auto-login debug route ───────────────────────────────────────────────
+@app.route('/dev-check')
+def dev_check():
+    flag = os.getenv('DEV_AUTO_LOGIN', 'NOT SET')
+    user_count = User.query.count()
+    first_user = User.query.first()
+    return f"DEV_AUTO_LOGIN={flag} | users={user_count} | first={first_user.email if first_user else 'none'} | logged_in={current_user.is_authenticated}"
+
 # ─── Dev auto-login (set DEV_AUTO_LOGIN=1 in .env to bypass login during testing) ─
 @app.before_request
 def dev_auto_login():
