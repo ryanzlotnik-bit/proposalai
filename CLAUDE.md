@@ -1,7 +1,7 @@
 # CloseTheJob — CLAUDE.md
 
 ## Project overview
-Flask SaaS for trade contractors. Full business platform: AI proposals, job scheduling, invoicing, financials, client CRM, Google Calendar sync.
+Flask SaaS for trade contractors. Full business platform: AI proposals, job scheduling, invoicing, financials, client CRM, Google Calendar sync, Sales Leads pipeline, CRM email client.
 
 **Run locally:** `cd /Users/ryanzlotnik/ProposalAI && python3 app.py` (port 5001)
 **Deploy:** `git add -A && git commit -m "..." && git push` — Railway auto-deploys on push to main
@@ -11,11 +11,12 @@ Flask SaaS for trade contractors. Full business platform: AI proposals, job sche
 ## Tech stack
 - Flask + SQLAlchemy (SQLite local, PostgreSQL on Railway via `DATABASE_URL`)
 - Flask-Login, Flask-Bcrypt (auth)
-- Flask-Mail + Gmail SMTP (emails)
+- SendGrid HTTP API (email sending — replaces Flask-Mail SMTP, Railway blocks SMTP)
+- imaplib (IMAP inbox reading for CRM email client)
 - fpdf2 (PDF invoice generation)
-- imaplib (Gmail Drafts via IMAP)
 - Anthropic claude-sonnet-4-6 (proposal generation)
 - Stripe (subscriptions)
+- Twilio (SMS notifications)
 - google-auth-oauthlib + google-api-python-client (Google Calendar)
 - Chart.js CDN (financial charts)
 - Tailwind CSS CDN + custom CSS variables
@@ -58,10 +59,48 @@ def send_email(job, user):
     threading.Thread(target=do_send, daemon=True).start()
 ```
 
-This applies to ALL background work: emails, Google Calendar pushes, invoice generation. Every async helper in this codebase follows this pattern.
+This applies to ALL background work: Google Calendar pushes, invoice generation. Every async helper in this codebase follows this pattern.
+
+### ⚠️ url_for(_external=True) must be called in request context
+Never call `url_for(..., _external=True)` inside a background thread — there is no request context and it will fail silently, killing the thread before any work is done. Build the URL **before** starting the thread:
+
+```python
+# WRONG — silently crashes inside thread
+def do_send():
+    with app.app_context():
+        track_url = url_for('track_email_open', token=token, _external=True)  # CRASH
+
+# CORRECT — build URL while still in request context
+track_url = url_for('track_email_open', token=token, _external=True)
+def do_send():
+    with app.app_context():
+        # use track_url from closure — safe
+```
+
+### ⚠️ Fast HTTP calls don't need background threads (gunicorn kills daemon threads)
+On Railway with gunicorn, daemon threads can be killed before they finish. Only use background threads for truly long-running work (Google Calendar API, PDF generation). Simple HTTP calls like SendGrid should be called synchronously in the route:
+
+```python
+# WRONG — thread may be killed before SendGrid call runs
+threading.Thread(target=lambda: send_email_sendgrid(...), daemon=True).start()
+
+# CORRECT — SendGrid is a fast HTTP call, just call it directly
+ok, err = send_email_sendgrid(to, subject, body)
+```
+
+### ⚠️ Railway blocks all outbound SMTP — use SendGrid HTTP API
+Railway blocks outbound SMTP on all ports (25, 587, 465, 2525). Flask-Mail / smtplib will hang or fail with "Network is unreachable". All email sending goes through `send_email_sendgrid()` which POSTs to `https://api.sendgrid.com/v3/mail/send` over HTTPS. Never add mail.send() calls.
+
+```python
+ok, err = send_email_sendgrid(to_addr, subject, html_body)
+# Returns (True, None) on success, (False, "error message") on failure
+```
+
+### ⚠️ Always use MAIL_DEFAULT_SENDER as from address, never u.email
+SendGrid only sends from verified sender addresses. `u.email` is the contractor's account email and is NOT a verified SendGrid sender. Always let `send_email_sendgrid()` use its default from address (pulled from `MAIL_DEFAULT_SENDER` env var). Never pass `from_addr=u.email`.
 
 ### Email sending
-All emails sent in background threads (never block request). Set `invoice_sent = True` INSIDE the thread AFTER `mail.send()` succeeds — not before, not in the route handler.
+Set `invoice_sent = True` INSIDE the thread AFTER send succeeds — not before, not in the route handler. For CRM emails and simple sends, call synchronously and show flash message with success/error.
 
 ### Public tokens
 Use `secrets.token_urlsafe(20)` for share links. Generate lazily on first view if missing:
@@ -94,6 +133,29 @@ with app.app_context():
 
 Always add new columns here when adding them to models — Railway's PostgreSQL won't pick them up otherwise.
 
+### Railway PostgreSQL setup
+- `requirements.txt` must include `psycopg2-binary` or the app will crash on startup with Railway PostgreSQL
+- Railway's internal DB hostname (`postgres.railway.internal`) only works on private networking. Use `DATABASE_PUBLIC_URL` if private networking isn't configured
+- SQLite on Railway uses ephemeral filesystem — data is wiped on every redeploy. Always use PostgreSQL on Railway
+
+### Dev auto-login bypass
+`DEV_AUTO_LOGIN=1` env var enables auto-login for testing. Set `DEV_AUTO_LOGIN_EMAIL` to the specific account email to log in as. The `before_request` hook must skip static files and must NOT nest `app.app_context()` (already in context):
+
+```python
+@app.before_request
+def dev_auto_login():
+    if os.getenv('DEV_AUTO_LOGIN') != '1':
+        return
+    if current_user.is_authenticated:
+        return
+    if request.endpoint == 'static':
+        return
+    dev_email = os.getenv('DEV_AUTO_LOGIN_EMAIL', '')
+    u = User.query.filter_by(email=dev_email).first() if dev_email else User.query.first()
+    if u:
+        login_user(u, remember=True)
+```
+
 ### Client auto-upsert
 When any form creates a new proposal or scheduled job with client info, always upsert the CRM automatically. Never require the user to manually save a contact. Match by email first, then name (case-insensitive), then create new:
 
@@ -106,7 +168,6 @@ if not existing:
     ).first()
 if existing:
     linked_client_id = existing.id
-    # backfill any missing info
 else:
     new_client = Client(user_id=uid, name=name, email=email, ...)
     db.session.add(new_client)
@@ -151,9 +212,13 @@ Set locally in `.env`, set in Railway Variables tab for production. Never commit
 |---|---|
 | `ANTHROPIC_API_KEY` | Claude API for proposal generation |
 | `SECRET_KEY` | Flask session secret |
-| `DATABASE_URL` | PostgreSQL URI (Railway sets automatically) |
-| `MAIL_USERNAME` | Gmail address for sending emails |
-| `MAIL_PASSWORD` | Gmail App Password (not account password) |
+| `DATABASE_URL` | PostgreSQL URI (Railway sets automatically via PostgreSQL plugin) |
+| `MAIL_USERNAME` | Set to `apikey` (literal string) for SendGrid |
+| `MAIL_PASSWORD` | SendGrid API key (starts with `SG.`) — also used as fallback for `SENDGRID_API_KEY` |
+| `MAIL_DEFAULT_SENDER` | Verified sender email address (e.g. `closethejobapp@gmail.com`) — must be verified in SendGrid |
+| `MAIL_SERVER` | `smtp.sendgrid.net` (kept for Flask-Mail config, not actually used for sending) |
+| `MAIL_PORT` | `2525` (kept for Flask-Mail config, not actually used for sending) |
+| `SENDGRID_API_KEY` | Optional explicit SendGrid key; falls back to `MAIL_PASSWORD` if starts with `SG.` |
 | `STRIPE_SECRET_KEY` | Stripe secret key |
 | `STRIPE_PUBLISHABLE_KEY` | Stripe publishable key |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
@@ -164,8 +229,12 @@ Set locally in `.env`, set in Railway Variables tab for production. Never commit
 | `TWILIO_ACCOUNT_SID` | Twilio account SID for SMS notifications |
 | `TWILIO_AUTH_TOKEN` | Twilio auth token |
 | `TWILIO_FROM_NUMBER` | Twilio phone number to send from (e.g. +12025551234) |
+| `DEV_AUTO_LOGIN` | Set to `1` to bypass login during testing |
+| `DEV_AUTO_LOGIN_EMAIL` | Email of the account to auto-login as (uses first user if not set) |
 
-**Gmail setup:** Requires a Gmail App Password (Google Account → Security → 2-Step Verification → App passwords). IMAP must be enabled in Gmail settings for draft saving.
+**SendGrid setup:** Create account at sendgrid.com. Go to Settings → Sender Authentication → Verify a Single Sender and verify `MAIL_DEFAULT_SENDER`. Get API key from Settings → API Keys. Email deliverability improves significantly with domain authentication (SPF/DKIM) — requires owning a domain. Without domain auth, Gmail may defer or spam-filter emails from new accounts.
+
+**IMAP setup (CRM inbox):** IMAP must be enabled in Gmail settings (Settings → See all settings → Forwarding and POP/IMAP → Enable IMAP). Uses `MAIL_USERNAME` (the Gmail address, not `apikey`) and `MAIL_PASSWORD` (Gmail App Password) — these are different from the SendGrid SMTP credentials. The IMAP connection is separate from email sending.
 
 **Google Calendar setup:** Create OAuth2 credentials in Google Cloud Console. Add authorized redirect URI: `https://your-domain.railway.app/auth/google/callback`. Locally: `http://localhost:5001/auth/google/callback`.
 
@@ -173,13 +242,18 @@ Set locally in `.env`, set in Railway Variables tab for production. Never commit
 
 ## Database models
 - `User` — contractor account (+ google_access_token, google_refresh_token, google_token_expiry, plan_display property, can_auto_invoice, can_see_charts)
-- `Proposal` — AI-generated proposal (client info, job info, generated_content JSON, grand_total, status, public_token, client_id FK)
+- `Proposal` — AI-generated proposal (client info, job info, generated_content JSON, grand_total, status, public_token, client_id FK, signature_name, signed_at)
 - `Job` — closed/completed job for financials (revenue, client info, invoice tracking, client_id FK)
 - `Expense` — expense records for P&L
 - `Tip` — tip records
 - `CostTemplate` — saved cost line items (name, amount, cost_type, unit)
 - `ScheduledJob` — future jobs on the schedule calendar (date, auto_invoice flag, client_id FK, google_event_id)
 - `Client` — CRM contacts (name, email, phone, address, notes; linked to Proposal/Job/ScheduledJob via client_id)
+- `Lead` — Sales CRM company record (company, address, website, linkedin, company_type, naics_code, stage, notes, last_contacted_at)
+- `LeadContact` — Individual contacts within a Lead/company (first/middle/last name, title, cell/home/business phone, email/email2, linkedin, birthday, address, notes)
+- `LeadActivity` — Activity log for a lead (type, body, contact_id FK, email_token for open tracking, opened_at)
+- `CRMEmailTemplate` — Saved email templates for CRM sending (name, subject, body)
+- `LinkedEmail` — Emails linked to a lead/contact (message_uid, folder, subject, from/to/date, body_preview)
 
 ---
 
@@ -196,11 +270,18 @@ Set locally in `.env`, set in Railway Variables tab for production. Never commit
 | `/schedule` | Calendar + job scheduling (auto-invoice gated on Pro) |
 | `/clients` | CRM contact list |
 | `/clients/<id>` | Client detail — full history of proposals, jobs, scheduled jobs |
+| `/leads` | Sales CRM — kanban pipeline + list view |
+| `/leads/<id>` | Lead detail — contacts, activity log, send email |
+| `/leads/import` | CSV import for bulk lead upload |
+| `/crm/email` | CRM email inbox (IMAP) — read, compose, link to leads |
+| `/crm/email-templates` | Manage saved email templates |
+| `/track/email/<token>.png` | Email open tracking pixel |
 | `/auth/google` | Start Google Calendar OAuth flow |
 | `/auth/google/callback` | OAuth callback — stores tokens on User |
 | `/onboarding` | Post-signup specialty picker |
 | `/pricing` | Pricing page (Free / Pro $49 / Business $99) |
-| `/test-email` | Email diagnostic — sends synchronously and shows error |
+| `/test-email` | Email diagnostic — attempts real SendGrid send and shows result |
+| `/dev-check` | Debug route — shows env var status, user count, IMAP connection test |
 
 ---
 
@@ -209,11 +290,13 @@ Set locally in `.env`, set in Railway Variables tab for production. Never commit
 - [x] PDF invoice generation (fpdf2)
 - [x] Invoice email with PDF attachment + Gmail draft copy
 - [x] Financials (closed jobs, expenses, tips, Chart.js graphs — Pro only)
+- [x] Financial logs "All Logs" tab with filter by type/date and sort
 - [x] Job scheduling with interactive monthly calendar
 - [x] Auto-invoicing when scheduled job date passes (Pro only)
 - [x] Specialty onboarding (filters proposal form by trade)
 - [x] Saved cost templates (fixed + per-unit)
 - [x] Client-facing proposal link with accept/decline
+- [x] E-signature on proposals (typed name + timestamp)
 - [x] Full-screen loading overlay on proposal generation
 - [x] Close job from proposal (fast path to log revenue)
 - [x] Stripe subscription billing
@@ -222,12 +305,19 @@ Set locally in `.env`, set in Railway Variables tab for production. Never commit
 - [x] Proposal acceptance → auto-creates ScheduledJob + Google Calendar event
 - [x] Dashboard as business command center (cross-module stats)
 - [x] Feature-gated pricing (automations gated, core features free)
-
-- [x] E-signature on proposals (typed name + timestamp, stored on Proposal.signature_name/signed_at)
 - [x] SMS notifications via Twilio (proposal accepted/declined, invoice paid)
+- [x] Sales Leads CRM pipeline (kanban + list, stages, NAICS autocomplete)
+- [x] Multiple contacts per lead/company (expanded fields: 3 phones, 2 emails, birthday, address)
+- [x] Lead activity log with email open tracking (pixel-based)
+- [x] CRM email templates (save, load, send from lead detail page)
+- [x] CSV bulk import for leads
+- [x] CRM email inbox (IMAP read + SendGrid send, link emails to leads/contacts)
+- [x] Dev auto-login bypass (DEV_AUTO_LOGIN=1 + DEV_AUTO_LOGIN_EMAIL)
+- [x] Email sending via SendGrid HTTP API (replaces SMTP — Railway SMTP is blocked)
 
 ## Known issues / next up
-- Email delivery to clients still unconfirmed working in production (check Railway MAIL_USERNAME / MAIL_PASSWORD env vars)
+- SendGrid email deliverability: emails may be deferred or land in spam without domain authentication. User does not currently own a domain — getting one (e.g. closethejobapp.com) and setting up SPF/DKIM in SendGrid will fix this permanently
+- IMAP CRM inbox credentials conflict: `MAIL_USERNAME=apikey` for SendGrid but IMAP needs the real Gmail address. Need to add separate `IMAP_USERNAME` / `IMAP_PASSWORD` env vars pointing to Gmail credentials
 - Mobile responsiveness needs improvement (contractors use phones in the field)
 - Follow-up reminders not yet built
 - parse_timeline_date is best-effort — contractor should be able to edit the auto-scheduled date
