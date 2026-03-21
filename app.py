@@ -113,10 +113,10 @@ TRIAL_DAYS = 30
 
 def send_email_sendgrid(to_addr, subject, html_body, from_addr=None):
     """Send an email via SendGrid HTTP API. Returns (True, None) on success or (False, error_string) on failure."""
-    api_key = os.getenv('SENDGRID_API_KEY', '')
+    api_key = os.getenv('SENDGRID_API_KEY', '').strip()
     # Fallback: if MAIL_PASSWORD looks like a SendGrid key, use it
     if not api_key:
-        mail_pw = os.getenv('MAIL_PASSWORD', '')
+        mail_pw = os.getenv('MAIL_PASSWORD', '').strip()
         if mail_pw.startswith('SG.'):
             api_key = mail_pw
     if not api_key:
