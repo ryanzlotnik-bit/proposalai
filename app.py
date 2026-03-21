@@ -2741,10 +2741,12 @@ def test_email():
         lines.append("ERROR: MAIL_USERNAME or MAIL_PASSWORD not set in Railway Variables")
     else:
         # Test SMTP
-        lines.append("Testing SMTP connection to smtp.gmail.com:587...")
+        mail_server = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+        mail_port = int(os.getenv('MAIL_PORT', 587))
+        lines.append(f"Testing SMTP connection to {mail_server}:{mail_port}...")
         try:
             ctx = ssl.create_default_context()
-            with smtplib.SMTP('smtp.gmail.com', 587, timeout=15) as s:
+            with smtplib.SMTP(mail_server, mail_port, timeout=15) as s:
                 s.ehlo()
                 s.starttls(context=ctx)
                 s.ehlo()
