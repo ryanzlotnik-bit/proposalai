@@ -3319,12 +3319,10 @@ def lead_send_email(lead_id):
             html_body = body.replace('\n', '<br>')
             track_url = url_for('track_email_open', token=track_token, _external=True)
             pixel = f'<img src="{track_url}" width="1" height="1" style="display:none;" alt="">'
-            from_addr = u.email if u.email else None
             send_email_sendgrid(
                 to_email,
                 subject,
                 f"<p>{html_body}</p><p style='color:#888;font-size:12px;'>— {u.name}, {u.company_name or ''}</p>{pixel}",
-                from_addr=from_addr,
             )
     threading.Thread(target=do_send, daemon=True).start()
     flash(f'Email sent to {to_email} and logged.', 'success')
@@ -3539,12 +3537,10 @@ def crm_email_send():
             track_url = url_for('track_email_open', token=track_token, _external=True)
             pixel = f'<img src="{track_url}" width="1" height="1" style="display:none;" alt="">'
             html_body = body.replace('\n', '<br>')
-            from_addr = u.email if u.email else None
             send_email_sendgrid(
                 to_addr,
                 subject,
                 f"<p>{html_body}</p>{pixel}",
-                from_addr=from_addr,
             )
     threading.Thread(target=do_send, daemon=True).start()
     return jsonify({'ok': True})
