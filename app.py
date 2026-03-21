@@ -436,6 +436,17 @@ class LeadActivity(db.Model):
     activity_type = db.Column(db.String(50), default='note')  # note, call, email, text, meeting
     body = db.Column(db.Text, default='')
     contact_id = db.Column(db.Integer, db.ForeignKey('lead_contact.id'), nullable=True)
+    email_token = db.Column(db.String(64), unique=True, nullable=True)
+    opened_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class CRMEmailTemplate(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    subject = db.Column(db.String(500), default='')
+    body = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -2978,7 +2989,9 @@ def lead_detail(lead_id):
         return redirect(url_for('leads'))
     contacts = LeadContact.query.filter_by(lead_id=lead_id).order_by(LeadContact.created_at).all()
     activities = LeadActivity.query.filter_by(lead_id=lead_id).order_by(LeadActivity.created_at.desc()).all()
-    return render_template('lead_detail.html', lead=lead, contacts=contacts, activities=activities, stages=LEAD_STAGES)
+    email_templates = CRMEmailTemplate.query.filter_by(user_id=uid()).order_by(CRMEmailTemplate.name).all()
+    return render_template('lead_detail.html', lead=lead, contacts=contacts, activities=activities,
+                           stages=LEAD_STAGES, email_templates=email_templates)
 
 # Add contact to company
 @app.route('/leads/<int:lead_id>/contacts/add', methods=['POST'])
@@ -3083,17 +3096,21 @@ def lead_send_email(lead_id):
     contact_id = request.form.get('contact_id') or None
     if contact_id:
         contact_id = int(contact_id)
-    # Log the activity first
+    # Generate tracking token
+    track_token = secrets.token_urlsafe(20)
+    # Log the activity
     act = LeadActivity(
         lead_id=lead_id,
         user_id=uid(),
         activity_type='email',
         body=f"To: {to_email}\nSubject: {subject}\n\n{body}",
         contact_id=contact_id,
+        email_token=track_token,
     )
     db.session.add(act)
     lead.last_contacted_at = datetime.utcnow()
     db.session.commit()
+    act_id = act.id
     # Send in background thread
     user_id = uid()
     def do_send():
@@ -3103,10 +3120,12 @@ def lead_send_email(lead_id):
                 return
             try:
                 html_body = body.replace('\n', '<br>')
+                track_url = url_for('track_email_open', token=track_token, _external=True)
+                pixel = f'<img src="{track_url}" width="1" height="1" style="display:none;" alt="">'
                 msg = Message(
                     subject=subject,
                     recipients=[to_email],
-                    html=f"<p>{html_body}</p><p style='color:#888;font-size:12px;'>— {u.name}, {u.company_name or ''}</p>",
+                    html=f"<p>{html_body}</p><p style='color:#888;font-size:12px;'>— {u.name}, {u.company_name or ''}</p>{pixel}",
                     sender=(u.name, u.email) if u.email else None,
                 )
                 mail.send(msg)
@@ -3115,6 +3134,56 @@ def lead_send_email(lead_id):
     threading.Thread(target=do_send, daemon=True).start()
     flash(f'Email sent to {to_email} and logged.', 'success')
     return redirect(url_for('lead_detail', lead_id=lead_id))
+
+
+@app.route('/track/email/<token>.png')
+def track_email_open(token):
+    act = LeadActivity.query.filter_by(email_token=token).first()
+    if act and not act.opened_at:
+        act.opened_at = datetime.utcnow()
+        db.session.commit()
+    import base64
+    pixel = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==')
+    return app.response_class(pixel, mimetype='image/png',
+        headers={'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache'})
+
+
+# CRM Email Templates
+@app.route('/crm/email-templates', methods=['GET'])
+@login_required
+def crm_email_templates():
+    templates = CRMEmailTemplate.query.filter_by(user_id=uid()).order_by(CRMEmailTemplate.name).all()
+    return jsonify([{'id': t.id, 'name': t.name, 'subject': t.subject, 'body': t.body} for t in templates])
+
+
+@app.route('/crm/email-templates/add', methods=['POST'])
+@login_required
+def add_crm_email_template():
+    name = request.form.get('name', '').strip()
+    if not name:
+        flash('Template name is required.', 'error')
+        return redirect(request.referrer or url_for('leads'))
+    t = CRMEmailTemplate(
+        user_id=uid(),
+        name=name,
+        subject=request.form.get('subject', '').strip(),
+        body=request.form.get('body', '').strip(),
+    )
+    db.session.add(t)
+    db.session.commit()
+    flash(f'Template "{name}" saved.', 'success')
+    return redirect(request.referrer or url_for('leads'))
+
+
+@app.route('/crm/email-templates/<int:tmpl_id>/delete', methods=['POST'])
+@login_required
+def delete_crm_email_template(tmpl_id):
+    t = CRMEmailTemplate.query.get_or_404(tmpl_id)
+    if t.user_id != uid():
+        return jsonify({'error': 'Access denied'}), 403
+    db.session.delete(t)
+    db.session.commit()
+    return jsonify({'ok': True})
 
 # CSV import page
 @app.route('/leads/import', methods=['GET', 'POST'])
@@ -3753,6 +3822,8 @@ with app.app_context():
         'ALTER TABLE lead ADD COLUMN linkedin VARCHAR(300) DEFAULT \'\'',
         'ALTER TABLE lead ADD COLUMN company_type VARCHAR(100) DEFAULT \'\'',
         'ALTER TABLE lead ADD COLUMN naics_code VARCHAR(20) DEFAULT \'\'',
+        'ALTER TABLE lead_activity ADD COLUMN email_token VARCHAR(64)',
+        'ALTER TABLE lead_activity ADD COLUMN opened_at DATETIME',
     ]
     for _sql in _migrations:
         try:

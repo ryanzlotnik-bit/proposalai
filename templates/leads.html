@@ -106,6 +106,10 @@
   }
   .form-input:focus { border-color: var(--orange); }
   select.form-input { cursor: pointer; }
+  .naics-dd { position:absolute;top:100%;left:0;right:0;z-index:300;background:var(--surface);border:1px solid var(--orange);max-height:200px;overflow-y:auto;display:none; }
+  .naics-opt { padding:7px 12px;cursor:pointer;font-size:12px;color:var(--text);border-bottom:1px solid var(--border); }
+  .naics-opt:hover { background:var(--surface-2);color:var(--orange); }
+  .naics-code { font-family:'JetBrains Mono',monospace;font-weight:700;margin-right:8px;color:var(--orange); }
   .form-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
   .btn-primary { background: var(--orange); color: #fff; border: none; padding: 10px 20px; font-size: 13px; font-weight: 700; cursor: pointer; clip-path: polygon(0 0, 95% 0, 100% 15%, 100% 100%, 5% 100%, 0 85%); }
   .btn-primary:hover { opacity: 0.9; }
@@ -322,9 +326,10 @@
           <label class="form-label">Company Type</label>
           <input type="text" name="company_type" class="form-input" placeholder="e.g. Property Management">
         </div>
-        <div>
+        <div style="position:relative;">
           <label class="form-label">NAICS Code</label>
-          <input type="text" name="naics_code" class="form-input" placeholder="e.g. 531110">
+          <input type="text" name="naics_code" id="naics-add" class="form-input" placeholder="Search code or industry..." autocomplete="off">
+          <div id="naics-dd-add" class="naics-dd"></div>
         </div>
         <div class="full">
           <label class="form-label">Mailing Address</label>
@@ -386,9 +391,10 @@
           <label class="form-label">Company Type</label>
           <input type="text" name="company_type" id="edit-company-type" class="form-input">
         </div>
-        <div>
+        <div style="position:relative;">
           <label class="form-label">NAICS Code</label>
-          <input type="text" name="naics_code" id="edit-naics-code" class="form-input">
+          <input type="text" name="naics_code" id="edit-naics-code" class="form-input" placeholder="Search code or industry..." autocomplete="off">
+          <div id="naics-dd-edit" class="naics-dd"></div>
         </div>
         <div class="full">
           <label class="form-label">Mailing Address</label>
@@ -508,6 +514,86 @@ function filterList(stage, btn) {
 document.addEventListener('DOMContentLoaded', function() {
   const saved = localStorage.getItem('leads_view');
   if (saved) setView(saved);
+  initNaics('naics-add', 'naics-dd-add');
+  initNaics('edit-naics-code', 'naics-dd-edit');
 });
+
+// NAICS autocomplete
+const NAICS_DATA = [
+  ['111','Crop Production'],['112','Animal Production'],['113','Forestry & Logging'],['114','Fishing, Hunting & Trapping'],
+  ['115','Agricultural Support'],['211','Oil & Gas Extraction'],['212','Mining (except Oil & Gas)'],
+  ['213','Mining Support'],['221','Utilities'],['236','Construction of Buildings'],
+  ['2361','Residential Building Construction'],['2362','Nonresidential Building Construction'],
+  ['237','Heavy & Civil Engineering Construction'],['238','Specialty Trade Contractors'],
+  ['2381','Foundation, Structure & Exterior Contractors'],['2382','Building Equipment Contractors'],
+  ['2383','Building Finishing Contractors'],['2389','Other Specialty Trade Contractors'],
+  ['311','Food Manufacturing'],['312','Beverage & Tobacco Manufacturing'],
+  ['321','Wood Product Manufacturing'],['322','Paper Manufacturing'],['323','Printing & Related Support'],
+  ['324','Petroleum & Coal Products'],['325','Chemical Manufacturing'],['326','Plastics & Rubber Products'],
+  ['327','Nonmetallic Mineral Product Mfg'],['331','Primary Metal Manufacturing'],
+  ['332','Fabricated Metal Product Mfg'],['333','Machinery Manufacturing'],
+  ['334','Computer & Electronic Product Mfg'],['335','Electrical Equipment & Appliance Mfg'],
+  ['336','Transportation Equipment Mfg'],['337','Furniture & Related Product Mfg'],
+  ['339','Miscellaneous Manufacturing'],['423','Merchant Wholesalers, Durable Goods'],
+  ['424','Merchant Wholesalers, Nondurable Goods'],
+  ['441','Motor Vehicle & Parts Dealers'],['442','Furniture & Home Furnishings Stores'],
+  ['443','Electronics & Appliance Stores'],['444','Building Material & Garden Supply'],
+  ['445','Food & Beverage Stores'],['447','Gasoline Stations'],['448','Clothing & Accessories'],
+  ['484','Truck Transportation'],['485','Transit & Ground Passenger Transportation'],
+  ['488','Transportation Support'],['492','Couriers & Messengers'],['493','Warehousing & Storage'],
+  ['511','Publishing Industries'],['512','Motion Picture & Sound Recording'],
+  ['517','Telecommunications'],['518','Data Processing & Hosting'],
+  ['519','Other Information Services'],['522','Credit Intermediation'],
+  ['523','Securities & Investments'],['524','Insurance Carriers & Related'],
+  ['531','Real Estate'],['5311','Lessors of Real Estate'],['5312','Offices of Real Estate Agents & Brokers'],
+  ['5313','Activities Related to Real Estate'],['532','Rental & Leasing Services'],
+  ['541','Professional, Scientific & Technical Services'],
+  ['5411','Legal Services'],['5412','Accounting & Tax Preparation'],
+  ['5413','Architectural & Engineering Services'],['5414','Specialized Design Services'],
+  ['5415','Computer Systems Design'],['5416','Management Consulting'],
+  ['5417','Scientific Research & Development'],['5418','Advertising & Public Relations'],
+  ['5419','Other Professional & Technical Services'],
+  ['551','Management of Companies & Enterprises'],
+  ['561','Administrative & Support Services'],['5611','Office Administrative Services'],
+  ['5612','Facilities Support Services'],['5613','Employment Services'],
+  ['5614','Business Support Services'],['5615','Travel Arrangement & Reservation'],
+  ['5616','Investigation & Security Services'],['5617','Services to Buildings & Dwellings'],
+  ['56173','Landscaping Services'],['56174','Carpet & Upholstery Cleaning'],
+  ['562','Waste Management & Remediation'],
+  ['611','Educational Services'],['621','Ambulatory Health Care Services'],
+  ['622','Hospitals'],['623','Nursing & Residential Care'],['624','Social Assistance'],
+  ['711','Performing Arts & Spectator Sports'],['713','Amusement & Recreation'],
+  ['721','Accommodation'],['722','Food Services & Drinking Places'],
+  ['811','Repair & Maintenance'],['8111','Automotive Repair & Maintenance'],
+  ['8112','Electronic & Precision Equipment Repair'],['8113','Commercial & Industrial Machinery Repair'],
+  ['8114','Personal & Household Goods Repair'],['812','Personal & Laundry Services'],
+  ['813','Religious, Civic & Social Organizations'],
+];
+
+function initNaics(inputId, dropdownId) {
+  const input = document.getElementById(inputId);
+  const dd = document.getElementById(dropdownId);
+  if (!input || !dd) return;
+  input.addEventListener('input', function() {
+    const q = this.value.toLowerCase().trim();
+    dd.innerHTML = '';
+    if (!q) { dd.style.display = 'none'; return; }
+    const hits = NAICS_DATA.filter(([c,n]) => c.startsWith(q) || n.toLowerCase().includes(q)).slice(0, 18);
+    if (!hits.length) { dd.style.display = 'none'; return; }
+    hits.forEach(([code, name]) => {
+      const div = document.createElement('div');
+      div.className = 'naics-opt';
+      div.innerHTML = `<span class="naics-code">${code}</span>${name}`;
+      div.addEventListener('mousedown', e => {
+        e.preventDefault();
+        input.value = code + ' — ' + name;
+        dd.style.display = 'none';
+      });
+      dd.appendChild(div);
+    });
+    dd.style.display = 'block';
+  });
+  input.addEventListener('blur', () => setTimeout(() => dd.style.display='none', 150));
+}
 </script>
 {% endblock %}

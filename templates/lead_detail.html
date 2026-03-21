@@ -117,6 +117,20 @@
   @media (max-width: 500px) { .form-grid { grid-template-columns: 1fr; } }
   .form-grid .full { grid-column: 1 / -1; }
   .form-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+
+  /* NAICS autocomplete */
+  .naics-wrap { position: relative; }
+  .naics-dropdown {
+    position: absolute; top: 100%; left: 0; right: 0; z-index: 200;
+    background: var(--surface); border: 1px solid var(--orange);
+    max-height: 220px; overflow-y: auto; display: none;
+  }
+  .naics-opt {
+    padding: 8px 12px; cursor: pointer; font-size: 12px; color: var(--text);
+    border-bottom: 1px solid var(--border);
+  }
+  .naics-opt:hover { background: var(--surface-2); color: var(--orange); }
+  .naics-code { font-family: 'JetBrains Mono', monospace; font-weight: 700; margin-right: 8px; color: var(--orange); }
 </style>
 
 <div class="ld-page">
@@ -316,6 +330,13 @@
                 <div class="activity-header">
                   <span class="activity-type">{{ act.activity_type }}</span>
                   <span class="activity-time">{{ act.created_at.strftime('%b %d, %Y %I:%M %p') }}</span>
+                  {% if act.activity_type == 'email' and act.email_token %}
+                    {% if act.opened_at %}
+                    <span style="font-size:10px;font-weight:700;color:#4ade80;background:#4ade8015;border:1px solid #4ade8040;padding:2px 7px;border-radius:10px;">✓ Opened {{ act.opened_at.strftime('%b %d %I:%M %p') }}</span>
+                    {% else %}
+                    <span style="font-size:10px;color:var(--text-muted);background:var(--surface-2);border:1px solid var(--border);padding:2px 7px;border-radius:10px;">Not opened yet</span>
+                    {% endif %}
+                  {% endif %}
                 </div>
                 <div class="activity-body">{{ act.body }}</div>
               </div>
@@ -334,8 +355,20 @@
       <div class="ld-panel">
         <div class="ld-panel-hd">
           <span class="ld-panel-title">Send Email</span>
+          <button class="btn-sm" onclick="openModal('save-template-modal')" style="font-size:11px;background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);padding:4px 8px;cursor:pointer;">+ Save Template</button>
         </div>
         <div class="ld-panel-body">
+          {% if email_templates %}
+          <div style="margin-bottom:14px;">
+            <label class="form-label">Load Template</label>
+            <select class="form-input" onchange="loadEmailTemplate(this.value)" id="template-picker">
+              <option value="">— Choose a template —</option>
+              {% for t in email_templates %}
+              <option value="{{ t.id }}" data-subject="{{ t.subject|e }}" data-body="{{ t.body|e }}">{{ t.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
           <form method="POST" action="{{ url_for('lead_send_email', lead_id=lead.id) }}" class="email-form">
             <div>
               <label class="form-label">To</label>
@@ -363,14 +396,32 @@
             </div>
             <div>
               <label class="form-label">Subject</label>
-              <input type="text" name="subject" class="form-input" placeholder="Re: Your project" required>
+              <input type="text" name="subject" id="email-subject" class="form-input" placeholder="Re: Your project" required>
             </div>
             <div>
               <label class="form-label">Body</label>
-              <textarea name="body" class="form-textarea" style="min-height:120px;" placeholder="Write your message..." required></textarea>
+              <textarea name="body" id="email-body" class="form-textarea" style="min-height:140px;" placeholder="Write your message..." required></textarea>
             </div>
-            <button type="submit" class="btn-primary" style="width:100%;">Send Email &amp; Log</button>
+            <button type="submit" class="btn-primary" style="width:100%;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:6px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              Send &amp; Log
+            </button>
           </form>
+
+          <!-- Saved Templates Manager -->
+          {% if email_templates %}
+          <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:10px;">Saved Templates</div>
+            {% for t in email_templates %}
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+              <span style="font-size:12px;color:var(--text);">{{ t.name }}</span>
+              <form method="POST" action="/crm/email-templates/{{ t.id }}/delete" onsubmit="return confirm('Delete this template?')">
+                <button type="submit" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;">✕</button>
+              </form>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -495,7 +546,8 @@
         </div>
         <div>
           <label class="form-label">NAICS Code</label>
-          <input type="text" name="naics_code" class="form-input" value="{{ lead.naics_code }}" placeholder="e.g. 531110">
+          <input type="text" name="naics_code" id="naics-input-edit" class="form-input naics-input" value="{{ lead.naics_code }}" placeholder="Search code or industry..." autocomplete="off">
+          <div class="naics-dropdown" id="naics-dropdown-edit"></div>
         </div>
         <div>
           <label class="form-label">Stage</label>
@@ -578,5 +630,159 @@ function updateToEmail(val) {
     select.name = 'to_email';
   }
 }
+
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+
+function loadEmailTemplate(id) {
+  if (!id) return;
+  const opt = document.querySelector(`#template-picker option[value="${id}"]`);
+  if (!opt) return;
+  document.getElementById('email-subject').value = opt.dataset.subject || '';
+  document.getElementById('email-body').value = opt.dataset.body || '';
+}
+</script>
+
+<!-- Save Template Modal -->
+<div class="modal-overlay" id="save-template-modal">
+  <div class="modal-box" style="max-width:460px;">
+    <button class="modal-close" onclick="closeModal('save-template-modal')">✕</button>
+    <div class="modal-title">Save Email Template</div>
+    <form method="POST" action="/crm/email-templates/add">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div>
+          <label class="form-label">Template Name</label>
+          <input type="text" name="name" class="form-input" placeholder="e.g. Initial Outreach" required>
+        </div>
+        <div>
+          <label class="form-label">Subject</label>
+          <input type="text" name="subject" class="form-input" id="tmpl-subject" placeholder="Subject line">
+        </div>
+        <div>
+          <label class="form-label">Body</label>
+          <textarea name="body" class="form-textarea" id="tmpl-body" style="min-height:100px;" placeholder="Email body..."></textarea>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+        <button type="button" class="btn-ghost" onclick="closeModal('save-template-modal')">Cancel</button>
+        <button type="submit" class="btn-primary">Save Template</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// Auto-fill save template modal from current compose fields
+document.getElementById('save-template-modal').addEventListener('click', function(e) {
+  if (e.target === this) this.classList.remove('open');
+});
+document.querySelector('[onclick="openModal(\'save-template-modal\')"]').addEventListener('click', function() {
+  document.getElementById('tmpl-subject').value = document.getElementById('email-subject').value;
+  document.getElementById('tmpl-body').value = document.getElementById('email-body').value;
+});
+</script>
+
+<script>
+// ── NAICS Autocomplete ──
+const NAICS = [
+  ['111','Crop Production'],['112','Animal Production'],['113','Forestry & Logging'],['114','Fishing, Hunting & Trapping'],
+  ['115','Agricultural Support'],['211','Oil & Gas Extraction'],['212','Mining (except Oil & Gas)'],
+  ['213','Mining Support'],['221','Utilities'],['236','Construction of Buildings'],
+  ['2361','Residential Building Construction'],['2362','Nonresidential Building Construction'],
+  ['237','Heavy & Civil Engineering Construction'],['238','Specialty Trade Contractors'],
+  ['2381','Foundation, Structure, Building Exterior Contractors'],['2382','Building Equipment Contractors'],
+  ['2383','Building Finishing Contractors'],['2389','Other Specialty Trade Contractors'],
+  ['311','Food Manufacturing'],['312','Beverage & Tobacco Manufacturing'],['313','Textile Mills'],
+  ['314','Textile Product Mills'],['315','Apparel Manufacturing'],['316','Leather & Allied Product Mfg'],
+  ['321','Wood Product Manufacturing'],['322','Paper Manufacturing'],['323','Printing & Related Support'],
+  ['324','Petroleum & Coal Products Mfg'],['325','Chemical Manufacturing'],['326','Plastics & Rubber Products Mfg'],
+  ['327','Nonmetallic Mineral Product Mfg'],['331','Primary Metal Manufacturing'],
+  ['332','Fabricated Metal Product Mfg'],['333','Machinery Manufacturing'],
+  ['334','Computer & Electronic Product Mfg'],['335','Electrical Equipment & Appliance Mfg'],
+  ['336','Transportation Equipment Mfg'],['337','Furniture & Related Product Mfg'],
+  ['339','Miscellaneous Manufacturing'],['423','Merchant Wholesalers, Durable Goods'],
+  ['424','Merchant Wholesalers, Nondurable Goods'],['425','Electronic Markets & Agents'],
+  ['441','Motor Vehicle & Parts Dealers'],['442','Furniture & Home Furnishings Stores'],
+  ['443','Electronics & Appliance Stores'],['444','Building Material & Garden Supply'],
+  ['445','Food & Beverage Stores'],['446','Health & Personal Care Stores'],
+  ['447','Gasoline Stations'],['448','Clothing & Accessories Stores'],
+  ['451','Sporting Goods, Hobby, Music Stores'],['452','General Merchandise Stores'],
+  ['453','Miscellaneous Store Retailers'],['454','Nonstore Retailers'],
+  ['481','Air Transportation'],['482','Rail Transportation'],['483','Water Transportation'],
+  ['484','Truck Transportation'],['485','Transit & Ground Passenger Transportation'],
+  ['486','Pipeline Transportation'],['487','Scenic & Sightseeing Transportation'],
+  ['488','Transportation Support Activities'],['491','Postal Service'],
+  ['492','Couriers & Messengers'],['493','Warehousing & Storage'],
+  ['511','Publishing Industries'],['512','Motion Picture & Sound Recording'],
+  ['515','Broadcasting'],['517','Telecommunications'],['518','Data Processing & Hosting'],
+  ['519','Other Information Services'],['521','Monetary Authorities'],
+  ['522','Credit Intermediation'],['523','Securities & Investments'],
+  ['524','Insurance Carriers & Related'],['525','Funds, Trusts & Other Financial'],
+  ['531','Real Estate'],['5311','Lessors of Real Estate'],['5312','Offices of Real Estate Agents'],
+  ['5313','Activities Related to Real Estate'],['532','Rental & Leasing Services'],
+  ['533','Lessors of Nonfinancial Intangible Assets'],
+  ['541','Professional, Scientific & Technical Services'],
+  ['5411','Legal Services'],['5412','Accounting, Tax Preparation, Bookkeeping'],
+  ['5413','Architectural, Engineering & Related Services'],
+  ['5414','Specialized Design Services'],['5415','Computer Systems Design'],
+  ['5416','Management, Scientific & Technical Consulting'],
+  ['5417','Scientific Research & Development'],['5418','Advertising & Public Relations'],
+  ['5419','Other Professional & Technical Services'],
+  ['551','Management of Companies & Enterprises'],
+  ['561','Administrative & Support Services'],
+  ['5611','Office Administrative Services'],['5612','Facilities Support Services'],
+  ['5613','Employment Services'],['5614','Business Support Services'],
+  ['5615','Travel Arrangement & Reservation'],['5616','Investigation & Security Services'],
+  ['5617','Services to Buildings & Dwellings'],['56173','Landscaping Services'],
+  ['56174','Carpet & Upholstery Cleaning'],['5619','Other Support Services'],
+  ['562','Waste Management & Remediation'],
+  ['611','Educational Services'],['621','Ambulatory Health Care Services'],
+  ['622','Hospitals'],['623','Nursing & Residential Care'],['624','Social Assistance'],
+  ['711','Performing Arts & Spectator Sports'],['712','Museums & Historical Sites'],
+  ['713','Amusement, Gambling & Recreation'],['721','Accommodation'],
+  ['722','Food Services & Drinking Places'],['811','Repair & Maintenance'],
+  ['8111','Automotive Repair & Maintenance'],['8112','Electronic & Precision Equipment Repair'],
+  ['8113','Commercial & Industrial Machinery Repair'],['8114','Personal & Household Goods Repair'],
+  ['812','Personal & Laundry Services'],['813','Religious, Grantmaking, Civic Organizations'],
+  ['814','Private Households'],['921','Executive, Legislative & General Government'],
+  ['922','Justice, Public Order & Safety'],['923','Administration of Human Resource Programs'],
+  ['924','Administration of Environmental Programs'],['925','Community & Housing Programs'],
+  ['926','Administration of Economic Programs'],['927','Space Research & Technology'],
+  ['928','National Security & International Affairs'],
+];
+
+function initNaicsInput(inputId, dropdownId) {
+  const input = document.getElementById(inputId);
+  const dropdown = document.getElementById(dropdownId);
+  if (!input || !dropdown) return;
+  input.parentElement.style.position = 'relative';
+  input.addEventListener('input', function() {
+    const q = this.value.toLowerCase().trim();
+    dropdown.innerHTML = '';
+    if (!q) { dropdown.style.display = 'none'; return; }
+    const matches = NAICS.filter(([code, name]) =>
+      code.startsWith(q) || name.toLowerCase().includes(q)
+    ).slice(0, 20);
+    if (!matches.length) { dropdown.style.display = 'none'; return; }
+    matches.forEach(([code, name]) => {
+      const div = document.createElement('div');
+      div.className = 'naics-opt';
+      div.innerHTML = `<span class="naics-code">${code}</span>${name}`;
+      div.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        input.value = code + ' — ' + name;
+        dropdown.style.display = 'none';
+      });
+      dropdown.appendChild(div);
+    });
+    dropdown.style.display = 'block';
+  });
+  input.addEventListener('blur', function() {
+    setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+  });
+}
+
+initNaicsInput('naics-input-edit', 'naics-dropdown-edit');
 </script>
 {% endblock %}
