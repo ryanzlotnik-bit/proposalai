@@ -1253,6 +1253,9 @@ def onboarding():
         current_user.onboarding_done = True
         current_user.trade_type = selected[0] if selected else current_user.trade_type
         db.session.commit()
+        if current_user.is_subscribed:
+            flash(f'Welcome, {current_user.name}! Your {current_user.plan_display} access is active.', 'success')
+            return redirect(url_for('dashboard'))
         flash(f'Welcome, {current_user.name}! Pick a plan to start your 30-day free trial — no charge until day 31.', 'success')
         return redirect(url_for('pricing'))
     return render_template('onboarding.html', specialties=list(SPECIALTIES.keys()))

@@ -135,7 +135,7 @@
       <div class="tmpl-actions">
         <a href="{{ url_for('generate') }}?template={{ t.id }}" class="btn-use">Use Template →</a>
         {% if current_user.is_enterprise %}
-        <button onclick="openEditModal({{ t.id }}, {{ t|tojson }})" class="btn-ghost">Edit</button>
+        <button onclick="openEditModal({{ t.id }}, {{ {'name': t.name, 'job_type': t.job_type, 'job_description': t.job_description, 'materials_input': t.materials_input, 'labor_hours': t.labor_hours, 'labor_rate': t.labor_rate, 'timeline': t.timeline, 'warranty': t.warranty, 'notes': t.notes, 'tax_rate': t.tax_rate, 'deposit_pct': t.deposit_pct}|tojson }})" class="btn-ghost">Edit</button>
         {% endif %}
         <form method="POST" action="{{ url_for('delete_template', tmpl_id=t.id) }}" onsubmit="return confirm('Delete this template?');" style="display:inline;">
           <button type="submit" class="btn-ghost" style="color:var(--red);border-color:rgba(248,113,113,0.2);">Delete</button>
