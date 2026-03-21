@@ -380,6 +380,16 @@ class ProposalTemplate(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class PromoCode(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    token = db.Column(db.String(64), unique=True, nullable=False)
+    plan = db.Column(db.String(50), default='enterprise')
+    label = db.Column(db.String(200), default='')       # e.g. "John Smith demo"
+    uses_remaining = db.Column(db.Integer, nullable=True)  # None = unlimited
+    expires_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class ServiceArea(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -1226,6 +1236,10 @@ def register():
         db.session.add(user)
         db.session.commit()
         login_user(user)
+        # Apply any pending promo from session
+        pending = session.pop('pending_promo', None)
+        if pending:
+            _apply_promo(pending, user)
         return redirect(url_for('onboarding'))
     return render_template('register.html')
 
@@ -2917,7 +2931,8 @@ def admin_panel():
         flash('Access denied.', 'error')
         return redirect(url_for('dashboard'))
     users = User.query.order_by(User.created_at.desc()).all()
-    return render_template('admin.html', users=users)
+    promos = PromoCode.query.order_by(PromoCode.created_at.desc()).all()
+    return render_template('admin.html', users=users, promos=promos)
 
 
 @app.route('/admin/grant', methods=['POST'])
@@ -2954,6 +2969,86 @@ def admin_revoke():
     db.session.commit()
     flash(f'Access revoked for {user.email}.', 'success')
     return redirect(url_for('admin_panel'))
+
+
+@app.route('/admin/promo/create', methods=['POST'])
+@login_required
+def admin_create_promo():
+    if not is_admin():
+        return jsonify({'error': 'Access denied'}), 403
+    plan = request.form.get('plan', 'enterprise')
+    label = request.form.get('label', '').strip()
+    uses = request.form.get('uses', '').strip()
+    expires_days = request.form.get('expires_days', '').strip()
+    token = secrets.token_urlsafe(20)
+    promo = PromoCode(
+        token=token,
+        plan=plan,
+        label=label,
+        uses_remaining=int(uses) if uses.isdigit() else None,
+        expires_at=datetime.utcnow() + timedelta(days=int(expires_days)) if expires_days.isdigit() else None,
+    )
+    db.session.add(promo)
+    db.session.commit()
+    flash(f'Promo link created. Share this link: {request.host_url}promo/{token}', 'success')
+    return redirect(url_for('admin_panel'))
+
+
+@app.route('/admin/promo/<int:promo_id>/delete', methods=['POST'])
+@login_required
+def admin_delete_promo(promo_id):
+    if not is_admin():
+        return jsonify({'error': 'Access denied'}), 403
+    promo = PromoCode.query.get_or_404(promo_id)
+    db.session.delete(promo)
+    db.session.commit()
+    flash('Promo link deleted.', 'success')
+    return redirect(url_for('admin_panel'))
+
+
+def _apply_promo(token, user):
+    """Apply a promo code to a user. Returns True if applied."""
+    promo = PromoCode.query.filter_by(token=token).first()
+    if not promo:
+        return False
+    if promo.expires_at and datetime.utcnow() > promo.expires_at:
+        return False
+    if promo.uses_remaining is not None and promo.uses_remaining <= 0:
+        return False
+    user.plan = promo.plan
+    user.subscription_status = 'active'
+    user.trial_expires_at = None
+    if promo.uses_remaining is not None:
+        promo.uses_remaining -= 1
+    db.session.commit()
+    return True
+
+
+@app.route('/promo/<token>')
+def redeem_promo(token):
+    promo = PromoCode.query.filter_by(token=token).first()
+    if not promo:
+        flash('This invite link is invalid.', 'error')
+        return redirect(url_for('index'))
+    if promo.expires_at and datetime.utcnow() > promo.expires_at:
+        flash('This invite link has expired.', 'error')
+        return redirect(url_for('index'))
+    if promo.uses_remaining is not None and promo.uses_remaining <= 0:
+        flash('This invite link has already been used.', 'error')
+        return redirect(url_for('index'))
+
+    if current_user.is_authenticated:
+        applied = _apply_promo(token, current_user)
+        if applied:
+            flash(f'You now have full {promo.plan.capitalize()} access — enjoy!', 'success')
+            return redirect(url_for('dashboard'))
+        flash('Could not apply this invite link.', 'error')
+        return redirect(url_for('dashboard'))
+
+    # Not logged in — store token in session, send to register
+    session['pending_promo'] = token
+    flash('Create your free account to activate your invite.', 'success')
+    return redirect(url_for('register'))
 
 
 # ─── Enterprise: Advanced Analytics ───────────────────────────────────────────
@@ -3214,6 +3309,7 @@ with app.app_context():
         'ALTER TABLE job ADD COLUMN completion_summary TEXT DEFAULT \'\'',
         'ALTER TABLE "user" ADD COLUMN trial_expires_at DATETIME',
         'ALTER TABLE job ADD COLUMN service_area VARCHAR(200) DEFAULT \'\'',
+        'ALTER TABLE promo_code ADD COLUMN label VARCHAR(200) DEFAULT \'\'',
     ]
     for _sql in _migrations:
         try:

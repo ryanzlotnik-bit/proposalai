@@ -6,15 +6,20 @@
   .admin-table { width:100%;border-collapse:collapse; }
   .admin-table th { text-align:left;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;padding:10px 14px;border-bottom:1px solid var(--border); }
   .admin-table td { padding:12px 14px;font-size:13px;color:var(--text-muted);border-bottom:1px solid var(--border);vertical-align:middle; }
+  .admin-table tr:last-child td { border-bottom:none; }
   .admin-table tr:hover td { background:rgba(249,115,22,0.02); }
-  .plan-pill {
-    display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;
-    text-transform:uppercase;letter-spacing:0.06em;padding:3px 8px;border-radius:2px;
-  }
+  .plan-pill { display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:3px 8px;border-radius:2px; }
   .pill-enterprise { background:rgba(96,165,250,0.15);color:var(--blue); }
   .pill-pro        { background:rgba(249,115,22,0.12);color:var(--orange); }
   .pill-starter    { background:rgba(249,115,22,0.08);color:var(--orange); }
   .pill-trial      { background:rgba(107,104,96,0.2);color:var(--text-muted); }
+  .link-box {
+    background:var(--surface-2);border:1px solid var(--border);
+    padding:10px 14px;font-family:'JetBrains Mono',monospace;font-size:12px;
+    color:var(--blue);word-break:break-all;cursor:pointer;
+  }
+  .link-box:hover { border-color:var(--blue); }
+  .section-title { font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:20px; }
 </style>
 {% endblock %}
 
@@ -27,9 +32,80 @@
     <p style="color:var(--text-muted);font-size:14px;margin-top:8px;">{{ users|length }} total accounts</p>
   </div>
 
-  <!-- Grant access form -->
+  <!-- ── Promo Links ── -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);margin-bottom:32px;">
+
+    <!-- Create promo -->
+    <div style="background:var(--surface);padding:28px;">
+      <div class="section-title">Create Invite Link</div>
+      <form method="POST" action="{{ url_for('admin_create_promo') }}">
+        <div style="display:grid;gap:14px;">
+          <div>
+            <label class="ctj-label">Label (internal note)</label>
+            <input type="text" name="label" class="ctj-input" placeholder="e.g. John Smith — free demo" />
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <label class="ctj-label">Plan</label>
+              <select name="plan" class="ctj-input">
+                <option value="enterprise">Enterprise ($299)</option>
+                <option value="pro">Business ($99)</option>
+                <option value="starter">Pro ($49)</option>
+              </select>
+            </div>
+            <div>
+              <label class="ctj-label">Single-use?</label>
+              <select name="uses" class="ctj-input">
+                <option value="1">Yes — 1 use only</option>
+                <option value="">No — unlimited uses</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="ctj-label">Expires in (days) — optional</label>
+            <input type="number" name="expires_days" class="ctj-input" placeholder="e.g. 30, or leave blank" min="1" />
+          </div>
+          <button type="submit" class="btn-orange" style="padding:12px 20px;font-size:13px;clip-path:none;">Generate Link →</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Active promos -->
+    <div style="background:var(--surface);padding:28px;">
+      <div class="section-title">Active Invite Links</div>
+      {% if promos %}
+      <div style="display:grid;gap:12px;">
+        {% for p in promos %}
+        <div style="border:1px solid var(--border);padding:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px;">
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--text);">{{ p.label or '(no label)' }}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+                <span class="plan-pill pill-{{ p.plan }}">{{ p.plan }}</span>
+                {% if p.uses_remaining is not none %} · {{ p.uses_remaining }} use{{ 's' if p.uses_remaining != 1 else '' }} left{% else %} · unlimited{% endif %}
+                {% if p.expires_at %} · expires {{ p.expires_at.strftime('%b %d') }}{% endif %}
+              </div>
+            </div>
+            <form method="POST" action="{{ url_for('admin_delete_promo', promo_id=p.id) }}" onsubmit="return confirm('Delete this link?');" style="flex-shrink:0;">
+              <button type="submit" style="background:none;border:none;color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;cursor:pointer;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-dim)'">Delete</button>
+            </form>
+          </div>
+          <div class="link-box" onclick="copyLink('{{ request.host_url }}promo/{{ p.token }}', this)" title="Click to copy">
+            {{ request.host_url }}promo/{{ p.token }}
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:6px;">Click to copy</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="font-size:13px;color:var(--text-dim);">No invite links yet. Create one above.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Grant by email ── -->
   <div style="background:var(--surface);border:1px solid var(--border);padding:28px;margin-bottom:32px;">
-    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:20px;">Grant Plan Access</div>
+    <div class="section-title">Grant Access by Email</div>
     <form method="POST" action="{{ url_for('admin_grant') }}" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
       <div style="flex:1;min-width:220px;">
         <label class="ctj-label">User Email</label>
@@ -38,32 +114,25 @@
       <div style="min-width:160px;">
         <label class="ctj-label">Plan</label>
         <select name="plan" class="ctj-input">
-          <option value="enterprise">Enterprise ($299)</option>
-          <option value="pro">Business ($99)</option>
-          <option value="starter">Pro ($49)</option>
+          <option value="enterprise">Enterprise</option>
+          <option value="pro">Business</option>
+          <option value="starter">Pro</option>
         </select>
       </div>
       <div style="min-width:140px;">
         <label class="ctj-label">Expires in (days)</label>
-        <input type="number" name="expires_days" class="ctj-input" placeholder="30 — or leave blank for permanent" min="1" />
+        <input type="number" name="expires_days" class="ctj-input" placeholder="blank = permanent" min="1" />
       </div>
-      <button type="submit" class="btn-orange" style="padding:12px 20px;font-size:13px;clip-path:none;white-space:nowrap;">Grant Access →</button>
+      <button type="submit" class="btn-orange" style="padding:12px 20px;font-size:13px;clip-path:none;white-space:nowrap;">Grant →</button>
     </form>
-    <p style="font-size:12px;color:var(--text-dim);margin-top:10px;">Leave "Expires in" blank to grant permanent access. User does not need to enter a credit card.</p>
   </div>
 
-  <!-- User table -->
+  <!-- ── User table ── -->
   <div style="border:1px solid var(--border);overflow-x:auto;">
     <table class="admin-table">
       <thead>
         <tr>
-          <th>Name</th>
-          <th>Email</th>
-          <th>Plan</th>
-          <th>Status</th>
-          <th>Joined</th>
-          <th>Expires</th>
-          <th></th>
+          <th>Name</th><th>Email</th><th>Plan</th><th>Status</th><th>Joined</th><th>Expires</th><th></th>
         </tr>
       </thead>
       <tbody>
@@ -71,22 +140,14 @@
         <tr>
           <td style="color:var(--text);font-weight:600;">{{ u.name }}</td>
           <td>{{ u.email }}</td>
-          <td>
-            <span class="plan-pill pill-{{ u.plan }}">{{ u.plan }}</span>
-          </td>
+          <td><span class="plan-pill pill-{{ u.plan }}">{{ u.plan }}</span></td>
           <td>
             {% if u.subscription_status == 'active' %}<span style="color:var(--green);">Active</span>
             {% elif u.subscription_status == 'trialing' %}<span style="color:var(--orange);">Trialing</span>
             {% else %}<span style="color:var(--text-dim);">{{ u.subscription_status }}</span>{% endif %}
           </td>
           <td style="font-size:12px;">{{ u.created_at.strftime('%b %d, %Y') }}</td>
-          <td style="font-size:12px;">
-            {% if u.trial_expires_at %}
-              {{ u.trial_expires_at.strftime('%b %d, %Y') }}
-            {% else %}
-              <span style="color:var(--text-dim);">—</span>
-            {% endif %}
-          </td>
+          <td style="font-size:12px;">{{ u.trial_expires_at.strftime('%b %d, %Y') if u.trial_expires_at else '—' }}</td>
           <td>
             {% if u.plan != 'trial' %}
             <form method="POST" action="{{ url_for('admin_revoke') }}" onsubmit="return confirm('Revoke access for {{ u.email }}?');" style="display:inline;">
@@ -102,4 +163,18 @@
   </div>
 
 </div>
+
+<script>
+function copyLink(url, el) {
+  navigator.clipboard.writeText(url).then(() => {
+    const orig = el.style.color;
+    el.style.color = 'var(--green)';
+    el.textContent = '✓ Copied!';
+    setTimeout(() => {
+      el.style.color = orig;
+      el.textContent = url;
+    }, 2000);
+  });
+}
+</script>
 {% endblock %}
