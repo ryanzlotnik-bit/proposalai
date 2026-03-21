@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% block title %}Advanced Analytics — CloseTheJob{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 24px 28px;
+  }
+  .stat-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 44px;
+    line-height: 1;
+    color: var(--text);
+  }
+  .stat-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+  .chart-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 28px;
+  }
+  .chart-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--orange);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 20px;
+  }
+  .rank-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .rank-row:last-child { border-bottom: none; }
+  .rank-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    width: 20px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .rank-bar-wrap { flex: 1; position: relative; height: 6px; background: var(--border); }
+  .rank-bar { height: 100%; background: var(--blue); }
+  .rank-name { font-size: 13px; color: var(--text); min-width: 140px; }
+  .rank-val { font-size: 13px; color: var(--green); font-weight: 600; text-align: right; }
+  .growth-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 2px;
+  }
+  .growth-up { background: rgba(74,222,128,0.12); color: var(--green); }
+  .growth-down { background: rgba(248,113,113,0.12); color: var(--red); }
+  .growth-flat { background: var(--surface-2); color: var(--text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:1280px;margin:0 auto;padding:40px 24px;">
+
+  <!-- Header -->
+  <div style="margin-bottom:32px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+    <div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--blue);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">// Enterprise</div>
+      <h1 class="font-display" style="font-size:clamp(40px,5vw,64px);color:var(--text);line-height:0.95;">Advanced Analytics</h1>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      {% if mom_growth is not none %}
+        {% if mom_growth > 0 %}
+          <span class="growth-pill growth-up">▲ {{ mom_growth }}% MoM</span>
+        {% elif mom_growth < 0 %}
+          <span class="growth-pill growth-down">▼ {{ mom_growth|abs }}% MoM</span>
+        {% else %}
+          <span class="growth-pill growth-flat">— 0% MoM</span>
+        {% endif %}
+      {% endif %}
+      <a href="{{ url_for('service_areas') }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--blue);text-transform:uppercase;letter-spacing:0.08em;text-decoration:none;border:1px solid rgba(96,165,250,0.3);padding:8px 14px;">Manage Service Areas →</a>
+    </div>
+  </div>
+
+  <!-- KPI row -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1px;background:var(--border);margin-bottom:32px;">
+    <div class="stat-card">
+      <div class="stat-label">Total Revenue</div>
+      <div class="stat-value" style="color:var(--green);">${{ '{:,.0f}'.format(total_revenue) }}</div>
+      <div class="stat-sub">all time</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Net Profit</div>
+      <div class="stat-value" style="color:{% if net_profit >= 0 %}var(--green){% else %}var(--red){% endif %};">${{ '{:,.0f}'.format(net_profit) }}</div>
+      <div class="stat-sub">revenue minus expenses</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Jobs Completed</div>
+      <div class="stat-value">{{ total_jobs }}</div>
+      <div class="stat-sub">avg ${{ '{:,.0f}'.format(avg_job_val) }} / job</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Proposal Win Rate</div>
+      <div class="stat-value" style="color:var(--orange);">{{ win_rate }}%</div>
+      <div class="stat-sub">{{ accepted_count }} / {{ total_proposals }} sent</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Open Pipeline</div>
+      <div class="stat-value" style="color:var(--blue);">${{ '{:,.0f}'.format(pipeline_value) }}</div>
+      <div class="stat-sub">pending proposals</div>
+    </div>
+  </div>
+
+  <!-- Revenue trend + job type charts -->
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:1px;background:var(--border);margin-bottom:1px;">
+    <div class="chart-card">
+      <div class="chart-title">// Revenue trend — 12 months</div>
+      <canvas id="trendChart" height="100"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">// Revenue by service type</div>
+      <canvas id="typeChart" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- Profitability + top clients -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);margin-bottom:1px;">
+    <div class="chart-card">
+      <div class="chart-title">// Profitability by job type (revenue vs. expenses)</div>
+      <canvas id="profitChart" height="160"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">// Top clients by revenue</div>
+      {% if top_clients %}
+        {% set max_rev = top_clients[0][1] %}
+        {% for name, rev in top_clients %}
+        <div class="rank-row">
+          <div class="rank-num">{{ loop.index }}</div>
+          <div class="rank-name" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ name }}</div>
+          <div class="rank-bar-wrap">
+            <div class="rank-bar" style="width:{{ (rev / max_rev * 100)|round }}%;"></div>
+          </div>
+          <div class="rank-val">${{ '{:,.0f}'.format(rev) }}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p style="color:var(--text-muted);font-size:13px;">No completed jobs yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Service area breakdown + job type table -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);margin-bottom:32px;">
+    <div class="chart-card">
+      <div class="chart-title">// Revenue by service area</div>
+      {% if sa_sorted and sa_sorted[0][0] != 'Unassigned' %}
+        <canvas id="saChart" height="160"></canvas>
+      {% else %}
+        <div style="padding:32px 0;text-align:center;">
+          <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">No service areas tagged yet.</p>
+          <a href="{{ url_for('service_areas') }}" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--blue);text-transform:uppercase;letter-spacing:0.08em;text-decoration:none;">Set Up Service Areas →</a>
+        </div>
+      {% endif %}
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">// Job type breakdown</div>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);padding:6px 0;border-bottom:1px solid var(--border);">Type</th>
+            <th style="text-align:right;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);padding:6px 0;border-bottom:1px solid var(--border);">Revenue</th>
+            <th style="text-align:right;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);padding:6px 0;border-bottom:1px solid var(--border);">Avg/Job</th>
+            <th style="text-align:right;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);padding:6px 0;border-bottom:1px solid var(--border);">Profit</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for jt, rev in jt_sorted[:12] %}
+          <tr>
+            <td style="font-size:12px;color:var(--text);padding:8px 0;border-bottom:1px solid var(--border);">{{ jt }}</td>
+            <td style="font-size:12px;color:var(--green);padding:8px 0;border-bottom:1px solid var(--border);text-align:right;">${{ '{:,.0f}'.format(rev) }}</td>
+            <td style="font-size:12px;color:var(--text-muted);padding:8px 0;border-bottom:1px solid var(--border);text-align:right;">${{ '{:,.0f}'.format(job_type_avg.get(jt, 0)) }}</td>
+            <td style="font-size:12px;padding:8px 0;border-bottom:1px solid var(--border);text-align:right;{% if job_type_profit.get(jt, 0) >= 0 %}color:var(--green);{% else %}color:var(--red);{% endif %}">${{ '{:,.0f}'.format(job_type_profit.get(jt, 0)) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" style="font-size:13px;color:var(--text-muted);padding:16px 0;">No jobs yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const D = {{ chart_data|safe }};
+const chartDefaults = {
+  color: '#6B6860',
+  borderColor: '#252525',
+  font: { family: "'DM Sans', sans-serif", size: 12 },
+};
+Chart.defaults.color = chartDefaults.color;
+Chart.defaults.borderColor = chartDefaults.borderColor;
+Chart.defaults.font = chartDefaults.font;
+
+// Trend chart
+new Chart(document.getElementById('trendChart'), {
+  type: 'line',
+  data: {
+    labels: D.labels,
+    datasets: [
+      { label: 'Revenue', data: D.revenues, borderColor: '#4ADE80', backgroundColor: 'rgba(74,222,128,0.06)', tension: 0.3, pointRadius: 3, fill: true },
+      { label: 'Expenses', data: D.expenses, borderColor: '#F87171', backgroundColor: 'rgba(248,113,113,0.04)', tension: 0.3, pointRadius: 3, fill: true },
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+    scales: {
+      x: { grid: { color: '#1a1a1a' } },
+      y: { grid: { color: '#1a1a1a' }, ticks: { callback: v => '$' + v.toLocaleString() } }
+    }
+  }
+});
+
+// Job type donut
+if (D.jtLabels.length) {
+  new Chart(document.getElementById('typeChart'), {
+    type: 'doughnut',
+    data: {
+      labels: D.jtLabels,
+      datasets: [{ data: D.jtRevenues, backgroundColor: ['#F97316','#60A5FA','#4ADE80','#F87171','#FBBF24','#A78BFA','#34D399','#FB923C','#38BDF8','#E879F9'], borderWidth: 0 }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 11 } } } }
+    }
+  });
+}
+
+// Profitability grouped bar
+if (D.jtLabels.length) {
+  new Chart(document.getElementById('profitChart'), {
+    type: 'bar',
+    data: {
+      labels: D.jtLabels,
+      datasets: [
+        { label: 'Revenue', data: D.jtRevenues, backgroundColor: 'rgba(74,222,128,0.7)', borderRadius: 3 },
+        { label: 'Profit', data: D.jtProfits, backgroundColor: 'rgba(96,165,250,0.7)', borderRadius: 3 },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+      scales: {
+        x: { grid: { color: '#1a1a1a' }, ticks: { maxRotation: 30, font: { size: 10 } } },
+        y: { grid: { color: '#1a1a1a' }, ticks: { callback: v => '$' + v.toLocaleString() } }
+      }
+    }
+  });
+}
+
+// Service area chart
+const saEl = document.getElementById('saChart');
+if (saEl && D.saLabels.length && D.saLabels[0] !== 'Unassigned') {
+  new Chart(saEl, {
+    type: 'bar',
+    data: {
+      labels: D.saLabels,
+      datasets: [{ label: 'Revenue', data: D.saRevenues, backgroundColor: '#60A5FA', borderRadius: 4 }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#1a1a1a' } },
+        y: { grid: { color: '#1a1a1a' }, ticks: { callback: v => '$' + v.toLocaleString() } }
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Service Areas — CloseTheJob{% endblock %}
+
+{% block content %}
+<div style="max-width:960px;margin:0 auto;padding:40px 24px;">
+
+  <!-- Header -->
+  <div style="margin-bottom:32px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--blue);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">// Enterprise · Multi-Location</div>
+    <h1 class="font-display" style="font-size:clamp(40px,5vw,64px);color:var(--text);line-height:0.95;">Service Areas</h1>
+    <p style="color:var(--text-muted);font-size:14px;margin-top:8px;">Define your service zones. Tag jobs with a service area to track revenue and profitability by location.</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 360px;gap:32px;align-items:start;">
+
+    <!-- Areas list -->
+    <div>
+      {% if areas %}
+      <div style="border:1px solid var(--border);">
+        {% for area in areas %}
+        <div style="display:flex;align-items:center;gap:16px;padding:16px 20px;border-bottom:1px solid var(--border);{% if loop.last %}border-bottom:none;{% endif %}">
+          <div style="width:12px;height:12px;border-radius:50%;background:{{ area.color }};flex-shrink:0;"></div>
+          <div style="flex:1;">
+            <div style="font-size:15px;font-weight:600;color:var(--text);">{{ area.name }}</div>
+            {% if area_stats.get(area.name) %}
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${{ '{:,.0f}'.format(area_stats[area.name]) }} revenue tagged</div>
+            {% else %}
+            <div style="font-size:12px;color:var(--text-dim);margin-top:2px;">No jobs tagged yet</div>
+            {% endif %}
+          </div>
+          <form method="POST" action="{{ url_for('delete_service_area', area_id=area.id) }}" onsubmit="return confirm('Remove this service area? Jobs tagged with it will keep their label.');">
+            <button type="submit" style="background:none;border:none;color:var(--text-dim);font-size:13px;cursor:pointer;padding:4px 8px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;font-size:10px;letter-spacing:0.06em;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-dim)'">Remove</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div style="border:1px solid var(--border);padding:48px 32px;text-align:center;">
+        <div style="font-size:32px;color:var(--border-bright);margin-bottom:12px;">📍</div>
+        <div style="font-size:15px;color:var(--text-muted);margin-bottom:6px;">No service areas yet.</div>
+        <p style="font-size:13px;color:var(--text-dim);">Add your first area to start tracking revenue by location.</p>
+      </div>
+      {% endif %}
+
+      {% if areas %}
+      <div style="margin-top:24px;padding:16px;background:var(--surface);border:1px solid var(--border);">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">How to tag a job</div>
+        <p style="font-size:13px;color:var(--text-muted);line-height:1.6;">Open any job from the Financials page. Use the <strong style="color:var(--text);">Service Area</strong> dropdown to assign it to a location. The Analytics page will then break down revenue by area.</p>
+        <a href="{{ url_for('analytics') }}" style="display:inline-block;margin-top:12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--blue);text-transform:uppercase;letter-spacing:0.06em;text-decoration:none;">View Analytics →</a>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Add area form -->
+    <div style="background:var(--surface);border:1px solid var(--border);padding:24px;position:sticky;top:80px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--orange);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:20px;">Add Service Area</div>
+      <form method="POST" action="{{ url_for('service_areas') }}">
+        <div style="margin-bottom:14px;">
+          <label class="ctj-label">Area Name <span>*</span></label>
+          <input type="text" name="name" required class="ctj-input" placeholder="e.g. North Shore, Downtown, Zone A" />
+        </div>
+        <div style="margin-bottom:20px;">
+          <label class="ctj-label">Color Tag</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+            {% for color in ['#F97316','#60A5FA','#4ADE80','#F87171','#FBBF24','#A78BFA','#34D399','#FB923C'] %}
+            <label style="cursor:pointer;">
+              <input type="radio" name="color" value="{{ color }}" {% if loop.first %}checked{% endif %} style="display:none;" class="color-radio" />
+              <div class="color-swatch" style="width:24px;height:24px;border-radius:50%;background:{{ color }};border:2px solid transparent;transition:border-color 0.15s;" data-color="{{ color }}"></div>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+        <button type="submit" class="btn-orange" style="width:100%;justify-content:center;padding:12px;font-size:13px;clip-path:none;">Add Area →</button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Color picker visual feedback
+document.querySelectorAll('.color-radio').forEach(radio => {
+  radio.addEventListener('change', () => {
+    document.querySelectorAll('.color-swatch').forEach(sw => sw.style.borderColor = 'transparent');
+    if (radio.checked) {
+      radio.parentElement.querySelector('.color-swatch').style.borderColor = '#fff';
+    }
+  });
+});
+// Init first
+const first = document.querySelector('.color-radio:checked');
+if (first) first.parentElement.querySelector('.color-swatch').style.borderColor = '#fff';
+</script>
+{% endblock %}

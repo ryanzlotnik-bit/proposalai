@@ -323,6 +323,7 @@
           <a href="{{ url_for('dashboard') }}" class="nav-link">Dashboard</a>
           <a href="{{ url_for('schedule') }}" class="nav-link">Schedule</a>
           <a href="{{ url_for('financials') }}" class="nav-link">Financials</a>
+          {% if current_user.is_enterprise %}<a href="{{ url_for('analytics') }}" class="nav-link" style="color:var(--blue);">Analytics</a>{% endif %}
           <a href="{{ url_for('clients') }}" class="nav-link">Clients</a>
           <a href="{{ url_for('pricing_advisor') }}" class="nav-link">Pricing</a>
           <a href="{{ url_for('generate') }}" class="btn-orange">+ New Proposal</a>
@@ -334,6 +335,10 @@
                 <p>{{ current_user.email }}</p>
               </div>
               <a href="{{ url_for('profile') }}" class="dropdown-item">Profile Settings</a>
+              {% if current_user.is_enterprise %}
+              <a href="{{ url_for('templates_library') }}" class="dropdown-item">Templates Library</a>
+              <a href="{{ url_for('service_areas') }}" class="dropdown-item">Service Areas</a>
+              {% endif %}
               <a href="{{ url_for('pricing') }}" class="dropdown-item">Upgrade Plan</a>
               <a href="{{ url_for('logout') }}" class="dropdown-item danger">Sign Out</a>
             </div>

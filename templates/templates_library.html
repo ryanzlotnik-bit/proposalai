@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+{% block title %}Templates Library — CloseTheJob{% endblock %}
+
+{% block head %}
+<style>
+  .tmpl-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: relative;
+  }
+  .tmpl-card:hover { border-color: var(--border-bright); }
+  .tmpl-type-badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    background: rgba(249,115,22,0.12);
+    color: var(--orange);
+    border: 1px solid rgba(249,115,22,0.2);
+    border-radius: 2px;
+  }
+  .tmpl-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.3;
+  }
+  .tmpl-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .tmpl-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+  }
+  .btn-use {
+    padding: 8px 16px;
+    background: var(--orange);
+    color: #000;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-ghost {
+    padding: 8px 14px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--border-bright); }
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--surface);
+    border: 1px solid var(--border-bright);
+    padding: 32px;
+    width: 100%;
+    max-width: 640px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:1200px;margin:0 auto;padding:40px 24px;">
+
+  <!-- Header -->
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:32px;">
+    <div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--blue);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">// Enterprise · Templates</div>
+      <h1 class="font-display" style="font-size:clamp(40px,5vw,64px);color:var(--text);line-height:0.95;">Proposal Library</h1>
+      <p style="color:var(--text-muted);font-size:14px;margin-top:8px;">Pre-built templates for every job type. Click "Use Template" to launch a proposal instantly.</p>
+    </div>
+    {% if current_user.is_enterprise %}
+    <button onclick="openModal('new')" class="btn-use" style="padding:12px 20px;font-size:12px;">+ New Template</button>
+    {% endif %}
+  </div>
+
+  {% if templates %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1px;background:var(--border);">
+    {% for t in templates %}
+    <div class="tmpl-card">
+      {% if t.job_type %}
+      <div><span class="tmpl-type-badge">{{ t.job_type }}</span></div>
+      {% endif %}
+      <div class="tmpl-name">{{ t.name }}</div>
+      <div class="tmpl-meta">
+        {% if t.labor_hours %}<span>{{ t.labor_hours }}h labor @ ${{ t.labor_rate|int }}/hr</span>{% endif %}
+        {% if t.timeline %}<span>{{ t.timeline }}</span>{% endif %}
+        {% if t.tax_rate %}<span>{{ t.tax_rate }}% tax</span>{% endif %}
+        {% if t.deposit_pct %}<span>{{ t.deposit_pct|int }}% deposit</span>{% endif %}
+        <span style="color:var(--text-dim);">{{ t.created_at.strftime('%b %d, %Y') }}</span>
+      </div>
+      {% if t.job_description %}
+      <div style="font-size:12px;color:var(--text-muted);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ t.job_description }}</div>
+      {% endif %}
+      <div class="tmpl-actions">
+        <a href="{{ url_for('generate') }}?template={{ t.id }}" class="btn-use">Use Template →</a>
+        {% if current_user.is_enterprise %}
+        <button onclick="openEditModal({{ t.id }}, {{ t|tojson }})" class="btn-ghost">Edit</button>
+        {% endif %}
+        <form method="POST" action="{{ url_for('delete_template', tmpl_id=t.id) }}" onsubmit="return confirm('Delete this template?');" style="display:inline;">
+          <button type="submit" class="btn-ghost" style="color:var(--red);border-color:rgba(248,113,113,0.2);">Delete</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:80px 24px;border:1px solid var(--border);">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:32px;color:var(--border-bright);margin-bottom:16px;">[ ]</div>
+    <div style="font-size:16px;color:var(--text-muted);margin-bottom:8px;">No templates yet.</div>
+    <p style="font-size:13px;color:var(--text-dim);margin-bottom:24px;">Create templates from any proposal, or build one from scratch here.</p>
+    {% if current_user.is_enterprise %}
+    <button onclick="openModal('new')" class="btn-use">+ Create First Template</button>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- New Template Modal -->
+<div id="modal-new" class="modal-overlay" onclick="if(event.target===this)closeModal('new')">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--text);font-weight:700;">New Template</div>
+      <button onclick="closeModal('new')" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">×</button>
+    </div>
+    <form method="POST" action="{{ url_for('create_template') }}">
+      {{ _template_fields(None) }}
+      <button type="submit" class="btn-use" style="width:100%;justify-content:center;padding:13px;margin-top:24px;">Save Template →</button>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Template Modal -->
+<div id="modal-edit" class="modal-overlay" onclick="if(event.target===this)closeModal('edit')">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--text);font-weight:700;">Edit Template</div>
+      <button onclick="closeModal('edit')" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">×</button>
+    </div>
+    <form id="edit-form" method="POST">
+      <div id="edit-fields"></div>
+      <button type="submit" class="btn-use" style="width:100%;justify-content:center;padding:13px;margin-top:24px;">Save Changes →</button>
+    </form>
+  </div>
+</div>
+
+{% macro _template_fields(t) %}
+<div style="display:grid;gap:14px;">
+  <div>
+    <label class="ctj-label">Template Name <span>*</span></label>
+    <input type="text" name="name" required class="ctj-input" value="{{ t.name if t else '' }}" placeholder="e.g. Standard AC Installation" />
+  </div>
+  <div>
+    <label class="ctj-label">Job Type</label>
+    <select name="job_type" class="ctj-input">
+      <option value="">— Select —</option>
+      {% for jt in all_job_types %}
+      <option value="{{ jt }}" {% if t and t.job_type == jt %}selected{% endif %}>{{ jt }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="ctj-label">Job Description</label>
+    <textarea name="job_description" class="ctj-input" rows="3" placeholder="Scope of work...">{{ t.job_description if t else '' }}</textarea>
+  </div>
+  <div>
+    <label class="ctj-label">Materials / Notes</label>
+    <textarea name="materials_input" class="ctj-input" rows="2" placeholder="Materials, equipment...">{{ t.materials_input if t else '' }}</textarea>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div>
+      <label class="ctj-label">Labor Hours</label>
+      <input type="number" name="labor_hours" class="ctj-input" step="0.5" min="0" value="{{ t.labor_hours if t else 0 }}" />
+    </div>
+    <div>
+      <label class="ctj-label">Labor Rate ($/hr)</label>
+      <input type="number" name="labor_rate" class="ctj-input" step="1" min="0" value="{{ t.labor_rate if t else 75 }}" />
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div>
+      <label class="ctj-label">Timeline</label>
+      <input type="text" name="timeline" class="ctj-input" placeholder="e.g. 1-2 days" value="{{ t.timeline if t else '' }}" />
+    </div>
+    <div>
+      <label class="ctj-label">Warranty</label>
+      <input type="text" name="warranty" class="ctj-input" placeholder="e.g. 1-year parts & labor" value="{{ t.warranty if t else '' }}" />
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+    <div>
+      <label class="ctj-label">Tax Rate (%)</label>
+      <input type="number" name="tax_rate" class="ctj-input" step="0.1" min="0" max="30" value="{{ t.tax_rate if t else 0 }}" />
+    </div>
+    <div>
+      <label class="ctj-label">Deposit (%)</label>
+      <input type="number" name="deposit_pct" class="ctj-input" step="1" min="0" max="100" value="{{ t.deposit_pct if t else 0 }}" />
+    </div>
+  </div>
+  <div>
+    <label class="ctj-label">Internal Notes</label>
+    <textarea name="notes" class="ctj-input" rows="2" placeholder="Crew notes, reminders...">{{ t.notes if t else '' }}</textarea>
+  </div>
+</div>
+{% endmacro %}
+
+<script>
+function openModal(id) {
+  document.getElementById('modal-' + id).classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(id) {
+  document.getElementById('modal-' + id).classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+const ALL_JOB_TYPES = {{ all_job_types|tojson }};
+
+function openEditModal(tmplId, t) {
+  const form = document.getElementById('edit-form');
+  form.action = '/templates/' + tmplId + '/edit';
+
+  const typeOpts = ALL_JOB_TYPES.map(jt =>
+    `<option value="${jt}" ${t.job_type === jt ? 'selected' : ''}>${jt}</option>`
+  ).join('');
+
+  document.getElementById('edit-fields').innerHTML = `
+    <div style="display:grid;gap:14px;">
+      <div>
+        <label class="ctj-label">Template Name <span>*</span></label>
+        <input type="text" name="name" required class="ctj-input" value="${escHtml(t.name)}" />
+      </div>
+      <div>
+        <label class="ctj-label">Job Type</label>
+        <select name="job_type" class="ctj-input">
+          <option value="">— Select —</option>
+          ${typeOpts}
+        </select>
+      </div>
+      <div>
+        <label class="ctj-label">Job Description</label>
+        <textarea name="job_description" class="ctj-input" rows="3">${escHtml(t.job_description || '')}</textarea>
+      </div>
+      <div>
+        <label class="ctj-label">Materials / Notes</label>
+        <textarea name="materials_input" class="ctj-input" rows="2">${escHtml(t.materials_input || '')}</textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <label class="ctj-label">Labor Hours</label>
+          <input type="number" name="labor_hours" class="ctj-input" step="0.5" min="0" value="${t.labor_hours || 0}" />
+        </div>
+        <div>
+          <label class="ctj-label">Labor Rate ($/hr)</label>
+          <input type="number" name="labor_rate" class="ctj-input" step="1" min="0" value="${t.labor_rate || 75}" />
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <label class="ctj-label">Timeline</label>
+          <input type="text" name="timeline" class="ctj-input" value="${escHtml(t.timeline || '')}" placeholder="e.g. 1-2 days" />
+        </div>
+        <div>
+          <label class="ctj-label">Warranty</label>
+          <input type="text" name="warranty" class="ctj-input" value="${escHtml(t.warranty || '')}" placeholder="e.g. 1-year parts & labor" />
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <label class="ctj-label">Tax Rate (%)</label>
+          <input type="number" name="tax_rate" class="ctj-input" step="0.1" min="0" max="30" value="${t.tax_rate || 0}" />
+        </div>
+        <div>
+          <label class="ctj-label">Deposit (%)</label>
+          <input type="number" name="deposit_pct" class="ctj-input" step="1" min="0" max="100" value="${t.deposit_pct || 0}" />
+        </div>
+      </div>
+      <div>
+        <label class="ctj-label">Internal Notes</label>
+        <textarea name="notes" class="ctj-input" rows="2">${escHtml(t.notes || '')}</textarea>
+      </div>
+    </div>
+  `;
+  openModal('edit');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+{% endblock %}

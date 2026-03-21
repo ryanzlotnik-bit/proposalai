@@ -270,6 +270,7 @@ class Job(db.Model):
     review_sent_at = db.Column(db.DateTime, nullable=True)
     notes = db.Column(db.Text, default='')
     completion_summary = db.Column(db.Text, default='')
+    service_area = db.Column(db.String(200), default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     job_expenses = db.relationship('Expense', backref='job', lazy=True)
     job_tips = db.relationship('Tip', backref='job', lazy=True)
@@ -376,6 +377,14 @@ class ProposalTemplate(db.Model):
     tax_rate = db.Column(db.Float, default=0)
     deposit_pct = db.Column(db.Float, default=0)
     generated_content = db.Column(db.Text, default='{}')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class ServiceArea(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    color = db.Column(db.String(7), default='#F97316')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -2492,7 +2501,8 @@ def job_detail(job_id):
     if j.user_id != uid():
         flash('Access denied.', 'error')
         return redirect(url_for('dashboard'))
-    return render_template('job_detail.html', job=j)
+    service_areas = ServiceArea.query.filter_by(user_id=uid()).order_by(ServiceArea.name).all() if current_user.is_enterprise else []
+    return render_template('job_detail.html', job=j, service_areas=service_areas)
 
 
 @app.route('/jobs/<int:job_id>/photos/<int:photo_id>')
@@ -2892,6 +2902,227 @@ def google_disconnect():
     return redirect(url_for('profile'))
 
 
+# ─── Enterprise: Advanced Analytics ───────────────────────────────────────────
+
+@app.route('/analytics')
+@login_required
+def analytics():
+    if not current_user.is_enterprise:
+        flash('Advanced Analytics is an Enterprise feature. Upgrade to unlock it.', 'warning')
+        return redirect(url_for('pricing'))
+
+    owner_id = uid()
+    jobs = Job.query.filter_by(user_id=owner_id).all()
+    expenses = Expense.query.filter_by(user_id=owner_id).all()
+    proposals = Proposal.query.filter_by(user_id=owner_id).all()
+
+    # ── Summary stats ──
+    total_revenue = sum(j.revenue for j in jobs)
+    total_jobs = len(jobs)
+    total_expenses_all = sum(e.amount for e in expenses)
+    net_profit = total_revenue - total_expenses_all
+    avg_job_val = round(total_revenue / total_jobs, 2) if total_jobs else 0
+
+    # ── Win rate ──
+    actionable = [p for p in proposals if p.status in ('sent', 'accepted', 'declined')]
+    accepted_count = sum(1 for p in proposals if p.status == 'accepted')
+    win_rate = round(accepted_count / len(actionable) * 100) if actionable else 0
+    pipeline_value = sum(p.grand_total for p in proposals if p.status == 'sent')
+
+    # ── Revenue by job type ──
+    job_type_revenue = {}
+    job_type_count = {}
+    job_type_expenses = {}
+    for j in jobs:
+        jt = j.job_type or 'Other'
+        job_type_revenue[jt] = job_type_revenue.get(jt, 0) + j.revenue
+        job_type_count[jt] = job_type_count.get(jt, 0) + 1
+        job_type_expenses[jt] = job_type_expenses.get(jt, 0) + j.expense_total
+
+    job_type_profit = {jt: round(job_type_revenue[jt] - job_type_expenses.get(jt, 0), 2)
+                       for jt in job_type_revenue}
+    job_type_avg = {jt: round(job_type_revenue[jt] / job_type_count[jt], 2)
+                    for jt in job_type_revenue}
+
+    jt_sorted = sorted(job_type_revenue.items(), key=lambda x: x[1], reverse=True)
+
+    # ── Top clients ──
+    client_revenue = {}
+    client_job_count = {}
+    for j in jobs:
+        cn = j.client_name or 'Unknown'
+        client_revenue[cn] = client_revenue.get(cn, 0) + j.revenue
+        client_job_count[cn] = client_job_count.get(cn, 0) + 1
+    top_clients = sorted(client_revenue.items(), key=lambda x: x[1], reverse=True)[:10]
+
+    # ── Service area breakdown ──
+    sa_revenue = {}
+    for j in jobs:
+        sa = j.service_area or 'Unassigned'
+        sa_revenue[sa] = sa_revenue.get(sa, 0) + j.revenue
+    sa_sorted = sorted(sa_revenue.items(), key=lambda x: x[1], reverse=True)
+
+    # ── Monthly trend (12 months) ──
+    labels, revenues_m, expenses_m, tips_m = build_monthly_chart_data(owner_id, months=12)
+    mom_growth = None
+    if len(revenues_m) >= 2 and revenues_m[-2] > 0:
+        mom_growth = round((revenues_m[-1] - revenues_m[-2]) / revenues_m[-2] * 100, 1)
+
+    chart_data = json.dumps({
+        'labels': labels,
+        'revenues': revenues_m,
+        'expenses': expenses_m,
+        'tips': tips_m,
+        'jtLabels': [x[0] for x in jt_sorted[:10]],
+        'jtRevenues': [round(x[1], 2) for x in jt_sorted[:10]],
+        'jtProfits': [job_type_profit.get(x[0], 0) for x in jt_sorted[:10]],
+        'clientLabels': [x[0] for x in top_clients],
+        'clientRevenues': [round(x[1], 2) for x in top_clients],
+        'saLabels': [x[0] for x in sa_sorted],
+        'saRevenues': [round(x[1], 2) for x in sa_sorted],
+    })
+
+    service_areas = ServiceArea.query.filter_by(user_id=owner_id).order_by(ServiceArea.name).all()
+
+    return render_template('analytics.html',
+        total_revenue=total_revenue,
+        total_jobs=total_jobs,
+        avg_job_val=avg_job_val,
+        net_profit=net_profit,
+        win_rate=win_rate,
+        pipeline_value=pipeline_value,
+        accepted_count=accepted_count,
+        total_proposals=len(actionable),
+        mom_growth=mom_growth,
+        top_clients=top_clients,
+        jt_sorted=jt_sorted,
+        job_type_avg=job_type_avg,
+        job_type_profit=job_type_profit,
+        sa_sorted=sa_sorted,
+        chart_data=chart_data,
+        service_areas=service_areas,
+    )
+
+
+# ─── Enterprise: Templates Library ─────────────────────────────────────────────
+
+@app.route('/templates')
+@login_required
+def templates_library():
+    templates = ProposalTemplate.query.filter_by(user_id=uid()).order_by(ProposalTemplate.created_at.desc()).all()
+    all_job_types = []
+    for types in SPECIALTIES.values():
+        all_job_types.extend(types)
+    return render_template('templates_library.html', templates=templates, all_job_types=sorted(all_job_types))
+
+
+@app.route('/templates/new', methods=['POST'])
+@login_required
+def create_template():
+    if not current_user.is_enterprise:
+        flash('Bulk Proposal Templates require an Enterprise plan.', 'warning')
+        return redirect(url_for('pricing'))
+    name = request.form.get('name', '').strip()
+    if not name:
+        flash('Template name is required.', 'error')
+        return redirect(url_for('templates_library'))
+    tmpl = ProposalTemplate(
+        user_id=uid(),
+        name=name,
+        job_type=request.form.get('job_type', '').strip(),
+        job_description=request.form.get('job_description', '').strip(),
+        materials_input=request.form.get('materials_input', '').strip(),
+        labor_hours=float(request.form.get('labor_hours') or 0),
+        labor_rate=float(request.form.get('labor_rate') or 75),
+        timeline=request.form.get('timeline', '').strip(),
+        warranty=request.form.get('warranty', '').strip(),
+        notes=request.form.get('notes', '').strip(),
+        tax_rate=float(request.form.get('tax_rate') or 0),
+        deposit_pct=float(request.form.get('deposit_pct') or 0),
+    )
+    db.session.add(tmpl)
+    db.session.commit()
+    flash(f'Template "{name}" created.', 'success')
+    return redirect(url_for('templates_library'))
+
+
+@app.route('/templates/<int:tmpl_id>/edit', methods=['POST'])
+@login_required
+def edit_template(tmpl_id):
+    tmpl = ProposalTemplate.query.get_or_404(tmpl_id)
+    if tmpl.user_id != uid():
+        flash('Access denied.', 'error')
+        return redirect(url_for('templates_library'))
+    tmpl.name = request.form.get('name', tmpl.name).strip()
+    tmpl.job_type = request.form.get('job_type', '').strip()
+    tmpl.job_description = request.form.get('job_description', '').strip()
+    tmpl.materials_input = request.form.get('materials_input', '').strip()
+    tmpl.labor_hours = float(request.form.get('labor_hours') or 0)
+    tmpl.labor_rate = float(request.form.get('labor_rate') or 75)
+    tmpl.timeline = request.form.get('timeline', '').strip()
+    tmpl.warranty = request.form.get('warranty', '').strip()
+    tmpl.notes = request.form.get('notes', '').strip()
+    tmpl.tax_rate = float(request.form.get('tax_rate') or 0)
+    tmpl.deposit_pct = float(request.form.get('deposit_pct') or 0)
+    db.session.commit()
+    flash(f'Template "{tmpl.name}" updated.', 'success')
+    return redirect(url_for('templates_library'))
+
+
+# ─── Enterprise: Service Areas ──────────────────────────────────────────────────
+
+@app.route('/service-areas', methods=['GET', 'POST'])
+@login_required
+def service_areas():
+    if not current_user.is_enterprise:
+        flash('Multi-location support is an Enterprise feature.', 'warning')
+        return redirect(url_for('pricing'))
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        color = request.form.get('color', '#F97316').strip()
+        if name:
+            existing = ServiceArea.query.filter_by(user_id=current_user.id, name=name).first()
+            if not existing:
+                sa = ServiceArea(user_id=current_user.id, name=name, color=color)
+                db.session.add(sa)
+                db.session.commit()
+                flash(f'Service area "{name}" added.', 'success')
+        return redirect(url_for('service_areas'))
+    areas = ServiceArea.query.filter_by(user_id=current_user.id).order_by(ServiceArea.name).all()
+    # Revenue per area
+    jobs = Job.query.filter_by(user_id=current_user.id).all()
+    area_stats = {}
+    for j in jobs:
+        sa = j.service_area or ''
+        if sa:
+            area_stats[sa] = area_stats.get(sa, 0) + j.revenue
+    return render_template('service_areas.html', areas=areas, area_stats=area_stats)
+
+
+@app.route('/service-areas/<int:area_id>/delete', methods=['POST'])
+@login_required
+def delete_service_area(area_id):
+    sa = ServiceArea.query.get_or_404(area_id)
+    if sa.user_id != current_user.id:
+        flash('Access denied.', 'error')
+        return redirect(url_for('service_areas'))
+    db.session.delete(sa)
+    db.session.commit()
+    flash('Service area removed.', 'success')
+    return redirect(url_for('service_areas'))
+
+
+@app.route('/jobs/<int:job_id>/set-area', methods=['POST'])
+@login_required
+def set_job_service_area(job_id):
+    job = Job.query.get_or_404(job_id)
+    if job.user_id != uid():
+        return jsonify({'error': 'Access denied'}), 403
+    job.service_area = request.form.get('service_area', '').strip()
+    db.session.commit()
+    return redirect(request.referrer or url_for('financials'))
+
+
 # ─── Init ──────────────────────────────────────────────────────────────────────
 
 with app.app_context():
@@ -2928,6 +3159,7 @@ with app.app_context():
         'ALTER TABLE proposal ADD COLUMN template_id INTEGER',
         'ALTER TABLE job ADD COLUMN completion_summary TEXT DEFAULT \'\'',
         'ALTER TABLE "user" ADD COLUMN trial_expires_at DATETIME',
+        'ALTER TABLE job ADD COLUMN service_area VARCHAR(200) DEFAULT \'\'',
     ]
     for _sql in _migrations:
         try:
