@@ -3309,6 +3309,8 @@ def lead_send_email(lead_id):
     lead.last_contacted_at = datetime.utcnow()
     db.session.commit()
     act_id = act.id
+    # Build track URL while still in request context
+    track_url = url_for('track_email_open', token=track_token, _external=True)
     # Send in background thread
     user_id = uid()
     def do_send():
@@ -3317,7 +3319,6 @@ def lead_send_email(lead_id):
             if not u:
                 return
             html_body = body.replace('\n', '<br>')
-            track_url = url_for('track_email_open', token=track_token, _external=True)
             pixel = f'<img src="{track_url}" width="1" height="1" style="display:none;" alt="">'
             send_email_sendgrid(
                 to_email,
