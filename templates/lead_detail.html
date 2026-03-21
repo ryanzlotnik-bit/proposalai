@@ -1,0 +1,582 @@
+{% extends 'base.html' %}
+{% block title %}{{ lead.company or lead.contact }} — CRM{% endblock %}
+{% block content %}
+<style>
+  /* ── Page ── */
+  .ld-page { padding: 24px 20px 80px; max-width: 1400px; margin: 0 auto; }
+
+  /* ── Breadcrumb ── */
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); margin-bottom: 20px; }
+  .breadcrumb a { color: var(--text-muted); text-decoration: none; }
+  .breadcrumb a:hover { color: var(--orange); }
+  .breadcrumb-sep { color: var(--text-dim); }
+
+  /* ── Header card ── */
+  .ld-header { background: var(--surface); border: 1px solid var(--border); padding: 24px 28px; margin-bottom: 24px; }
+  .ld-header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .ld-company { font-size: 26px; font-weight: 700; color: var(--text); line-height: 1.2; }
+  .ld-contact-name { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
+  .stage-pill { display: inline-block; padding: 4px 12px; border-radius: 14px; font-size: 12px; font-weight: 700; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em; }
+  .ld-header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  /* ── Meta grid ── */
+  .ld-meta { display: flex; flex-wrap: wrap; gap: 16px 32px; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border); }
+  .meta-item { display: flex; flex-direction: column; gap: 3px; }
+  .meta-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+  .meta-val { font-size: 13px; color: var(--text); }
+  .meta-val a { color: var(--blue); text-decoration: none; }
+  .meta-val a:hover { text-decoration: underline; }
+
+  /* ── Stage selector ── */
+  .stage-select-wrap { display: flex; align-items: center; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .stage-select-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; white-space: nowrap; }
+  .stage-select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 7px 11px; font-size: 13px; cursor: pointer; outline: none; }
+  .stage-select:focus { border-color: var(--orange); }
+
+  /* ── Three-column layout ── */
+  .ld-cols { display: grid; grid-template-columns: 300px 1fr 300px; gap: 20px; align-items: start; }
+  @media (max-width: 1100px) { .ld-cols { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 720px) { .ld-cols { grid-template-columns: 1fr; } }
+
+  /* ── Column panels ── */
+  .ld-panel { background: var(--surface); border: 1px solid var(--border); }
+  .ld-panel-hd { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .ld-panel-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+  .ld-panel-body { padding: 16px 18px; }
+
+  /* ── Contact cards ── */
+  .contact-card { border: 1px solid var(--border); padding: 14px; margin-bottom: 10px; background: var(--bg); position: relative; }
+  .contact-card:last-child { margin-bottom: 0; }
+  .contact-name { font-size: 14px; font-weight: 700; color: var(--text); }
+  .contact-title { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .contact-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .contact-link { font-size: 11px; font-weight: 600; padding: 4px 9px; border: 1px solid var(--border); color: var(--text-muted); text-decoration: none; display: inline-block; transition: all 0.15s; }
+  .contact-link:hover { border-color: var(--orange); color: var(--orange); }
+  .contact-link.call { border-color: var(--green); color: var(--green); }
+  .contact-link.call:hover { background: rgba(74,222,128,0.1); }
+  .contact-link.sms { border-color: var(--blue); color: var(--blue); }
+  .contact-link.sms:hover { background: rgba(96,165,250,0.1); }
+  .contact-link.edit-btn { color: var(--orange); border-color: transparent; }
+  .contact-link.edit-btn:hover { border-color: var(--orange); }
+  .contact-meta { font-size: 12px; color: var(--text-muted); margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+  .contact-meta a { color: var(--text-muted); text-decoration: none; }
+  .contact-meta a:hover { color: var(--orange); }
+
+  /* ── Activity log ── */
+  .activity-form { background: var(--bg); border: 1px solid var(--border); padding: 14px; margin-bottom: 16px; }
+  .activity-row { display: grid; grid-template-columns: auto 1fr; gap: 8px; margin-bottom: 8px; }
+  .activity-timeline { display: flex; flex-direction: column; gap: 0; }
+  .activity-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; background: var(--surface-2); border: 1px solid var(--border); }
+  .activity-content { flex: 1; min-width: 0; }
+  .activity-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .activity-type { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+  .activity-time { font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+  .activity-body { font-size: 13px; color: var(--text); white-space: pre-wrap; word-break: break-word; line-height: 1.5; }
+  .empty-state { text-align: center; padding: 30px 16px; color: var(--text-muted); font-size: 13px; }
+
+  /* ── Email panel ── */
+  .email-form { display: flex; flex-direction: column; gap: 10px; }
+  .email-to-row { display: flex; gap: 8px; }
+
+  /* ── Form elements (shared) ── */
+  .form-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 5px; display: block; font-family: 'JetBrains Mono', monospace; }
+  .form-input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); padding: 9px 11px; font-size: 13px; outline: none;
+    transition: border-color 0.15s; font-family: 'DM Sans', sans-serif;
+  }
+  .form-input:focus { border-color: var(--orange); }
+  select.form-input { cursor: pointer; }
+  .form-textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 9px 11px; font-size: 13px; resize: vertical; min-height: 80px; font-family: 'DM Sans', sans-serif; outline: none; }
+  .form-textarea:focus { border-color: var(--orange); }
+  .btn-primary { background: var(--orange); color: #fff; border: none; padding: 9px 18px; font-size: 13px; font-weight: 700; cursor: pointer; clip-path: polygon(0 0, 95% 0, 100% 15%, 100% 100%, 5% 100%, 0 85%); transition: opacity 0.15s; }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 9px 14px; font-size: 13px; cursor: pointer; }
+  .btn-ghost:hover { border-color: var(--text-muted); color: var(--text); }
+  .btn-danger { background: transparent; border: 1px solid var(--red); color: var(--red); padding: 9px 14px; font-size: 13px; cursor: pointer; }
+  .btn-danger:hover { background: rgba(248,113,113,0.1); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  /* ── Modals ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    z-index: 1000; align-items: center; justify-content: center; padding: 16px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--surface); border: 1px solid var(--border);
+    width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto;
+    padding: 28px; position: relative;
+  }
+  .modal-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 20px; }
+  .modal-close { position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 20px; line-height: 1; }
+  .modal-close:hover { color: var(--text); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 500px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-grid .full { grid-column: 1 / -1; }
+  .form-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+</style>
+
+<div class="ld-page">
+
+  <!-- Breadcrumb -->
+  <div class="breadcrumb">
+    <a href="{{ url_for('leads') }}">Pipeline</a>
+    <span class="breadcrumb-sep">/</span>
+    <span>{{ lead.company or lead.contact }}</span>
+  </div>
+
+  <!-- Header -->
+  <div class="ld-header">
+    <div class="ld-header-top">
+      <div>
+        <div class="ld-company">{{ lead.company or lead.contact }}</div>
+        {% if lead.company and lead.contact %}
+        <div class="ld-contact-name">Primary contact: {{ lead.contact }}</div>
+        {% endif %}
+      </div>
+      <div class="ld-header-actions">
+        {% for sk, sl, sc in stages %}{% if sk == lead.stage %}
+        <span class="stage-pill" style="background:{{ sc }}20;color:{{ sc }};border:1px solid {{ sc }}40;">{{ sl }}</span>
+        {% endif %}{% endfor %}
+        <button class="btn-ghost btn-sm" onclick="openEditCompanyModal()">Edit Company</button>
+        <form method="POST" action="{{ url_for('delete_lead', lead_id=lead.id) }}"
+              onsubmit="return confirm('Delete this lead? This cannot be undone.');" style="display:inline;">
+          <button type="submit" class="btn-danger btn-sm">Delete</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Meta info -->
+    <div class="ld-meta">
+      {% if lead.phone %}
+      <div class="meta-item">
+        <span class="meta-label">Phone</span>
+        <span class="meta-val"><a href="tel:{{ lead.phone }}">{{ lead.phone }}</a></span>
+      </div>
+      {% endif %}
+      {% if lead.email %}
+      <div class="meta-item">
+        <span class="meta-label">Email</span>
+        <span class="meta-val"><a href="mailto:{{ lead.email }}">{{ lead.email }}</a></span>
+      </div>
+      {% endif %}
+      {% if lead.address %}
+      <div class="meta-item">
+        <span class="meta-label">Address</span>
+        <span class="meta-val">{{ lead.address }}</span>
+      </div>
+      {% endif %}
+      {% if lead.website %}
+      <div class="meta-item">
+        <span class="meta-label">Website</span>
+        <span class="meta-val"><a href="{{ lead.website if lead.website.startswith('http') else 'https://' + lead.website }}" target="_blank">{{ lead.website }}</a></span>
+      </div>
+      {% endif %}
+      {% if lead.linkedin %}
+      <div class="meta-item">
+        <span class="meta-label">LinkedIn</span>
+        <span class="meta-val"><a href="{{ lead.linkedin if lead.linkedin.startswith('http') else 'https://' + lead.linkedin }}" target="_blank">LinkedIn Profile</a></span>
+      </div>
+      {% endif %}
+      {% if lead.company_type %}
+      <div class="meta-item">
+        <span class="meta-label">Company Type</span>
+        <span class="meta-val">{{ lead.company_type }}</span>
+      </div>
+      {% endif %}
+      {% if lead.naics_code %}
+      <div class="meta-item">
+        <span class="meta-label">NAICS Code</span>
+        <span class="meta-val">{{ lead.naics_code }}</span>
+      </div>
+      {% endif %}
+      {% if lead.last_contacted_at %}
+      <div class="meta-item">
+        <span class="meta-label">Last Contact</span>
+        <span class="meta-val">{{ lead.last_contacted_at.strftime('%b %d, %Y') }}</span>
+      </div>
+      {% endif %}
+      {% if lead.notes %}
+      <div class="meta-item" style="flex: 1 1 100%;">
+        <span class="meta-label">Notes</span>
+        <span class="meta-val" style="white-space:pre-wrap;">{{ lead.notes }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Stage changer -->
+    <div class="stage-select-wrap">
+      <span class="stage-select-label">Move Stage:</span>
+      <select class="stage-select" id="stage-select" onchange="changeStage(this.value)">
+        {% for sk, sl, sc in stages %}
+        <option value="{{ sk }}" {% if sk == lead.stage %}selected{% endif %}>{{ sl }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+
+  <!-- Three columns -->
+  <div class="ld-cols">
+
+    <!-- LEFT: Contacts -->
+    <div>
+      <div class="ld-panel">
+        <div class="ld-panel-hd">
+          <span class="ld-panel-title">Contacts ({{ contacts|length }})</span>
+          <button class="btn-ghost btn-sm" onclick="openAddContactModal()">+ Add</button>
+        </div>
+        <div class="ld-panel-body">
+          {% if contacts %}
+            {% for c in contacts %}
+            <div class="contact-card">
+              <div class="contact-name">{{ c.name }}</div>
+              {% if c.title %}<div class="contact-title">{{ c.title }}</div>{% endif %}
+              <div class="contact-meta">
+                {% if c.email %}<span><a href="mailto:{{ c.email }}">{{ c.email }}</a></span>{% endif %}
+                {% if c.phone %}<span>{{ c.phone }}</span>{% endif %}
+                {% if c.linkedin %}<span><a href="{{ c.linkedin if c.linkedin.startswith('http') else 'https://' + c.linkedin }}" target="_blank">LinkedIn</a></span>{% endif %}
+                {% if c.notes %}<span style="color:var(--text-dim);font-style:italic;">{{ c.notes|truncate(60) }}</span>{% endif %}
+              </div>
+              <div class="contact-actions">
+                {% if c.phone %}
+                <a href="tel:{{ c.phone }}" class="contact-link call">📞 Call</a>
+                <a href="sms:{{ c.phone }}" class="contact-link sms">💬 Text</a>
+                {% endif %}
+                <button class="contact-link edit-btn" onclick="openEditContactModal({{ c.id }}, {{ c.name|tojson }}, {{ c.title|tojson }}, {{ c.email|tojson }}, {{ c.phone|tojson }}, {{ c.linkedin|tojson }}, {{ c.notes|tojson }})">✎ Edit</button>
+                <form method="POST" action="{{ url_for('delete_lead_contact', lead_id=lead.id, contact_id=c.id) }}"
+                      onsubmit="return confirm('Remove {{ c.name }}?');" style="display:inline;">
+                  <button type="submit" class="contact-link" style="border-color:transparent;color:var(--red);">✕</button>
+                </form>
+              </div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="empty-state">No contacts yet.<br>Add the people you talk to at this company.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- MIDDLE: Activity Log -->
+    <div>
+      <div class="ld-panel">
+        <div class="ld-panel-hd">
+          <span class="ld-panel-title">Activity Log</span>
+        </div>
+        <div class="ld-panel-body">
+
+          <!-- Log form -->
+          <div class="activity-form">
+            <form method="POST" action="{{ url_for('add_lead_activity', lead_id=lead.id) }}">
+              <div style="display:grid;grid-template-columns:auto 1fr;gap:8px;margin-bottom:8px;">
+                <div>
+                  <label class="form-label">Type</label>
+                  <select name="activity_type" class="form-input" style="width:130px;">
+                    <option value="note">📝 Note</option>
+                    <option value="call">📞 Call</option>
+                    <option value="email">✉ Email</option>
+                    <option value="text">💬 Text</option>
+                    <option value="meeting">🤝 Meeting</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label">Contact (optional)</label>
+                  <select name="contact_id" class="form-input">
+                    <option value="">— No specific contact —</option>
+                    {% for c in contacts %}
+                    <option value="{{ c.id }}">{{ c.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div style="margin-bottom:8px;">
+                <label class="form-label">Notes</label>
+                <textarea name="body" class="form-textarea" placeholder="What happened? What was discussed?" required></textarea>
+              </div>
+              <button type="submit" class="btn-primary btn-sm">Log Activity</button>
+            </form>
+          </div>
+
+          <!-- Timeline -->
+          {% if activities %}
+          <div class="activity-timeline">
+            {% for act in activities %}
+            <div class="activity-item">
+              <div class="activity-icon">
+                {% if act.activity_type == 'call' %}📞
+                {% elif act.activity_type == 'email' %}✉
+                {% elif act.activity_type == 'text' %}💬
+                {% elif act.activity_type == 'meeting' %}🤝
+                {% else %}📝{% endif %}
+              </div>
+              <div class="activity-content">
+                <div class="activity-header">
+                  <span class="activity-type">{{ act.activity_type }}</span>
+                  <span class="activity-time">{{ act.created_at.strftime('%b %d, %Y %I:%M %p') }}</span>
+                </div>
+                <div class="activity-body">{{ act.body }}</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+            <div class="empty-state">No activity logged yet.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Send Email -->
+    <div>
+      <div class="ld-panel">
+        <div class="ld-panel-hd">
+          <span class="ld-panel-title">Send Email</span>
+        </div>
+        <div class="ld-panel-body">
+          <form method="POST" action="{{ url_for('lead_send_email', lead_id=lead.id) }}" class="email-form">
+            <div>
+              <label class="form-label">To</label>
+              <select name="to_email" id="to-email-select" class="form-input" onchange="updateToEmail(this.value)">
+                <option value="">— Select or type below —</option>
+                {% if lead.email %}
+                <option value="{{ lead.email }}">{{ lead.company or lead.contact }} — {{ lead.email }}</option>
+                {% endif %}
+                {% for c in contacts %}{% if c.email %}
+                <option value="{{ c.email }}">{{ c.name }} — {{ c.email }}</option>
+                {% endif %}{% endfor %}
+                <option value="__custom__">Type custom address...</option>
+              </select>
+              <input type="text" name="to_email" id="to-email-custom" class="form-input" placeholder="email@example.com"
+                     style="display:none;margin-top:6px;">
+            </div>
+            <div>
+              <label class="form-label">Contact (optional)</label>
+              <select name="contact_id" class="form-input">
+                <option value="">— None —</option>
+                {% for c in contacts %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Subject</label>
+              <input type="text" name="subject" class="form-input" placeholder="Re: Your project" required>
+            </div>
+            <div>
+              <label class="form-label">Body</label>
+              <textarea name="body" class="form-textarea" style="min-height:120px;" placeholder="Write your message..." required></textarea>
+            </div>
+            <button type="submit" class="btn-primary" style="width:100%;">Send Email &amp; Log</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /ld-cols -->
+</div><!-- /ld-page -->
+
+<!-- ── ADD CONTACT MODAL ── -->
+<div class="modal-overlay" id="add-contact-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('add-contact-modal')">✕</button>
+    <div class="modal-title">Add Contact</div>
+    <form method="POST" action="{{ url_for('add_lead_contact', lead_id=lead.id) }}">
+      <div class="form-grid">
+        <div class="full">
+          <label class="form-label">Full Name *</label>
+          <input type="text" name="name" class="form-input" placeholder="Jane Smith" required>
+        </div>
+        <div>
+          <label class="form-label">Title</label>
+          <input type="text" name="title" class="form-input" placeholder="CEO, Facilities Manager...">
+        </div>
+        <div>
+          <label class="form-label">Phone</label>
+          <input type="tel" name="phone" class="form-input" placeholder="(555) 000-0000">
+        </div>
+        <div>
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-input" placeholder="jane@company.com">
+        </div>
+        <div>
+          <label class="form-label">LinkedIn</label>
+          <input type="text" name="linkedin" class="form-input" placeholder="linkedin.com/in/...">
+        </div>
+        <div class="full">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="form-textarea" placeholder="Notes about this contact..."></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" onclick="closeModal('add-contact-modal')">Cancel</button>
+        <button type="submit" class="btn-primary">Add Contact</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── EDIT CONTACT MODAL ── -->
+<div class="modal-overlay" id="edit-contact-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('edit-contact-modal')">✕</button>
+    <div class="modal-title">Edit Contact</div>
+    <form method="POST" id="edit-contact-form" action="">
+      <div class="form-grid">
+        <div class="full">
+          <label class="form-label">Full Name *</label>
+          <input type="text" name="name" id="ec-name" class="form-input" required>
+        </div>
+        <div>
+          <label class="form-label">Title</label>
+          <input type="text" name="title" id="ec-title" class="form-input">
+        </div>
+        <div>
+          <label class="form-label">Phone</label>
+          <input type="tel" name="phone" id="ec-phone" class="form-input">
+        </div>
+        <div>
+          <label class="form-label">Email</label>
+          <input type="email" name="email" id="ec-email" class="form-input">
+        </div>
+        <div>
+          <label class="form-label">LinkedIn</label>
+          <input type="text" name="linkedin" id="ec-linkedin" class="form-input">
+        </div>
+        <div class="full">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" id="ec-notes" class="form-textarea"></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" onclick="closeModal('edit-contact-modal')">Cancel</button>
+        <button type="submit" class="btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── EDIT COMPANY MODAL ── -->
+<div class="modal-overlay" id="edit-company-modal">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('edit-company-modal')">✕</button>
+    <div class="modal-title">Edit Company</div>
+    <form method="POST" action="{{ url_for('edit_lead', lead_id=lead.id) }}">
+      <div class="form-grid">
+        <div>
+          <label class="form-label">Contact Name *</label>
+          <input type="text" name="contact" class="form-input" value="{{ lead.contact }}" required>
+        </div>
+        <div>
+          <label class="form-label">Company</label>
+          <input type="text" name="company" class="form-input" value="{{ lead.company }}">
+        </div>
+        <div>
+          <label class="form-label">Phone</label>
+          <input type="tel" name="phone" class="form-input" value="{{ lead.phone }}">
+        </div>
+        <div>
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-input" value="{{ lead.email }}">
+        </div>
+        <div>
+          <label class="form-label">Website</label>
+          <input type="text" name="website" class="form-input" value="{{ lead.website }}">
+        </div>
+        <div>
+          <label class="form-label">LinkedIn</label>
+          <input type="text" name="linkedin" class="form-input" value="{{ lead.linkedin }}">
+        </div>
+        <div>
+          <label class="form-label">Company Type</label>
+          <input type="text" name="company_type" class="form-input" value="{{ lead.company_type }}" placeholder="e.g. Property Management">
+        </div>
+        <div>
+          <label class="form-label">NAICS Code</label>
+          <input type="text" name="naics_code" class="form-input" value="{{ lead.naics_code }}" placeholder="e.g. 531110">
+        </div>
+        <div>
+          <label class="form-label">Stage</label>
+          <select name="stage" class="form-input">
+            {% for sk, sl, sc in stages %}
+            <option value="{{ sk }}" {% if sk == lead.stage %}selected{% endif %}>{{ sl }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="full">
+          <label class="form-label">Mailing Address</label>
+          <input type="text" name="address" class="form-input" value="{{ lead.address }}">
+        </div>
+        <div class="full">
+          <label class="form-label">Notes</label>
+          <textarea name="notes" class="form-textarea">{{ lead.notes }}</textarea>
+        </div>
+        <div class="full">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-muted);cursor:pointer;">
+            <input type="checkbox" name="mark_contacted" style="accent-color:var(--orange);">
+            Mark as contacted today
+          </label>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-ghost" onclick="closeModal('edit-company-modal')">Cancel</button>
+        <button type="submit" class="btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openAddContactModal() {
+  document.getElementById('add-contact-modal').classList.add('open');
+}
+function openEditContactModal(id, name, title, email, phone, linkedin, notes) {
+  document.getElementById('ec-name').value = name || '';
+  document.getElementById('ec-title').value = title || '';
+  document.getElementById('ec-email').value = email || '';
+  document.getElementById('ec-phone').value = phone || '';
+  document.getElementById('ec-linkedin').value = linkedin || '';
+  document.getElementById('ec-notes').value = notes || '';
+  document.getElementById('edit-contact-form').action = `/leads/{{ lead.id }}/contacts/${id}/edit`;
+  document.getElementById('edit-contact-modal').classList.add('open');
+}
+function openEditCompanyModal() {
+  document.getElementById('edit-company-modal').classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+});
+
+function changeStage(newStage) {
+  fetch(`/leads/{{ lead.id }}/stage`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: `stage=${encodeURIComponent(newStage)}`,
+  }).then(r => r.json()).then(data => {
+    if (data.ok) window.location.reload();
+  });
+}
+
+function updateToEmail(val) {
+  const custom = document.getElementById('to-email-custom');
+  const select = document.getElementById('to-email-select');
+  if (val === '__custom__') {
+    custom.style.display = '';
+    custom.name = 'to_email';
+    select.name = '_to_email_select_unused';
+    custom.focus();
+  } else {
+    custom.style.display = 'none';
+    custom.name = '';
+    select.name = 'to_email';
+  }
+}
+</script>
+{% endblock %}

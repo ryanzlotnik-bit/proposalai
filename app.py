@@ -411,6 +411,32 @@ class Lead(db.Model):
     notes = db.Column(db.Text, default='')
     last_contacted_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    linkedin = db.Column(db.String(300), default='')
+    company_type = db.Column(db.String(100), default='')
+    naics_code = db.Column(db.String(20), default='')
+
+
+class LeadContact(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    lead_id = db.Column(db.Integer, db.ForeignKey('lead.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    title = db.Column(db.String(200), default='')
+    email = db.Column(db.String(200), default='')
+    phone = db.Column(db.String(50), default='')
+    linkedin = db.Column(db.String(300), default='')
+    notes = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class LeadActivity(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    lead_id = db.Column(db.Integer, db.ForeignKey('lead.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    activity_type = db.Column(db.String(50), default='note')  # note, call, email, text, meeting
+    body = db.Column(db.Text, default='')
+    contact_id = db.Column(db.Integer, db.ForeignKey('lead_contact.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class TeamInvite(db.Model):
@@ -2903,6 +2929,9 @@ def edit_lead(lead_id):
     lead.website = request.form.get('website', '').strip()
     lead.stage = request.form.get('stage', lead.stage)
     lead.notes = request.form.get('notes', '').strip()
+    lead.linkedin = request.form.get('linkedin', '').strip()
+    lead.company_type = request.form.get('company_type', '').strip()
+    lead.naics_code = request.form.get('naics_code', '').strip()
     if request.form.get('mark_contacted'):
         lead.last_contacted_at = datetime.utcnow()
     db.session.commit()
@@ -2936,6 +2965,222 @@ def delete_lead(lead_id):
     db.session.delete(lead)
     db.session.commit()
     flash('Lead removed.', 'success')
+    return redirect(url_for('leads'))
+
+
+# Company detail page
+@app.route('/leads/<int:lead_id>')
+@login_required
+def lead_detail(lead_id):
+    lead = Lead.query.get_or_404(lead_id)
+    if lead.user_id != uid():
+        flash('Access denied.', 'error')
+        return redirect(url_for('leads'))
+    contacts = LeadContact.query.filter_by(lead_id=lead_id).order_by(LeadContact.created_at).all()
+    activities = LeadActivity.query.filter_by(lead_id=lead_id).order_by(LeadActivity.created_at.desc()).all()
+    return render_template('lead_detail.html', lead=lead, contacts=contacts, activities=activities, stages=LEAD_STAGES)
+
+# Add contact to company
+@app.route('/leads/<int:lead_id>/contacts/add', methods=['POST'])
+@login_required
+def add_lead_contact(lead_id):
+    lead = Lead.query.get_or_404(lead_id)
+    if lead.user_id != uid():
+        return jsonify({'error': 'Access denied'}), 403
+    name = request.form.get('name', '').strip()
+    if not name:
+        flash('Contact name is required.', 'error')
+        return redirect(url_for('lead_detail', lead_id=lead_id))
+    c = LeadContact(
+        lead_id=lead_id,
+        user_id=uid(),
+        name=name,
+        title=request.form.get('title', '').strip(),
+        email=request.form.get('email', '').strip(),
+        phone=request.form.get('phone', '').strip(),
+        linkedin=request.form.get('linkedin', '').strip(),
+        notes=request.form.get('notes', '').strip(),
+    )
+    db.session.add(c)
+    db.session.commit()
+    flash(f'{name} added.', 'success')
+    return redirect(url_for('lead_detail', lead_id=lead_id))
+
+# Edit contact
+@app.route('/leads/<int:lead_id>/contacts/<int:contact_id>/edit', methods=['POST'])
+@login_required
+def edit_lead_contact(lead_id, contact_id):
+    c = LeadContact.query.get_or_404(contact_id)
+    if c.user_id != uid():
+        flash('Access denied.', 'error')
+        return redirect(url_for('lead_detail', lead_id=lead_id))
+    c.name = request.form.get('name', '').strip() or c.name
+    c.title = request.form.get('title', '').strip()
+    c.email = request.form.get('email', '').strip()
+    c.phone = request.form.get('phone', '').strip()
+    c.linkedin = request.form.get('linkedin', '').strip()
+    c.notes = request.form.get('notes', '').strip()
+    db.session.commit()
+    flash('Contact updated.', 'success')
+    return redirect(url_for('lead_detail', lead_id=lead_id))
+
+# Delete contact
+@app.route('/leads/<int:lead_id>/contacts/<int:contact_id>/delete', methods=['POST'])
+@login_required
+def delete_lead_contact(lead_id, contact_id):
+    c = LeadContact.query.get_or_404(contact_id)
+    if c.user_id != uid():
+        flash('Access denied.', 'error')
+        return redirect(url_for('lead_detail', lead_id=lead_id))
+    db.session.delete(c)
+    db.session.commit()
+    flash('Contact removed.', 'success')
+    return redirect(url_for('lead_detail', lead_id=lead_id))
+
+# Log activity
+@app.route('/leads/<int:lead_id>/activity/add', methods=['POST'])
+@login_required
+def add_lead_activity(lead_id):
+    lead = Lead.query.get_or_404(lead_id)
+    if lead.user_id != uid():
+        flash('Access denied.', 'error')
+        return redirect(url_for('lead_detail', lead_id=lead_id))
+    body = request.form.get('body', '').strip()
+    if not body:
+        flash('Note cannot be empty.', 'error')
+        return redirect(url_for('lead_detail', lead_id=lead_id))
+    activity_type = request.form.get('activity_type', 'note')
+    contact_id = request.form.get('contact_id') or None
+    if contact_id:
+        contact_id = int(contact_id)
+    act = LeadActivity(
+        lead_id=lead_id,
+        user_id=uid(),
+        activity_type=activity_type,
+        body=body,
+        contact_id=contact_id,
+    )
+    db.session.add(act)
+    lead.last_contacted_at = datetime.utcnow()
+    db.session.commit()
+    flash('Activity logged.', 'success')
+    return redirect(url_for('lead_detail', lead_id=lead_id))
+
+# Send email from CRM
+@app.route('/leads/<int:lead_id>/email', methods=['POST'])
+@login_required
+def lead_send_email(lead_id):
+    lead = Lead.query.get_or_404(lead_id)
+    if lead.user_id != uid():
+        flash('Access denied.', 'error')
+        return redirect(url_for('lead_detail', lead_id=lead_id))
+    to_email = request.form.get('to_email', '').strip()
+    subject = request.form.get('subject', '').strip()
+    body = request.form.get('body', '').strip()
+    if not to_email or not subject or not body:
+        flash('Email address, subject and body are all required.', 'error')
+        return redirect(url_for('lead_detail', lead_id=lead_id))
+    contact_id = request.form.get('contact_id') or None
+    if contact_id:
+        contact_id = int(contact_id)
+    # Log the activity first
+    act = LeadActivity(
+        lead_id=lead_id,
+        user_id=uid(),
+        activity_type='email',
+        body=f"To: {to_email}\nSubject: {subject}\n\n{body}",
+        contact_id=contact_id,
+    )
+    db.session.add(act)
+    lead.last_contacted_at = datetime.utcnow()
+    db.session.commit()
+    # Send in background thread
+    user_id = uid()
+    def do_send():
+        with app.app_context():
+            u = User.query.get(user_id)
+            if not u:
+                return
+            try:
+                html_body = body.replace('\n', '<br>')
+                msg = Message(
+                    subject=subject,
+                    recipients=[to_email],
+                    html=f"<p>{html_body}</p><p style='color:#888;font-size:12px;'>— {u.name}, {u.company_name or ''}</p>",
+                    sender=(u.name, u.email) if u.email else None,
+                )
+                mail.send(msg)
+            except Exception:
+                pass
+    threading.Thread(target=do_send, daemon=True).start()
+    flash(f'Email sent to {to_email} and logged.', 'success')
+    return redirect(url_for('lead_detail', lead_id=lead_id))
+
+# CSV import page
+@app.route('/leads/import', methods=['GET', 'POST'])
+@login_required
+def import_leads():
+    if request.method == 'GET':
+        return render_template('leads_import.html')
+    import csv, io
+    f = request.files.get('csv_file')
+    if not f:
+        flash('No file uploaded.', 'error')
+        return redirect(url_for('import_leads'))
+    stream = io.StringIO(f.stream.read().decode('utf-8-sig', errors='replace'))
+    reader = csv.DictReader(stream)
+    rows = list(reader)
+    if not rows:
+        flash('CSV is empty.', 'error')
+        return redirect(url_for('import_leads'))
+    # Column mapping from form
+    col_map = {
+        'company': request.form.get('col_company', ''),
+        'contact': request.form.get('col_contact', ''),
+        'email': request.form.get('col_email', ''),
+        'phone': request.form.get('col_phone', ''),
+        'address': request.form.get('col_address', ''),
+        'website': request.form.get('col_website', ''),
+        'linkedin': request.form.get('col_linkedin', ''),
+        'company_type': request.form.get('col_company_type', ''),
+        'naics_code': request.form.get('col_naics_code', ''),
+        'notes': request.form.get('col_notes', ''),
+    }
+    imported = 0
+    skipped = 0
+    for row in rows:
+        def get(col):
+            field = col_map.get(col, '')
+            return row.get(field, '').strip() if field else ''
+        company = get('company')
+        contact = get('contact')
+        if not company and not contact:
+            skipped += 1
+            continue
+        # Skip duplicates by company name
+        if company:
+            existing = Lead.query.filter_by(user_id=uid(), company=company).first()
+            if existing:
+                skipped += 1
+                continue
+        lead = Lead(
+            user_id=uid(),
+            company=company,
+            contact=contact or company,
+            email=get('email'),
+            phone=get('phone'),
+            address=get('address'),
+            website=get('website'),
+            linkedin=get('linkedin'),
+            company_type=get('company_type'),
+            naics_code=get('naics_code'),
+            notes=get('notes'),
+            stage='unreached',
+        )
+        db.session.add(lead)
+        imported += 1
+    db.session.commit()
+    flash(f'Imported {imported} leads. Skipped {skipped} (duplicates or empty).', 'success')
     return redirect(url_for('leads'))
 
 
@@ -3505,6 +3750,9 @@ with app.app_context():
         'ALTER TABLE proposal ADD COLUMN signature_name VARCHAR(200) DEFAULT \'\'',
         'ALTER TABLE proposal ADD COLUMN signed_at DATETIME',
         # lead table created by db.create_all() — no ALTER needed for new tables
+        'ALTER TABLE lead ADD COLUMN linkedin VARCHAR(300) DEFAULT \'\'',
+        'ALTER TABLE lead ADD COLUMN company_type VARCHAR(100) DEFAULT \'\'',
+        'ALTER TABLE lead ADD COLUMN naics_code VARCHAR(20) DEFAULT \'\'',
     ]
     for _sql in _migrations:
         try:

@@ -134,6 +134,10 @@
         <button class="view-btn active" id="btn-kanban" onclick="setView('kanban')">Pipeline</button>
         <button class="view-btn" id="btn-list" onclick="setView('list')">List</button>
       </div>
+      <a href="{{ url_for('import_leads') }}" class="btn-add" style="text-decoration:none;display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);color:var(--text-muted);clip-path:none;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Import CSV
+      </a>
       <button class="btn-add" onclick="openAddModal()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Add Lead
@@ -174,7 +178,7 @@
           <div class="kanban-cards" id="col-{{ stage_key }}">
             {% if by_stage[stage_key] %}
               {% for lead in by_stage[stage_key] %}
-              <div class="lead-card" onclick="openEditModal({{ lead.id }})">
+              <div class="lead-card" onclick="window.location='/leads/{{ lead.id }}'">
                 <div class="lead-card-company">{{ lead.company or lead.contact }}</div>
                 {% if lead.company %}<div class="lead-card-contact">{{ lead.contact }}</div>{% endif %}
                 <div class="lead-card-meta">
@@ -187,7 +191,7 @@
                 {% endif %}
                 <!-- Quick stage move buttons -->
                 <div class="lead-card-actions" onclick="event.stopPropagation()">
-                  <button class="stage-btn edit" onclick="openEditModal({{ lead.id }})">✎ Edit</button>
+                  <a href="/leads/{{ lead.id }}" class="stage-btn edit">✎ View</a>
                   {% set ns = namespace(found=false, next_key='', next_label='', next_color='') %}
                   {% for sk, sl, sc in stages %}
                     {% if ns.found and not ns.next_key %}
@@ -262,7 +266,7 @@
               {{ lead.notes or '—' }}
             </td>
             <td>
-              <button class="stage-btn edit" onclick="openEditModal({{ lead.id }})">Edit</button>
+              <a href="/leads/{{ lead.id }}" class="stage-btn edit">View</a>
             </td>
           </tr>
           {% else %}
@@ -309,6 +313,18 @@
             <option value="{{ sk }}">{{ sl }}</option>
             {% endfor %}
           </select>
+        </div>
+        <div>
+          <label class="form-label">LinkedIn</label>
+          <input type="text" name="linkedin" class="form-input" placeholder="linkedin.com/company/...">
+        </div>
+        <div>
+          <label class="form-label">Company Type</label>
+          <input type="text" name="company_type" class="form-input" placeholder="e.g. Property Management">
+        </div>
+        <div>
+          <label class="form-label">NAICS Code</label>
+          <input type="text" name="naics_code" class="form-input" placeholder="e.g. 531110">
         </div>
         <div class="full">
           <label class="form-label">Mailing Address</label>
@@ -362,6 +378,18 @@
             {% endfor %}
           </select>
         </div>
+        <div>
+          <label class="form-label">LinkedIn</label>
+          <input type="text" name="linkedin" id="edit-linkedin" class="form-input">
+        </div>
+        <div>
+          <label class="form-label">Company Type</label>
+          <input type="text" name="company_type" id="edit-company-type" class="form-input">
+        </div>
+        <div>
+          <label class="form-label">NAICS Code</label>
+          <input type="text" name="naics_code" id="edit-naics-code" class="form-input">
+        </div>
         <div class="full">
           <label class="form-label">Mailing Address</label>
           <input type="text" name="address" id="edit-address" class="form-input">
@@ -403,6 +431,9 @@ const LEADS = {
     website: {{ lead.website|tojson }},
     stage: {{ lead.stage|tojson }},
     notes: {{ lead.notes|tojson }},
+    linkedin: {{ (lead.linkedin or '')|tojson }},
+    company_type: {{ (lead.company_type or '')|tojson }},
+    naics_code: {{ (lead.naics_code or '')|tojson }},
   },
   {% endfor %}
 };
@@ -422,6 +453,9 @@ function openEditModal(id) {
   document.getElementById('edit-address').value = lead.address || '';
   document.getElementById('edit-stage').value = lead.stage || 'unreached';
   document.getElementById('edit-notes').value = lead.notes || '';
+  document.getElementById('edit-linkedin').value = lead.linkedin || '';
+  document.getElementById('edit-company-type').value = lead.company_type || '';
+  document.getElementById('edit-naics-code').value = lead.naics_code || '';
   document.getElementById('edit-mark-contacted').checked = false;
   document.getElementById('edit-form').action = `/leads/${id}/edit`;
   document.getElementById('delete-form').action = `/leads/${id}/delete`;
