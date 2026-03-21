@@ -1354,6 +1354,26 @@ def dashboard():
     # Incoming job requests
     new_requests = JobRequest.query.filter_by(user_id=uid(), status='new').count()
 
+    # Onboarding checklist — show for accounts < 60 days old
+    checklist = None
+    account_age = (datetime.utcnow() - current_user.created_at).days
+    if account_age < 60:
+        owner = get_owner_user()
+        has_proposal = Proposal.query.filter_by(user_id=uid()).first() is not None
+        has_scheduled = ScheduledJob.query.filter_by(user_id=uid()).first() is not None
+        has_client = Client.query.filter_by(user_id=uid()).first() is not None
+        has_profile = bool(owner.company_name and owner.phone)
+        has_plan = owner.is_subscribed
+        steps = [
+            {'label': 'Create your account', 'hint': '', 'done': True, 'url': '#'},
+            {'label': 'Set up your profile', 'hint': 'Add company name & phone', 'done': has_profile, 'url': url_for('profile')},
+            {'label': 'Send your first proposal', 'hint': 'AI writes it in 60 seconds', 'done': has_proposal, 'url': url_for('generate')},
+            {'label': 'Schedule a job', 'hint': 'Add it to your calendar', 'done': has_scheduled, 'url': url_for('schedule')},
+            {'label': 'Pick a plan', 'hint': '30-day free trial', 'done': has_plan, 'url': url_for('pricing')},
+        ]
+        done_count = sum(1 for s in steps if s['done'])
+        checklist = {'steps': steps, 'done': done_count, 'total': len(steps), 'all_done': done_count == len(steps)}
+
     return render_template('dashboard.html',
         proposals=proposals,
         upcoming_jobs=upcoming_jobs,
@@ -1368,6 +1388,7 @@ def dashboard():
         job_type_stats=job_type_stats,
         top_clients=top_clients,
         new_requests=new_requests,
+        checklist=checklist,
     )
 
 

@@ -4,6 +4,13 @@
 {% block head %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
+@media (max-width:768px) {
+  .tab-panel { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .tab-btn { padding: 10px 14px !important; font-size: 12px !important; }
+  .fin-stats-grid { grid-template-columns: 1fr 1fr !important; }
+}
+</style>
+<style>
   .fin-modal-overlay {
     display: none;
     position: fixed;

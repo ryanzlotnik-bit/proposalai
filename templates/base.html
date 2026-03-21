@@ -301,6 +301,92 @@
     .fade-up-2 { animation: fadeUp 0.5s 0.1s ease both; }
     .fade-up-3 { animation: fadeUp 0.5s 0.2s ease both; }
     .fade-up-4 { animation: fadeUp 0.5s 0.3s ease both; }
+
+    /* ── Mobile Nav ────────────────────────────────────────────────── */
+    .nav-hamburger {
+      display: none;
+      background: none;
+      border: 1px solid var(--border-bright);
+      color: var(--text);
+      width: 36px; height: 36px;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      padding: 0;
+    }
+    .mobile-menu {
+      display: none;
+      position: fixed;
+      top: 60px; left: 0; right: 0; bottom: 0;
+      background: rgba(10,10,10,0.98);
+      backdrop-filter: blur(16px);
+      z-index: 99;
+      overflow-y: auto;
+      padding: 8px 0 32px;
+      flex-direction: column;
+      border-top: 1px solid var(--border);
+    }
+    .mobile-menu.open { display: flex; }
+    .mob-nav-link {
+      display: flex; align-items: center; gap: 12px;
+      padding: 16px 24px;
+      font-size: 16px; font-weight: 500;
+      color: var(--text-muted);
+      text-decoration: none;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s, color 0.1s;
+    }
+    .mob-nav-link:hover, .mob-nav-link:active { color: var(--text); background: var(--surface); }
+    .mob-nav-link.accent { color: var(--orange); font-weight: 700; }
+    .mob-nav-link.danger { color: var(--red); }
+    .mob-nav-divider { height: 1px; background: var(--border); margin: 8px 0; }
+    .mob-nav-section {
+      padding: 10px 24px 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px; color: var(--text-dim);
+      text-transform: uppercase; letter-spacing: 0.1em;
+    }
+
+    /* ── Mobile utility classes ────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .nav-links-desktop { display: none !important; }
+      .nav-hamburger { display: flex !important; }
+
+      /* Collapse 2-column grids */
+      .mob-col-1 { grid-template-columns: 1fr !important; }
+
+      /* Stack flex rows */
+      .mob-stack { flex-direction: column !important; align-items: stretch !important; }
+
+      /* Table scrolling */
+      .mob-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+      /* Reduce padding on mobile */
+      .mob-pad { padding: 16px !important; }
+      .mob-px { padding-left: 16px !important; padding-right: 16px !important; }
+
+      /* Hide decorative/non-essential elements */
+      .mob-hide { display: none !important; }
+
+      /* Full-width buttons */
+      .mob-full { width: 100% !important; justify-content: center !important; }
+
+      /* Smaller display headings */
+      .mob-h1 { font-size: clamp(40px, 10vw, 64px) !important; }
+
+      /* Page wrappers */
+      .mob-page { padding: 24px 16px !important; }
+
+      /* Stat values smaller on tiny screens */
+      .mob-stat { font-size: 32px !important; }
+
+      /* Flash messages */
+      .flash { padding: 0 16px; }
+
+      /* Footer */
+      .ctj-footer-inner { flex-direction: column; gap: 8px; text-align: center; }
+    }
   </style>
   {% block head %}{% endblock %}
 </head>
@@ -318,7 +404,8 @@
         <span class="ctj-logo-text">Close<span>The</span>Job</span>
       </a>
 
-      <div style="display:flex;align-items:center;gap:24px;">
+      <!-- Desktop nav -->
+      <div class="nav-links-desktop" style="display:flex;align-items:center;gap:24px;">
         {% if current_user.is_authenticated %}
           <a href="{{ url_for('dashboard') }}" class="nav-link">Dashboard</a>
           <a href="{{ url_for('schedule') }}" class="nav-link">Schedule</a>
@@ -349,8 +436,69 @@
           <a href="{{ url_for('register') }}" class="btn-orange">Start Free</a>
         {% endif %}
       </div>
+
+      <!-- Mobile hamburger -->
+      <button class="nav-hamburger" onclick="toggleMobileMenu()" id="hamburger-btn" aria-label="Open menu">
+        <svg id="hamburger-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+        <svg id="close-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none;">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
     </div>
   </nav>
+
+  <!-- Mobile menu -->
+  <div id="mobile-menu" class="mobile-menu">
+    {% if current_user.is_authenticated %}
+      <div class="mob-nav-section">{{ current_user.name }}</div>
+      <a href="{{ url_for('dashboard') }}" class="mob-nav-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </a>
+      <a href="{{ url_for('schedule') }}" class="mob-nav-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Schedule
+      </a>
+      <a href="{{ url_for('financials') }}" class="mob-nav-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Financials
+      </a>
+      {% if current_user.is_enterprise %}
+      <a href="{{ url_for('analytics') }}" class="mob-nav-link" style="color:var(--blue);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Analytics
+      </a>
+      {% endif %}
+      <a href="{{ url_for('clients') }}" class="mob-nav-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Clients
+      </a>
+      <a href="{{ url_for('pricing_advisor') }}" class="mob-nav-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        AI Pricing Advisor
+      </a>
+      <div class="mob-nav-divider"></div>
+      <a href="{{ url_for('generate') }}" class="mob-nav-link accent">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        + New Proposal
+      </a>
+      <div class="mob-nav-divider"></div>
+      <div class="mob-nav-section">Account</div>
+      <a href="{{ url_for('profile') }}" class="mob-nav-link">Profile Settings</a>
+      {% if current_user.is_enterprise %}
+      <a href="{{ url_for('templates_library') }}" class="mob-nav-link">Templates Library</a>
+      <a href="{{ url_for('service_areas') }}" class="mob-nav-link">Service Areas</a>
+      {% endif %}
+      <a href="{{ url_for('pricing') }}" class="mob-nav-link">Plans & Billing</a>
+      <a href="{{ url_for('logout') }}" class="mob-nav-link danger">Sign Out</a>
+    {% else %}
+      <a href="{{ url_for('pricing') }}" class="mob-nav-link">Pricing</a>
+      <a href="{{ url_for('login') }}" class="mob-nav-link">Log in</a>
+      <a href="{{ url_for('register') }}" class="mob-nav-link accent">Start Free Trial</a>
+    {% endif %}
+  </div>
 
   <!-- Flash Messages -->
   {% with messages = get_flashed_messages(with_categories=true) %}
@@ -380,5 +528,23 @@
   </footer>
 
   {% block scripts %}{% endblock %}
+  <script>
+  function toggleMobileMenu() {
+    const menu = document.getElementById('mobile-menu');
+    const open = menu.classList.toggle('open');
+    document.getElementById('hamburger-icon').style.display = open ? 'none' : 'block';
+    document.getElementById('close-icon').style.display = open ? 'block' : 'none';
+    document.body.style.overflow = open ? 'hidden' : '';
+  }
+  // Close menu on link click
+  document.querySelectorAll('.mob-nav-link').forEach(el => {
+    el.addEventListener('click', () => {
+      document.getElementById('mobile-menu').classList.remove('open');
+      document.getElementById('hamburger-icon').style.display = 'block';
+      document.getElementById('close-icon').style.display = 'none';
+      document.body.style.overflow = '';
+    });
+  });
+  </script>
 </body>
 </html>

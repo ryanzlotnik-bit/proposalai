@@ -3,6 +3,12 @@
 
 {% block head %}
 <style>
+  @media (max-width:768px) {
+    .cal-wrap { display: none; }
+    .mob-schedule-list { display: block !important; }
+    .schedule-page-pad { padding: 20px 16px !important; }
+  }
+  .mob-schedule-list { display: none; }
   /* ── Modal ──────────────────────────────────────────────────────────────────── */
   .fin-modal-overlay {
     display: none; position: fixed; inset: 0;
@@ -175,7 +181,7 @@
 {% endblock %}
 
 {% block content %}
-<div style="max-width:1280px;margin:0 auto;padding:48px 24px;">
+<div style="max-width:1280px;margin:0 auto;padding:48px 24px;" class="schedule-page-pad">
 
   <!-- Header -->
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:36px;flex-wrap:wrap;gap:16px;">
@@ -213,6 +219,38 @@
       <div class="font-display" style="font-size:40px;color:var(--green);line-height:1;"><span style="font-size:28px;">$</span>{{ "{:,.0f}".format(upcoming|sum(attribute='estimated_revenue')) }}</div>
       <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">Est. Pipeline</div>
     </div>
+  </div>
+
+  <!-- Mobile list view (shown instead of calendar on small screens) -->
+  <div class="mob-schedule-list" style="margin-bottom:24px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">Upcoming Jobs</div>
+    {% if upcoming %}
+    <div style="border:1px solid var(--border);">
+      {% for j in upcoming %}
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start;{% if loop.last %}border-bottom:none;{% endif %}">
+        <div style="flex-shrink:0;min-width:48px;text-align:center;background:var(--surface-2);border:1px solid var(--border);padding:6px 4px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);">{{ j.scheduled_date.strftime('%b') }}</div>
+          <div style="font-family:'Bebas Neue',cursive;font-size:24px;color:var(--orange);line-height:1;">{{ j.scheduled_date.day }}</div>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:600;color:var(--text);">{{ j.client_name }}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">{{ j.job_type or 'Job' }}</div>
+          {% if j.estimated_revenue %}
+          <div style="font-size:13px;color:var(--green);font-weight:600;margin-top:4px;">${{ "{:,.0f}".format(j.estimated_revenue) }}</div>
+          {% endif %}
+        </div>
+        <form method="POST" action="{{ url_for('cancel_scheduled_job', sj_id=j.id) }}" onsubmit="return confirm('Cancel this job?');" style="flex-shrink:0;">
+          <button type="submit" style="background:none;border:none;color:var(--text-dim);font-size:11px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;cursor:pointer;padding:4px;">✕</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div style="padding:32px;text-align:center;border:1px solid var(--border);">
+      <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">No upcoming jobs.</p>
+      <button onclick="document.getElementById('scheduleModal').classList.add('active')" class="btn-orange" style="font-size:12px;padding:9px 18px;">+ Schedule Job</button>
+    </div>
+    {% endif %}
   </div>
 
   <!-- Calendar -->
