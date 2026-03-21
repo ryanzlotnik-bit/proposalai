@@ -2760,10 +2760,11 @@ def test_email():
     if not sender or sender == 'apikey':
         lines.append("ERROR: Set MAIL_DEFAULT_SENDER to your real email address (e.g. closethejobapp@gmail.com)")
     else:
-        lines.append(f"Sending test email to {sender} via SendGrid HTTP API...")
-        ok, err = send_email_sendgrid(sender, 'CloseTheJob Test', '<p>Email working!</p>')
+        to = request.args.get('to', sender)
+        lines.append(f"Sending test email to {to} via SendGrid HTTP API...")
+        ok, err = send_email_sendgrid(to, 'CloseTheJob Test', '<p>Email working!</p>')
         if ok:
-            lines.append(f"SUCCESS — check {sender} inbox")
+            lines.append(f"SUCCESS — check {to} inbox")
         else:
             lines.append(f"FAILED: {err}")
     return "<pre style='font-family:monospace;padding:40px;background:#111;color:#eee;min-height:100vh;'>" + "\n".join(lines) + "</pre>"
