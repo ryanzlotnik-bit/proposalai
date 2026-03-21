@@ -55,7 +55,7 @@ mail = Mail(app)
 
 stripe.api_key = ''.join(os.getenv('STRIPE_SECRET_KEY', '').split())
 
-TRIAL_PROPOSAL_LIMIT = 3
+TRIAL_DAYS = 30
 
 SPECIALTIES = {
     'HVAC': ['AC Installation', 'AC Repair', 'Furnace Installation', 'Furnace Repair', 'Duct Work'],
@@ -87,7 +87,8 @@ class User(db.Model, UserMixin):
     subscription_status = db.Column(db.String(50), default='trial')
     stripe_customer_id = db.Column(db.String(200), default='')
     stripe_subscription_id = db.Column(db.String(200), default='')
-    plan = db.Column(db.String(50), default='trial')  # trial, starter, pro
+    plan = db.Column(db.String(50), default='trial')  # trial, starter, pro, enterprise
+    trial_expires_at = db.Column(db.DateTime, nullable=True)
     specialty = db.Column(db.String(200), default='')   # comma-separated specialties
     onboarding_done = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -115,36 +116,49 @@ class User(db.Model, UserMixin):
         return len(self.proposals)
 
     @property
+    def trial_active(self):
+        return (self.plan == 'trial'
+                and self.trial_expires_at is not None
+                and datetime.utcnow() < self.trial_expires_at)
+
+    @property
+    def trial_days_left(self):
+        if not self.trial_active:
+            return 0
+        return max(0, (self.trial_expires_at - datetime.utcnow()).days)
+
+    @property
     def can_generate(self):
-        if self.plan in ('starter', 'pro'):
-            return True
-        return self.proposal_count < TRIAL_PROPOSAL_LIMIT
+        return self.plan in ('starter', 'pro', 'enterprise') or self.trial_active
 
     @property
     def is_subscribed(self):
-        return self.plan in ('starter', 'pro')
+        return self.plan in ('starter', 'pro', 'enterprise')
 
     @property
     def can_auto_invoice(self):
-        """Auto-invoicing is a Pro/Business feature."""
-        return self.plan in ('starter', 'pro')
+        return self.plan in ('starter', 'pro', 'enterprise') or self.trial_active
 
     @property
     def can_see_charts(self):
-        """Financial charts are a Pro/Business feature."""
-        return self.plan in ('starter', 'pro')
+        return self.plan in ('starter', 'pro', 'enterprise') or self.trial_active
 
     @property
     def plan_display(self):
-        return {'trial': 'Free', 'starter': 'Pro', 'pro': 'Business'}.get(self.plan, self.plan.capitalize())
+        return {'trial': 'Free Trial', 'starter': 'Pro', 'pro': 'Business',
+                'enterprise': 'Enterprise'}.get(self.plan, self.plan.capitalize())
 
     @property
     def can_use_branding(self):
-        return self.plan == 'pro'
+        return self.plan in ('pro', 'enterprise')
 
     @property
     def can_have_team(self):
-        return self.plan == 'pro'
+        return self.plan in ('pro', 'enterprise')
+
+    @property
+    def is_enterprise(self):
+        return self.plan == 'enterprise'
 
     @property
     def effective_brand_color(self):
@@ -1191,7 +1205,8 @@ def register():
 
         hashed = bcrypt.generate_password_hash(password).decode('utf-8')
         user = User(email=email, name=name, company_name=company,
-                    trade_type=trade, password=hashed)
+                    trade_type=trade, password=hashed,
+                    trial_expires_at=datetime.utcnow() + timedelta(days=TRIAL_DAYS))
         db.session.add(user)
         db.session.commit()
         login_user(user)
@@ -1208,7 +1223,7 @@ def onboarding():
         current_user.onboarding_done = True
         current_user.trade_type = selected[0] if selected else current_user.trade_type
         db.session.commit()
-        flash(f'Welcome, {current_user.name}! You have {TRIAL_PROPOSAL_LIMIT} free proposals.', 'success')
+        flash(f'Welcome, {current_user.name}! Your 30-day free trial is active — full access, no credit card needed.', 'success')
         return redirect(url_for('dashboard'))
     return render_template('onboarding.html', specialties=list(SPECIALTIES.keys()))
 
@@ -1427,7 +1442,7 @@ def generate():
     cost_templates = CostTemplate.query.filter_by(user_id=uid()).order_by(CostTemplate.created_at).all()
 
     if not current_user.can_generate:
-        flash('You\'ve used your 3 free proposals. Upgrade to Pro for unlimited proposals + auto-invoicing.', 'warning')
+        flash('Your free trial has expired. Choose a plan to keep generating proposals.', 'warning')
         return redirect(url_for('pricing'))
 
     if request.method == 'POST':
@@ -2316,8 +2331,12 @@ def invoice_success(token):
 @login_required
 def create_checkout_session():
     plan = request.form.get('plan', 'starter')
-    price_id = ''.join((os.getenv('STRIPE_STARTER_PRICE_ID') or '').split()) if plan == 'starter' \
-        else ''.join((os.getenv('STRIPE_PRO_PRICE_ID') or '').split())
+    price_map = {
+        'starter':    ''.join((os.getenv('STRIPE_STARTER_PRICE_ID') or '').split()),
+        'pro':        ''.join((os.getenv('STRIPE_PRO_PRICE_ID') or '').split()),
+        'enterprise': ''.join((os.getenv('STRIPE_ENTERPRISE_PRICE_ID') or '').split()),
+    }
+    price_id = price_map.get(plan, '')
 
     if not price_id:
         flash('Stripe is not yet configured. Add your Stripe keys to .env to enable billing.', 'warning')
@@ -2873,6 +2892,7 @@ with app.app_context():
         'ALTER TABLE proposal ADD COLUMN deposit_paid_at DATETIME',
         'ALTER TABLE proposal ADD COLUMN template_id INTEGER',
         'ALTER TABLE job ADD COLUMN completion_summary TEXT DEFAULT \'\'',
+        'ALTER TABLE "user" ADD COLUMN trial_expires_at DATETIME',
     ]
     for _sql in _migrations:
         try:

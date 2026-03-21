@@ -190,12 +190,13 @@
       <p style="color:var(--text-muted);font-size:12px;margin-top:8px;font-family:'JetBrains Mono',monospace;">
         {{ today.strftime('%A, %B %d').upper() }} ·
         {% if current_user.is_subscribed %}{{ current_user.plan_display.upper() }} PLAN
-        {% else %}FREE · {{ proposals|length }}/3 PROPOSALS USED{% endif %}
+        {% elif current_user.trial_active %}FREE TRIAL · {{ current_user.trial_days_left }} DAY{% if current_user.trial_days_left != 1 %}S{% endif %} LEFT
+        {% else %}TRIAL EXPIRED{% endif %}
       </p>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
       {% if not current_user.is_subscribed %}
-      <a href="{{ url_for('pricing') }}" style="font-size:11px;color:var(--orange);text-decoration:none;border:1px solid rgba(249,115,22,0.3);padding:8px 14px;font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;">UPGRADE →</a>
+      <a href="{{ url_for('pricing') }}" style="font-size:11px;color:var(--orange);text-decoration:none;border:1px solid rgba(249,115,22,0.3);padding:8px 14px;font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;">CHOOSE PLAN →</a>
       {% endif %}
       <a href="{{ url_for('generate') }}" class="btn-orange" style="padding:11px 22px;font-size:13px;">+ New Proposal</a>
     </div>
@@ -216,14 +217,22 @@
   </div>
   {% endif %}
 
-  <!-- Trial warning -->
-  {% if not current_user.is_subscribed and proposals|length >= 3 %}
+  <!-- Trial countdown banner -->
+  {% if current_user.trial_active and current_user.trial_days_left <= 7 %}
   <div style="background:rgba(249,115,22,0.06);border:1px solid rgba(249,115,22,0.25);border-left:3px solid var(--orange);padding:14px 20px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
     <div>
-      <p style="font-weight:600;color:var(--text);font-size:13px;">Free plan — 3 proposals used</p>
-      <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">Upgrade to Pro ($49/mo) for unlimited proposals, auto-invoicing, and financial charts.</p>
+      <p style="font-weight:600;color:var(--text);font-size:13px;">Your free trial ends in {{ current_user.trial_days_left }} day{% if current_user.trial_days_left != 1 %}s{% endif %}</p>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">Pick a plan to keep full access — Pro $49, Business $99, or Enterprise $299/mo.</p>
     </div>
-    <a href="{{ url_for('pricing') }}" class="btn-orange" style="padding:9px 18px;font-size:12px;">Upgrade Now</a>
+    <a href="{{ url_for('pricing') }}" class="btn-orange" style="padding:9px 18px;font-size:12px;">Choose a Plan</a>
+  </div>
+  {% elif not current_user.is_subscribed and not current_user.trial_active %}
+  <div style="background:rgba(248,113,113,0.06);border:1px solid rgba(248,113,113,0.25);border-left:3px solid var(--red);padding:14px 20px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;">
+    <div>
+      <p style="font-weight:600;color:var(--text);font-size:13px;">Your free trial has expired</p>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">Choose a plan to restore full access to proposals, invoicing, and all features.</p>
+    </div>
+    <a href="{{ url_for('pricing') }}" class="btn-orange" style="padding:9px 18px;font-size:12px;">Choose a Plan</a>
   </div>
   {% endif %}
 
