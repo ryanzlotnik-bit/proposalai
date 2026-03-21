@@ -111,6 +111,44 @@ def dev_auto_login():
 TRIAL_DAYS = 30
 
 
+def send_email_sendgrid(to_addr, subject, html_body, from_addr=None):
+    """Send an email via SendGrid HTTP API. Returns (True, None) on success or (False, error_string) on failure."""
+    api_key = os.getenv('SENDGRID_API_KEY', '')
+    # Fallback: if MAIL_PASSWORD looks like a SendGrid key, use it
+    if not api_key:
+        mail_pw = os.getenv('MAIL_PASSWORD', '')
+        if mail_pw.startswith('SG.'):
+            api_key = mail_pw
+    if not api_key:
+        return False, 'SENDGRID_API_KEY not set'
+    if not from_addr:
+        from_addr = os.getenv('MAIL_DEFAULT_SENDER', '') or os.getenv('MAIL_USERNAME', '')
+    if not from_addr:
+        return False, 'No from address configured (set MAIL_DEFAULT_SENDER or MAIL_USERNAME)'
+    payload = {
+        'personalizations': [{'to': [{'email': to_addr}]}],
+        'from': {'email': from_addr},
+        'subject': subject,
+        'content': [{'type': 'text/html', 'value': html_body}],
+    }
+    headers = {
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json',
+    }
+    try:
+        resp = http_requests.post(
+            'https://api.sendgrid.com/v3/mail/send',
+            json=payload,
+            headers=headers,
+            timeout=15,
+        )
+        if resp.status_code in (200, 202):
+            return True, None
+        return False, f'SendGrid HTTP {resp.status_code}: {resp.text[:300]}'
+    except Exception as e:
+        return False, f'{type(e).__name__}: {e}'
+
+
 def send_sms(to_number, body):
     """Send an SMS via Twilio in a background thread. No-op if Twilio not configured."""
     sid = os.getenv('TWILIO_ACCOUNT_SID', '')
@@ -895,14 +933,10 @@ def send_followup_reminder(proposal_id, user_id):
 </table></td></tr></table>
 </body></html>"""
 
-            try:
-                from flask_mail import Message as MailMessage
-                msg = MailMessage(subject=subject, recipients=[p.client_email], html=html_body)
-                mail.send(msg)
+            ok, _err = send_email_sendgrid(p.client_email, subject, html_body)
+            if ok:
                 p.reminder_sent_at = datetime.utcnow()
                 db.session.commit()
-            except Exception:
-                pass
 
     threading.Thread(target=do_send, daemon=True).start()
 
@@ -964,14 +998,10 @@ def send_payment_reminder(job_id, user_id):
 </td></tr>
 </table></td></tr></table>
 </body></html>"""
-            try:
-                from flask_mail import Message as MailMessage
-                msg = MailMessage(subject=subject, recipients=[j.client_email], html=html)
-                mail.send(msg)
+            ok, _err = send_email_sendgrid(j.client_email, subject, html)
+            if ok:
                 j.payment_reminder_sent_at = datetime.utcnow()
                 db.session.commit()
-            except Exception:
-                pass
 
     threading.Thread(target=do_send, daemon=True).start()
 
@@ -1031,14 +1061,10 @@ def send_review_request(job_id, user_id):
 </td></tr>
 </table></td></tr></table>
 </body></html>"""
-            try:
-                from flask_mail import Message as MailMessage
-                msg = MailMessage(subject=subject, recipients=[j.client_email], html=html)
-                mail.send(msg)
+            ok, _err = send_email_sendgrid(j.client_email, subject, html)
+            if ok:
                 j.review_sent_at = datetime.utcnow()
                 db.session.commit()
-            except Exception:
-                pass
 
     threading.Thread(target=do_send, daemon=True).start()
 
@@ -1293,16 +1319,11 @@ def send_invoice_email(job, user):
             subject = f"Invoice {invoice_num} — {company}"
 
             # 1) Send to client
-            try:
-                flask_msg = Message(subject=subject, recipients=[j.client_email], html=html_body)
-                if pdf_bytes:
-                    flask_msg.attach(f"{invoice_num}.pdf", 'application/pdf', pdf_bytes)
-                mail.send(flask_msg)
+            ok, _err = send_email_sendgrid(j.client_email, subject, html_body)
+            if ok:
                 j.invoice_sent = True
                 j.invoice_sent_at = datetime.utcnow()
                 db.session.commit()
-            except Exception:
-                pass
 
             # 2) Save to Gmail Drafts via IMAP
             if pdf_bytes and username and password and 'gmail' in username.lower():
@@ -2064,11 +2085,7 @@ def public_proposal_respond(token):
 for <strong>${p.grand_total:,.2f}</strong>.</p>
 {'<p>Time to get to work!</p>' if action == 'accepted' else '<p>Consider following up to address any concerns.</p>'}
 <p style="color:#888;font-size:12px;">— CloseTheJob</p>"""
-                try:
-                    msg = Message(subject=subject, recipients=[u.email], html=body)
-                    mail.send(msg)
-                except Exception:
-                    pass
+                send_email_sendgrid(u.email, subject, body)
             # SMS
             if u.phone:
                 sms_verb = 'accepted' if action == 'accepted' else 'declined'
@@ -2544,13 +2561,11 @@ def booking_submit(slug):
                 r = JobRequest.query.get(jr.id)
                 if not u or not r:
                     return
-                try:
-                    from flask_mail import Message as MailMessage
-                    base_url = os.getenv('APP_URL', '').rstrip('/')
-                    msg = MailMessage(
-                        subject=f"New job request from {r.client_name}",
-                        recipients=[u.email],
-                        html=f"""<p>You have a new job request from your booking page.</p>
+                base_url = os.getenv('APP_URL', '').rstrip('/')
+                send_email_sendgrid(
+                    u.email,
+                    f"New job request from {r.client_name}",
+                    f"""<p>You have a new job request from your booking page.</p>
 <table style="border-collapse:collapse;width:100%;max-width:500px;">
 <tr><td style="padding:8px;border:1px solid #eee;font-weight:600;">Name</td><td style="padding:8px;border:1px solid #eee;">{r.client_name}</td></tr>
 <tr><td style="padding:8px;border:1px solid #eee;font-weight:600;">Email</td><td style="padding:8px;border:1px solid #eee;">{r.client_email or '—'}</td></tr>
@@ -2559,11 +2574,8 @@ def booking_submit(slug):
 <tr><td style="padding:8px;border:1px solid #eee;font-weight:600;">Description</td><td style="padding:8px;border:1px solid #eee;">{r.description or '—'}</td></tr>
 <tr><td style="padding:8px;border:1px solid #eee;font-weight:600;">Preferred Date</td><td style="padding:8px;border:1px solid #eee;">{r.preferred_date or '—'}</td></tr>
 </table>
-<p><a href="{base_url}/job-requests" style="background:#F97316;color:#fff;padding:10px 20px;text-decoration:none;font-weight:700;">View in Dashboard →</a></p>"""
-                    )
-                    mail.send(msg)
-                except Exception:
-                    pass
+<p><a href="{base_url}/job-requests" style="background:#F97316;color:#fff;padding:10px 20px;text-decoration:none;font-weight:700;">View in Dashboard →</a></p>""",
+                )
         threading.Thread(target=notify, daemon=True).start()
     return render_template('booking_thanks.html', contractor=user)
 
@@ -2729,39 +2741,28 @@ def subscription_success():
 
 @app.route('/test-email')
 def test_email():
-    """Actually attempt SMTP send and show exact error."""
-    import smtplib, ssl
+    """Test SendGrid HTTP API email sending and show result."""
     username = os.getenv('MAIL_USERNAME', '')
-    password = os.getenv('MAIL_PASSWORD', '')
+    api_key = os.getenv('SENDGRID_API_KEY', '')
+    mail_pw = os.getenv('MAIL_PASSWORD', '')
     lines = []
     lines.append(f"MAIL_USERNAME: {username or 'NOT SET'}")
-    lines.append(f"MAIL_PASSWORD length: {len(password)} chars")
-    lines.append("")
-    if not username or not password:
-        lines.append("ERROR: MAIL_USERNAME or MAIL_PASSWORD not set in Railway Variables")
+    if api_key:
+        lines.append(f"SENDGRID_API_KEY: {api_key[:10]}...")
+    elif mail_pw.startswith('SG.'):
+        lines.append(f"SENDGRID_API_KEY: (using MAIL_PASSWORD) {mail_pw[:10]}...")
     else:
-        # Test SMTP
-        mail_server = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
-        mail_port = int(os.getenv('MAIL_PORT', 587))
-        lines.append(f"Testing SMTP connection to {mail_server}:{mail_port}...")
-        try:
-            ctx = ssl.create_default_context()
-            with smtplib.SMTP(mail_server, mail_port, timeout=15) as s:
-                s.ehlo()
-                s.starttls(context=ctx)
-                s.ehlo()
-                s.login(username, password)
-                lines.append("SMTP LOGIN: OK")
-                # Send a real test email
-                from email.mime.text import MIMEText
-                msg = MIMEText("This is a test from CloseTheJob.")
-                msg['Subject'] = 'CloseTheJob SMTP Test'
-                msg['From'] = username
-                msg['To'] = username
-                s.sendmail(username, [username], msg.as_string())
-                lines.append(f"SEND: OK — check {username} inbox")
-        except Exception as e:
-            lines.append(f"SMTP ERROR: {type(e).__name__}: {e}")
+        lines.append("SENDGRID_API_KEY: NOT SET (and MAIL_PASSWORD does not start with SG.)")
+    lines.append("")
+    if not username:
+        lines.append("ERROR: MAIL_USERNAME not set — needed as From address")
+    else:
+        lines.append(f"Sending test email to {username} via SendGrid HTTP API...")
+        ok, err = send_email_sendgrid(username, 'CloseTheJob Test', '<p>Email working!</p>')
+        if ok:
+            lines.append(f"SUCCESS — check {username} inbox")
+        else:
+            lines.append(f"FAILED: {err}")
     return "<pre style='font-family:monospace;padding:40px;background:#111;color:#eee;min-height:100vh;'>" + "\n".join(lines) + "</pre>"
 
 
@@ -3311,19 +3312,16 @@ def lead_send_email(lead_id):
             u = User.query.get(user_id)
             if not u:
                 return
-            try:
-                html_body = body.replace('\n', '<br>')
-                track_url = url_for('track_email_open', token=track_token, _external=True)
-                pixel = f'<img src="{track_url}" width="1" height="1" style="display:none;" alt="">'
-                msg = Message(
-                    subject=subject,
-                    recipients=[to_email],
-                    html=f"<p>{html_body}</p><p style='color:#888;font-size:12px;'>— {u.name}, {u.company_name or ''}</p>{pixel}",
-                    sender=(u.name, u.email) if u.email else None,
-                )
-                mail.send(msg)
-            except Exception:
-                pass
+            html_body = body.replace('\n', '<br>')
+            track_url = url_for('track_email_open', token=track_token, _external=True)
+            pixel = f'<img src="{track_url}" width="1" height="1" style="display:none;" alt="">'
+            from_addr = u.email if u.email else None
+            send_email_sendgrid(
+                to_email,
+                subject,
+                f"<p>{html_body}</p><p style='color:#888;font-size:12px;'>— {u.name}, {u.company_name or ''}</p>{pixel}",
+                from_addr=from_addr,
+            )
     threading.Thread(target=do_send, daemon=True).start()
     flash(f'Email sent to {to_email} and logged.', 'success')
     return redirect(url_for('lead_detail', lead_id=lead_id))
@@ -3534,19 +3532,16 @@ def crm_email_send():
             u = User.query.get(user_id)
             if not u:
                 return
-            try:
-                track_url = url_for('track_email_open', token=track_token, _external=True)
-                pixel = f'<img src="{track_url}" width="1" height="1" style="display:none;" alt="">'
-                html_body = body.replace('\n', '<br>')
-                msg = Message(
-                    subject=subject,
-                    recipients=[to_addr],
-                    html=f"<p>{html_body}</p>{pixel}",
-                    sender=(u.name, u.email) if u.email else None,
-                )
-                mail.send(msg)
-            except Exception:
-                pass
+            track_url = url_for('track_email_open', token=track_token, _external=True)
+            pixel = f'<img src="{track_url}" width="1" height="1" style="display:none;" alt="">'
+            html_body = body.replace('\n', '<br>')
+            from_addr = u.email if u.email else None
+            send_email_sendgrid(
+                to_addr,
+                subject,
+                f"<p>{html_body}</p>{pixel}",
+                from_addr=from_addr,
+            )
     threading.Thread(target=do_send, daemon=True).start()
     return jsonify({'ok': True})
 
@@ -3700,19 +3695,14 @@ def team_invite():
         owner = get_owner_user()
         base_url = os.getenv('APP_URL', '').rstrip('/')
         join_url = f"{base_url}/team/join/{token}"
-        try:
-            from flask_mail import Message as MailMessage
-            msg = MailMessage(
-                subject=f"{owner.name} invited you to join CloseTheJob",
-                recipients=[email],
-                html=f"""<p>Hi,</p>
+        send_email_sendgrid(
+            email,
+            f"{owner.name} invited you to join CloseTheJob",
+            f"""<p>Hi,</p>
 <p><strong>{owner.name}</strong> ({owner.company_name or ''}) has invited you to join their CloseTheJob account as a team member.</p>
 <p><a href="{join_url}" style="display:inline-block;background:#F97316;color:#fff;padding:12px 24px;text-decoration:none;font-weight:700;">Accept Invitation →</a></p>
-<p style="font-size:12px;color:#888;">Or copy this link: {join_url}</p>"""
-            )
-            mail.send(msg)
-        except Exception:
-            pass
+<p style="font-size:12px;color:#888;">Or copy this link: {join_url}</p>""",
+        )
     flash(f'Invite sent to {email}.', 'success')
     return redirect(url_for('team'))
 
