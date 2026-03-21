@@ -72,11 +72,20 @@ def dev_check():
 # ─── Dev auto-login (set DEV_AUTO_LOGIN=1 in .env to bypass login during testing) ─
 @app.before_request
 def dev_auto_login():
-    if os.getenv('DEV_AUTO_LOGIN') == '1':
-        if not current_user.is_authenticated:
-            u = User.query.first()
-            if u:
-                login_user(u, remember=True)
+    if os.getenv('DEV_AUTO_LOGIN') != '1':
+        return
+    if current_user.is_authenticated:
+        return
+    # Skip static files
+    if request.endpoint == 'static':
+        return
+    dev_email = os.getenv('DEV_AUTO_LOGIN_EMAIL', '')
+    if dev_email:
+        u = User.query.filter_by(email=dev_email).first()
+    else:
+        u = User.query.first()
+    if u:
+        login_user(u, remember=True)
 
 TRIAL_DAYS = 30
 
