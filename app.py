@@ -3308,25 +3308,19 @@ def lead_send_email(lead_id):
     db.session.add(act)
     lead.last_contacted_at = datetime.utcnow()
     db.session.commit()
-    act_id = act.id
-    # Build track URL while still in request context
+    # Send synchronously (fast HTTP call, no need for thread)
     track_url = url_for('track_email_open', token=track_token, _external=True)
-    # Send in background thread
-    user_id = uid()
-    def do_send():
-        with app.app_context():
-            u = User.query.get(user_id)
-            if not u:
-                return
-            html_body = body.replace('\n', '<br>')
-            pixel = f'<img src="{track_url}" width="1" height="1" style="display:none;" alt="">'
-            send_email_sendgrid(
-                to_email,
-                subject,
-                f"<p>{html_body}</p><p style='color:#888;font-size:12px;'>— {u.name}, {u.company_name or ''}</p>{pixel}",
-            )
-    threading.Thread(target=do_send, daemon=True).start()
-    flash(f'Email sent to {to_email} and logged.', 'success')
+    pixel = f'<img src="{track_url}" width="1" height="1" style="display:none;" alt="">'
+    html_body = body.replace('\n', '<br>')
+    ok, err = send_email_sendgrid(
+        to_email,
+        subject,
+        f"<p>{html_body}</p><p style='color:#888;font-size:12px;'>— {current_user.name}, {current_user.company_name or ''}</p>{pixel}",
+    )
+    if ok:
+        flash(f'Email sent to {to_email}.', 'success')
+    else:
+        flash(f'Email failed: {err}', 'error')
     return redirect(url_for('lead_detail', lead_id=lead_id))
 
 
