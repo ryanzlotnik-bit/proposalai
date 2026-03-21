@@ -413,6 +413,7 @@
           {% if current_user.is_enterprise %}<a href="{{ url_for('analytics') }}" class="nav-link" style="color:var(--blue);">Analytics</a>{% endif %}
           <a href="{{ url_for('clients') }}" class="nav-link">Clients</a>
           <a href="{{ url_for('leads') }}" class="nav-link">Leads</a>
+          <a href="{{ url_for('crm_email_inbox') }}" class="nav-link">Inbox</a>
           <a href="{{ url_for('pricing_advisor') }}" class="nav-link">Pricing</a>
           <a href="{{ url_for('generate') }}" class="btn-orange">+ New Proposal</a>
           <div class="nav-dropdown">
@@ -479,6 +480,10 @@
       <a href="{{ url_for('leads') }}" class="mob-nav-link">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3m-3.2-6.8-2.1 2.1M7.3 16.7l-2.1 2.1M4.8 5.2l2.1 2.1M16.7 16.7l2.1 2.1"/></svg>
         Leads &amp; Sales
+      </a>
+      <a href="{{ url_for('crm_email_inbox') }}" class="mob-nav-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        Inbox
       </a>
       <a href="{{ url_for('pricing_advisor') }}" class="mob-nav-link">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>

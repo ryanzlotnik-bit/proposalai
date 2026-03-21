@@ -439,6 +439,32 @@
     </div>
 
   </div><!-- /ld-cols -->
+
+  <!-- Linked Emails -->
+  {% if linked_emails %}
+  <div style="margin-top:32px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">// Linked Emails ({{ linked_emails|length }})</div>
+    <table style="width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);">
+      <thead>
+        <tr>
+          <th style="font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);background:var(--surface);">From</th>
+          <th style="font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);background:var(--surface);">Subject</th>
+          <th style="font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;font-family:'JetBrains Mono',monospace;padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);background:var(--surface);">Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for le in linked_emails %}
+        <tr>
+          <td style="padding:12px 14px;font-size:13px;color:var(--text);border-bottom:1px solid var(--border);">{{ le.from_addr or le.to_addr or '—' }}</td>
+          <td style="padding:12px 14px;font-size:13px;color:var(--text-muted);border-bottom:1px solid var(--border);">{{ le.subject or '(no subject)' }}</td>
+          <td style="padding:12px 14px;font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;border-bottom:1px solid var(--border);white-space:nowrap;">{{ le.linked_at.strftime('%b %d, %Y') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
 </div><!-- /ld-page -->
 
 <!-- ── ADD CONTACT MODAL ── -->

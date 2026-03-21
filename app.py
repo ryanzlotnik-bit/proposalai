@@ -61,6 +61,17 @@ mail = Mail(app)
 
 stripe.api_key = ''.join(os.getenv('STRIPE_SECRET_KEY', '').split())
 
+# ─── Dev auto-login (set DEV_AUTO_LOGIN=1 in .env to bypass login during testing) ─
+@app.before_request
+def dev_auto_login():
+    if os.getenv('DEV_AUTO_LOGIN') == '1':
+        from flask_login import current_user as cu
+        if not cu.is_authenticated:
+            with app.app_context():
+                u = User.query.first()
+                if u:
+                    login_user(u, remember=True)
+
 TRIAL_DAYS = 30
 
 
@@ -86,6 +97,85 @@ def send_sms(to_number, body):
             pass
 
     threading.Thread(target=_send, daemon=True).start()
+
+
+def _imap_connect():
+    """Open an IMAP4_SSL connection to Gmail. Returns None if not configured."""
+    user = os.getenv('MAIL_USERNAME', '')
+    pw = os.getenv('MAIL_PASSWORD', '')
+    if not user or not pw:
+        return None
+    try:
+        M = imaplib.IMAP4_SSL('imap.gmail.com', 993)
+        M.login(user, pw)
+        return M
+    except Exception:
+        return None
+
+
+def _decode_header(h):
+    """Decode an email header value to a plain string."""
+    if not h:
+        return ''
+    parts = email_lib.header.decode_header(h)
+    decoded = []
+    for part, enc in parts:
+        if isinstance(part, bytes):
+            decoded.append(part.decode(enc or 'utf-8', errors='replace'))
+        else:
+            decoded.append(str(part))
+    return ' '.join(decoded)
+
+
+def _get_body(msg):
+    """Extract plain-text body from an email.message.Message object."""
+    body = ''
+    if msg.is_multipart():
+        for part in msg.walk():
+            ct = part.get_content_type()
+            cd = str(part.get('Content-Disposition', ''))
+            if ct == 'text/plain' and 'attachment' not in cd:
+                payload = part.get_payload(decode=True)
+                if payload:
+                    charset = part.get_content_charset() or 'utf-8'
+                    body = payload.decode(charset, errors='replace')
+                    break
+        if not body:  # fall back to html
+            for part in msg.walk():
+                if part.get_content_type() == 'text/html':
+                    payload = part.get_payload(decode=True)
+                    if payload:
+                        charset = part.get_content_charset() or 'utf-8'
+                        body = payload.decode(charset, errors='replace')
+                        break
+    else:
+        payload = msg.get_payload(decode=True)
+        if payload:
+            charset = msg.get_content_charset() or 'utf-8'
+            body = payload.decode(charset, errors='replace')
+    return body
+
+
+def _parse_imap_msg(raw_msg, uid):
+    """Parse a raw IMAP message bytes into a dict."""
+    msg = email_lib.message_from_bytes(raw_msg)
+    subject = _decode_header(msg.get('Subject', '(no subject)'))
+    from_addr = _decode_header(msg.get('From', ''))
+    to_addr = _decode_header(msg.get('To', ''))
+    date_str = msg.get('Date', '')
+    message_id = msg.get('Message-ID', '')
+    body = _get_body(msg)
+    uid_str = uid.decode() if isinstance(uid, bytes) else str(uid)
+    return {
+        'uid': uid_str,
+        'subject': subject,
+        'from': from_addr,
+        'to': to_addr,
+        'date': date_str,
+        'message_id': message_id,
+        'body': body,
+        'preview': body[:200].replace('\n', ' ').replace('\r', ''),
+    }
 
 
 SPECIALTIES = {
@@ -466,6 +556,21 @@ class LeadActivity(db.Model):
     email_token = db.Column(db.String(64), unique=True, nullable=True)
     opened_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class LinkedEmail(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    lead_id = db.Column(db.Integer, db.ForeignKey('lead.id'), nullable=True)
+    contact_id = db.Column(db.Integer, db.ForeignKey('lead_contact.id'), nullable=True)
+    message_uid = db.Column(db.String(200), default='')
+    folder = db.Column(db.String(200), default='INBOX')
+    subject = db.Column(db.String(500), default='')
+    from_addr = db.Column(db.String(500), default='')
+    to_addr = db.Column(db.String(500), default='')
+    date_str = db.Column(db.String(100), default='')
+    body_preview = db.Column(db.Text, default='')
+    linked_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class CRMEmailTemplate(db.Model):
@@ -3017,8 +3122,9 @@ def lead_detail(lead_id):
     contacts = LeadContact.query.filter_by(lead_id=lead_id).order_by(LeadContact.created_at).all()
     activities = LeadActivity.query.filter_by(lead_id=lead_id).order_by(LeadActivity.created_at.desc()).all()
     email_templates = CRMEmailTemplate.query.filter_by(user_id=uid()).order_by(CRMEmailTemplate.name).all()
+    linked_emails = LinkedEmail.query.filter_by(user_id=uid(), lead_id=lead_id).order_by(LinkedEmail.linked_at.desc()).all()
     return render_template('lead_detail.html', lead=lead, contacts=contacts, activities=activities,
-                           stages=LEAD_STAGES, email_templates=email_templates)
+                           stages=LEAD_STAGES, email_templates=email_templates, linked_emails=linked_emails)
 
 # Add contact to company
 @app.route('/leads/<int:lead_id>/contacts/add', methods=['POST'])
@@ -3229,6 +3335,225 @@ def delete_crm_email_template(tmpl_id):
     db.session.delete(t)
     db.session.commit()
     return jsonify({'ok': True})
+
+
+# ─── CRM Email Client ───────────────────────────────────────────────────────────
+
+@app.route('/crm/email')
+@login_required
+def crm_email_inbox():
+    leads = Lead.query.filter_by(user_id=uid()).order_by(Lead.company).all()
+    contacts = LeadContact.query.filter_by(user_id=uid()).order_by(LeadContact.last_name).all()
+    linked = LinkedEmail.query.filter_by(user_id=uid()).order_by(LinkedEmail.linked_at.desc()).limit(200).all()
+    mail_configured = bool(os.getenv('MAIL_USERNAME') and os.getenv('MAIL_PASSWORD'))
+    return render_template('crm_email.html', leads=leads, contacts=contacts,
+                           linked=linked, mail_configured=mail_configured,
+                           my_email=os.getenv('MAIL_USERNAME', ''))
+
+
+@app.route('/crm/email/messages')
+@login_required
+def crm_email_messages():
+    """AJAX: fetch message list from IMAP."""
+    folder = request.args.get('folder', 'INBOX')
+    limit = int(request.args.get('limit', 40))
+    M = _imap_connect()
+    if not M:
+        return jsonify({'error': 'Email not configured. Set MAIL_USERNAME and MAIL_PASSWORD.', 'messages': []})
+    try:
+        folder_map = {
+            'INBOX': 'INBOX',
+            'SENT': '[Gmail]/Sent Mail',
+            'STARRED': '[Gmail]/Starred',
+            'ARCHIVE': '[Gmail]/All Mail',
+            'TRASH': '[Gmail]/Trash',
+        }
+        imap_folder = folder_map.get(folder.upper(), folder)
+        status, _ = M.select(f'"{imap_folder}"')
+        if status != 'OK':
+            M.select('INBOX')
+        _, data = M.search(None, 'ALL')
+        ids = data[0].split()
+        ids = list(reversed(ids))[:limit]
+        messages = []
+        for msg_uid in ids:
+            _, msg_data = M.fetch(msg_uid, '(RFC822)')
+            if msg_data and msg_data[0]:
+                raw = msg_data[0][1] if isinstance(msg_data[0], tuple) else msg_data[0]
+                if isinstance(raw, bytes):
+                    parsed = _parse_imap_msg(raw, msg_uid)
+                    messages.append(parsed)
+        M.logout()
+        return jsonify({'messages': messages})
+    except Exception as e:
+        try:
+            M.logout()
+        except Exception:
+            pass
+        return jsonify({'error': str(e), 'messages': []})
+
+
+@app.route('/crm/email/message/<msg_uid>')
+@login_required
+def crm_email_message(msg_uid):
+    """AJAX: fetch a single full message."""
+    folder = request.args.get('folder', 'INBOX')
+    M = _imap_connect()
+    if not M:
+        return jsonify({'error': 'Email not configured'})
+    try:
+        folder_map = {
+            'INBOX': 'INBOX',
+            'SENT': '[Gmail]/Sent Mail',
+            'STARRED': '[Gmail]/Starred',
+            'ARCHIVE': '[Gmail]/All Mail',
+            'TRASH': '[Gmail]/Trash',
+        }
+        imap_folder = folder_map.get(folder.upper(), folder)
+        M.select(f'"{imap_folder}"')
+        _, msg_data = M.fetch(msg_uid.encode(), '(RFC822)')
+        M.logout()
+        if not msg_data or not msg_data[0]:
+            return jsonify({'error': 'Message not found'})
+        raw = msg_data[0][1] if isinstance(msg_data[0], tuple) else msg_data[0]
+        parsed = _parse_imap_msg(raw, msg_uid.encode())
+        # Auto-detect linked lead/contact
+        from_email = parsed['from']
+        import re as _re
+        email_match = _re.search(r'<([^>]+)>', from_email)
+        plain_email = email_match.group(1) if email_match else from_email.strip()
+        linked_contact = LeadContact.query.filter(
+            LeadContact.user_id == uid(),
+            db.or_(LeadContact.email == plain_email, LeadContact.email2 == plain_email)
+        ).first() if plain_email else None
+        linked_lead = Lead.query.filter(
+            Lead.user_id == uid(),
+            Lead.email == plain_email
+        ).first() if plain_email and not linked_contact else None
+        if linked_contact:
+            linked_lead = Lead.query.get(linked_contact.lead_id)
+        parsed['linked_contact_id'] = linked_contact.id if linked_contact else None
+        parsed['linked_lead_id'] = linked_lead.id if linked_lead else None
+        parsed['linked_lead_name'] = (linked_lead.company or linked_lead.contact) if linked_lead else None
+        parsed['linked_contact_name'] = linked_contact.full_name if linked_contact else None
+        return jsonify(parsed)
+    except Exception as e:
+        try:
+            M.logout()
+        except Exception:
+            pass
+        return jsonify({'error': str(e)})
+
+
+@app.route('/crm/email/send', methods=['POST'])
+@login_required
+def crm_email_send():
+    """Send an email from the CRM and optionally link it to a lead/contact."""
+    to_addr = request.form.get('to', '').strip()
+    subject = request.form.get('subject', '').strip()
+    body = request.form.get('body', '').strip()
+    lead_id = request.form.get('lead_id') or None
+    contact_id = request.form.get('contact_id') or None
+    if not to_addr or not subject or not body:
+        return jsonify({'error': 'To, subject and body are required'}), 400
+    if lead_id:
+        lead_id = int(lead_id)
+    if contact_id:
+        contact_id = int(contact_id)
+    track_token = secrets.token_urlsafe(20)
+    le = LinkedEmail(
+        user_id=uid(),
+        lead_id=lead_id,
+        contact_id=contact_id,
+        subject=subject,
+        from_addr=os.getenv('MAIL_USERNAME', ''),
+        to_addr=to_addr,
+        date_str=datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S +0000'),
+        body_preview=body[:500],
+    )
+    db.session.add(le)
+    if lead_id:
+        act = LeadActivity(
+            lead_id=lead_id,
+            user_id=uid(),
+            activity_type='email',
+            body=f"To: {to_addr}\nSubject: {subject}\n\n{body}",
+            contact_id=contact_id,
+            email_token=track_token,
+        )
+        db.session.add(act)
+        lead = Lead.query.get(lead_id)
+        if lead:
+            lead.last_contacted_at = datetime.utcnow()
+    db.session.commit()
+    user_id = uid()
+    def do_send():
+        with app.app_context():
+            u = User.query.get(user_id)
+            if not u:
+                return
+            try:
+                track_url = url_for('track_email_open', token=track_token, _external=True)
+                pixel = f'<img src="{track_url}" width="1" height="1" style="display:none;" alt="">'
+                html_body = body.replace('\n', '<br>')
+                msg = Message(
+                    subject=subject,
+                    recipients=[to_addr],
+                    html=f"<p>{html_body}</p>{pixel}",
+                    sender=(u.name, u.email) if u.email else None,
+                )
+                mail.send(msg)
+            except Exception:
+                pass
+    threading.Thread(target=do_send, daemon=True).start()
+    return jsonify({'ok': True})
+
+
+@app.route('/crm/email/link', methods=['POST'])
+@login_required
+def crm_email_link():
+    """Link an inbound email (by UID) to a lead/contact and save it."""
+    lead_id = request.form.get('lead_id') or None
+    contact_id = request.form.get('contact_id') or None
+    subject = request.form.get('subject', '')
+    from_addr = request.form.get('from_addr', '')
+    to_addr = request.form.get('to_addr', '')
+    date_str = request.form.get('date_str', '')
+    body_preview = request.form.get('body_preview', '')
+    message_uid = request.form.get('message_uid', '')
+    folder = request.form.get('folder', 'INBOX')
+    if lead_id:
+        lead_id = int(lead_id)
+    if contact_id:
+        contact_id = int(contact_id)
+    le = LinkedEmail(
+        user_id=uid(),
+        lead_id=lead_id,
+        contact_id=contact_id,
+        message_uid=message_uid,
+        folder=folder,
+        subject=subject,
+        from_addr=from_addr,
+        to_addr=to_addr,
+        date_str=date_str,
+        body_preview=body_preview,
+    )
+    db.session.add(le)
+    if lead_id:
+        act = LeadActivity(
+            lead_id=lead_id,
+            user_id=uid(),
+            activity_type='email',
+            body=f"From: {from_addr}\nSubject: {subject}\n\n{body_preview}",
+            contact_id=contact_id,
+        )
+        db.session.add(act)
+        lead = Lead.query.get(lead_id)
+        if lead:
+            lead.last_contacted_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'ok': True})
+
 
 # CSV import page
 @app.route('/leads/import', methods=['GET', 'POST'])
@@ -3878,6 +4203,7 @@ with app.app_context():
         'ALTER TABLE lead_contact ADD COLUMN email2 VARCHAR(200) DEFAULT \'\'',
         'ALTER TABLE lead_contact ADD COLUMN birthday VARCHAR(30) DEFAULT \'\'',
         'ALTER TABLE lead_contact ADD COLUMN address VARCHAR(500) DEFAULT \'\'',
+        # LinkedEmail is a new table — db.create_all() handles it
     ]
     for _sql in _migrations:
         try:

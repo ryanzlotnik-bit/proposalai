@@ -207,6 +207,7 @@
       <button class="tab-btn active" onclick="switchTab('jobs', this)">Closed Jobs ({{ jobs|length }})</button>
       <button class="tab-btn" onclick="switchTab('expenses', this)">Expenses ({{ expenses|length }})</button>
       <button class="tab-btn" onclick="switchTab('tips', this)">Tips ({{ tips|length }})</button>
+      <button class="tab-btn" onclick="switchTab('all-logs', this)">All Logs ({{ jobs|length + expenses|length + tips|length }})</button>
     </div>
 
     <!-- Jobs Tab -->
@@ -354,6 +355,83 @@
       {% else %}
       <table class="data-table"><tbody><tr class="empty-row"><td colspan="5">No tips recorded yet — click <strong>+ TIP</strong> to add one.</td></tr></tbody></table>
       {% endif %}
+    </div>
+
+    <!-- All Logs Tab -->
+    <div id="tab-all-logs" class="tab-panel">
+      <!-- Filter controls -->
+      <div style="padding:16px 20px;background:var(--surface-2);border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Type:</span>
+          <select id="log-type-filter" onchange="filterLogs()" class="ctj-input" style="padding:5px 10px;font-size:12px;height:auto;">
+            <option value="">All</option>
+            <option value="revenue">Revenue</option>
+            <option value="expense">Expense</option>
+            <option value="tip">Tip</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">From:</span>
+          <input type="date" id="log-from" onchange="filterLogs()" class="ctj-input" style="padding:5px 10px;font-size:12px;height:auto;">
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">To:</span>
+          <input type="date" id="log-to" onchange="filterLogs()" class="ctj-input" style="padding:5px 10px;font-size:12px;height:auto;">
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Sort:</span>
+          <select id="log-sort" onchange="filterLogs()" class="ctj-input" style="padding:5px 10px;font-size:12px;height:auto;">
+            <option value="date-desc">Date ↓ (newest)</option>
+            <option value="date-asc">Date ↑ (oldest)</option>
+            <option value="amount-desc">Amount ↓ (largest)</option>
+            <option value="amount-asc">Amount ↑ (smallest)</option>
+          </select>
+        </div>
+        <button onclick="clearLogFilters()" class="btn-ghost" style="font-size:11px;font-family:'JetBrains Mono',monospace;letter-spacing:0.05em;padding:5px 12px;">Clear Filters</button>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Client / Vendor</th>
+            <th>Description / Category</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody id="all-logs-tbody">
+          {% for job in jobs %}
+          <tr data-type="revenue" data-date="{{ job.completed_date.strftime('%Y-%m-%d') }}" data-amount="{{ '{:.2f}'.format(job.revenue) }}">
+            <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);">{{ job.completed_date.strftime('%b %d, %Y') }}</td>
+            <td><span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:2px 8px;background:rgba(74,222,128,0.12);color:var(--green);border:1px solid rgba(74,222,128,0.25);">Revenue</span></td>
+            <td style="font-weight:500;">{{ job.client_name }}</td>
+            <td style="color:var(--text-muted);">{{ job.job_type or '—' }}</td>
+            <td style="font-weight:700;color:var(--green);">+${{ '{:,.2f}'.format(job.revenue) }}</td>
+          </tr>
+          {% endfor %}
+          {% for e in expenses %}
+          <tr data-type="expense" data-date="{{ e.date.strftime('%Y-%m-%d') }}" data-amount="{{ '{:.2f}'.format(e.amount) }}">
+            <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);">{{ e.date.strftime('%b %d, %Y') }}</td>
+            <td><span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:2px 8px;background:rgba(248,113,113,0.12);color:var(--red);border:1px solid rgba(248,113,113,0.25);">Expense</span></td>
+            <td style="color:var(--text-muted);">{{ e.job.client_name if e.job else e.description }}</td>
+            <td style="color:var(--text-muted);">{{ e.category }}</td>
+            <td style="font-weight:700;color:var(--red);">−${{ '{:,.2f}'.format(e.amount) }}</td>
+          </tr>
+          {% endfor %}
+          {% for t in tips %}
+          <tr data-type="tip" data-date="{{ t.date.strftime('%Y-%m-%d') }}" data-amount="{{ '{:.2f}'.format(t.amount) }}">
+            <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);">{{ t.date.strftime('%b %d, %Y') }}</td>
+            <td><span style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;padding:2px 8px;background:rgba(96,165,250,0.12);color:var(--blue);border:1px solid rgba(96,165,250,0.25);">Tip</span></td>
+            <td style="color:var(--text-muted);">{{ t.job.client_name if t.job else '—' }}</td>
+            <td style="color:var(--text-muted);">{{ t.note or '—' }}</td>
+            <td style="font-weight:700;color:var(--blue);">+${{ '{:,.2f}'.format(t.amount) }}</td>
+          </tr>
+          {% endfor %}
+          {% if not jobs and not expenses and not tips %}
+          <tr class="empty-row"><td colspan="5">No transactions yet.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
     </div>
   </div>
 
@@ -531,6 +609,50 @@ function switchTab(name, btn) {
   document.getElementById('tab-' + name).classList.add('active');
   btn.classList.add('active');
 }
+
+// ── All Logs Filter ───────────────────────────────────────────────────────────
+function filterLogs() {
+  const type = document.getElementById('log-type-filter').value;
+  const from = document.getElementById('log-from').value;
+  const to = document.getElementById('log-to').value;
+  const sort = document.getElementById('log-sort').value;
+
+  let rows = Array.from(document.querySelectorAll('#all-logs-tbody tr'));
+
+  rows.forEach(row => {
+    let show = true;
+    if (type && row.dataset.type !== type) show = false;
+    if (from && row.dataset.date < from) show = false;
+    if (to && row.dataset.date > to) show = false;
+    row.style.display = show ? '' : 'none';
+  });
+
+  // Sort visible rows
+  const tbody = document.getElementById('all-logs-tbody');
+  const visibleRows = rows.filter(r => r.style.display !== 'none');
+  visibleRows.sort((a, b) => {
+    if (sort === 'date-desc') return b.dataset.date.localeCompare(a.dataset.date);
+    if (sort === 'date-asc') return a.dataset.date.localeCompare(b.dataset.date);
+    if (sort === 'amount-desc') return parseFloat(b.dataset.amount) - parseFloat(a.dataset.amount);
+    if (sort === 'amount-asc') return parseFloat(a.dataset.amount) - parseFloat(b.dataset.amount);
+    return 0;
+  });
+  visibleRows.forEach(r => tbody.appendChild(r));
+}
+
+function clearLogFilters() {
+  document.getElementById('log-type-filter').value = '';
+  document.getElementById('log-from').value = '';
+  document.getElementById('log-to').value = '';
+  document.getElementById('log-sort').value = 'date-desc';
+  filterLogs();
+}
+
+// Run initial sort when All Logs tab is opened
+document.addEventListener('DOMContentLoaded', function() {
+  // Initial sort by date desc
+  setTimeout(filterLogs, 100);
+});
 
 // ── Chart ─────────────────────────────────────────────────────────────────────
 {% if can_see_charts %}
