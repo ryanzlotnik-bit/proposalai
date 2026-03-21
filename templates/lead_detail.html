@@ -246,24 +246,30 @@
           {% if contacts %}
             {% for c in contacts %}
             <div class="contact-card">
-              <div class="contact-name">{{ c.name }}</div>
-              {% if c.title %}<div class="contact-title">{{ c.title }}</div>{% endif %}
-              <div class="contact-meta">
-                {% if c.email %}<span><a href="mailto:{{ c.email }}">{{ c.email }}</a></span>{% endif %}
-                {% if c.phone %}<span>{{ c.phone }}</span>{% endif %}
-                {% if c.linkedin %}<span><a href="{{ c.linkedin if c.linkedin.startswith('http') else 'https://' + c.linkedin }}" target="_blank">LinkedIn</a></span>{% endif %}
-                {% if c.notes %}<span style="color:var(--text-dim);font-style:italic;">{{ c.notes|truncate(60) }}</span>{% endif %}
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div>
+                  <div class="contact-name">{{ c.full_name }}</div>
+                  {% if c.title %}<div class="contact-title">{{ c.title }}</div>{% endif %}
+                </div>
+                <div style="display:flex;gap:4px;">
+                  <button class="contact-link edit-btn" onclick="openEditContactModal({{ c.id }})">✎</button>
+                  <form method="POST" action="{{ url_for('delete_lead_contact', lead_id=lead.id, contact_id=c.id) }}"
+                        onsubmit="return confirm('Remove {{ c.full_name }}?');" style="display:inline;">
+                    <button type="submit" class="contact-link" style="border-color:transparent;color:var(--red);">✕</button>
+                  </form>
+                </div>
               </div>
-              <div class="contact-actions">
-                {% if c.phone %}
-                <a href="tel:{{ c.phone }}" class="contact-link call">📞 Call</a>
-                <a href="sms:{{ c.phone }}" class="contact-link sms">💬 Text</a>
-                {% endif %}
-                <button class="contact-link edit-btn" onclick="openEditContactModal({{ c.id }}, {{ c.name|tojson }}, {{ c.title|tojson }}, {{ c.email|tojson }}, {{ c.phone|tojson }}, {{ c.linkedin|tojson }}, {{ c.notes|tojson }})">✎ Edit</button>
-                <form method="POST" action="{{ url_for('delete_lead_contact', lead_id=lead.id, contact_id=c.id) }}"
-                      onsubmit="return confirm('Remove {{ c.name }}?');" style="display:inline;">
-                  <button type="submit" class="contact-link" style="border-color:transparent;color:var(--red);">✕</button>
-                </form>
+              <div class="contact-meta" style="margin-top:8px;">
+                {% if c.cell_phone %}<div>📱 <a href="tel:{{ c.cell_phone }}">{{ c.cell_phone }}</a> <span style="font-size:10px;color:var(--text-muted);">cell</span> <a href="sms:{{ c.cell_phone }}" style="margin-left:4px;font-size:11px;color:var(--text-muted);">💬</a></div>{% endif %}
+                {% if c.business_phone %}<div>☎ <a href="tel:{{ c.business_phone }}">{{ c.business_phone }}</a> <span style="font-size:10px;color:var(--text-muted);">office</span></div>{% endif %}
+                {% if c.home_phone %}<div>🏠 <a href="tel:{{ c.home_phone }}">{{ c.home_phone }}</a> <span style="font-size:10px;color:var(--text-muted);">home</span></div>{% endif %}
+                {% if not c.cell_phone and not c.business_phone and not c.home_phone and c.phone %}<div>📞 <a href="tel:{{ c.phone }}">{{ c.phone }}</a></div>{% endif %}
+                {% if c.email %}<div>✉ <a href="mailto:{{ c.email }}">{{ c.email }}</a></div>{% endif %}
+                {% if c.email2 %}<div>✉ <a href="mailto:{{ c.email2 }}">{{ c.email2 }}</a></div>{% endif %}
+                {% if c.linkedin %}<div>🔗 <a href="{{ c.linkedin if c.linkedin.startswith('http') else 'https://' + c.linkedin }}" target="_blank">LinkedIn</a></div>{% endif %}
+                {% if c.birthday %}<div>🎂 {{ c.birthday }}</div>{% endif %}
+                {% if c.address %}<div style="color:var(--text-muted);font-size:11px;margin-top:4px;">{{ c.address }}</div>{% endif %}
+                {% if c.notes %}<div style="color:var(--text-muted);font-style:italic;font-size:11px;margin-top:4px;">{{ c.notes }}</div>{% endif %}
               </div>
             </div>
             {% endfor %}
@@ -359,15 +365,21 @@
         </div>
         <div class="ld-panel-body">
           {% if email_templates %}
-          <div style="margin-bottom:14px;">
-            <label class="form-label">Load Template</label>
-            <select class="form-input" onchange="loadEmailTemplate(this.value)" id="template-picker">
-              <option value="">— Choose a template —</option>
+          <div style="margin-bottom:16px;">
+            <label class="form-label">Templates</label>
+            <div style="display:flex;flex-direction:column;gap:4px;max-height:160px;overflow-y:auto;border:1px solid var(--border);padding:6px;">
               {% for t in email_templates %}
-              <option value="{{ t.id }}" data-subject="{{ t.subject|e }}" data-body="{{ t.body|e }}">{{ t.name }}</option>
+              <button type="button" onclick="loadEmailTemplate('{{ t.id }}')"
+                style="text-align:left;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:7px 10px;font-size:12px;cursor:pointer;transition:all .15s;"
+                onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)'"
+                onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text)'">
+                {{ t.name }}
+              </button>
               {% endfor %}
-            </select>
+            </div>
           </div>
+          {% else %}
+          <div style="margin-bottom:14px;font-size:12px;color:var(--text-muted);">No templates saved yet. Compose an email and click "+ Save Template" to create one.</div>
           {% endif %}
           <form method="POST" action="{{ url_for('lead_send_email', lead_id=lead.id) }}" class="email-form">
             <div>
@@ -431,35 +443,24 @@
 
 <!-- ── ADD CONTACT MODAL ── -->
 <div class="modal-overlay" id="add-contact-modal">
-  <div class="modal-box">
+  <div class="modal-box" style="max-width:600px;">
     <button class="modal-close" onclick="closeModal('add-contact-modal')">✕</button>
     <div class="modal-title">Add Contact</div>
     <form method="POST" action="{{ url_for('add_lead_contact', lead_id=lead.id) }}">
       <div class="form-grid">
-        <div class="full">
-          <label class="form-label">Full Name *</label>
-          <input type="text" name="name" class="form-input" placeholder="Jane Smith" required>
-        </div>
-        <div>
-          <label class="form-label">Title</label>
-          <input type="text" name="title" class="form-input" placeholder="CEO, Facilities Manager...">
-        </div>
-        <div>
-          <label class="form-label">Phone</label>
-          <input type="tel" name="phone" class="form-input" placeholder="(555) 000-0000">
-        </div>
-        <div>
-          <label class="form-label">Email</label>
-          <input type="email" name="email" class="form-input" placeholder="jane@company.com">
-        </div>
-        <div>
-          <label class="form-label">LinkedIn</label>
-          <input type="text" name="linkedin" class="form-input" placeholder="linkedin.com/in/...">
-        </div>
-        <div class="full">
-          <label class="form-label">Notes</label>
-          <textarea name="notes" class="form-textarea" placeholder="Notes about this contact..."></textarea>
-        </div>
+        <div><label class="form-label">First Name *</label><input type="text" name="first_name" class="form-input" placeholder="Jane" required></div>
+        <div><label class="form-label">Middle Name</label><input type="text" name="middle_name" class="form-input" placeholder="Marie"></div>
+        <div><label class="form-label">Last Name</label><input type="text" name="last_name" class="form-input" placeholder="Smith"></div>
+        <div><label class="form-label">Title</label><input type="text" name="title" class="form-input" placeholder="Facilities Manager"></div>
+        <div><label class="form-label">Cell Phone</label><input type="tel" name="cell_phone" class="form-input" placeholder="(555) 000-0000"></div>
+        <div><label class="form-label">Business Phone</label><input type="tel" name="business_phone" class="form-input" placeholder="(555) 000-0001"></div>
+        <div><label class="form-label">Home Phone</label><input type="tel" name="home_phone" class="form-input" placeholder="(555) 000-0002"></div>
+        <div><label class="form-label">Birthday</label><input type="text" name="birthday" class="form-input" placeholder="e.g. March 15 or 1985-03-15"></div>
+        <div><label class="form-label">Email 1</label><input type="email" name="email" class="form-input" placeholder="jane@company.com"></div>
+        <div><label class="form-label">Email 2</label><input type="email" name="email2" class="form-input" placeholder="jane@personal.com"></div>
+        <div><label class="form-label">LinkedIn</label><input type="text" name="linkedin" class="form-input" placeholder="linkedin.com/in/..."></div>
+        <div class="full"><label class="form-label">Mailing Address</label><input type="text" name="address" class="form-input" placeholder="123 Main St, City, State"></div>
+        <div class="full"><label class="form-label">Notes</label><textarea name="notes" class="form-textarea" placeholder="Notes about this contact..."></textarea></div>
       </div>
       <div class="form-actions">
         <button type="button" class="btn-ghost" onclick="closeModal('add-contact-modal')">Cancel</button>
@@ -471,35 +472,24 @@
 
 <!-- ── EDIT CONTACT MODAL ── -->
 <div class="modal-overlay" id="edit-contact-modal">
-  <div class="modal-box">
+  <div class="modal-box" style="max-width:600px;">
     <button class="modal-close" onclick="closeModal('edit-contact-modal')">✕</button>
     <div class="modal-title">Edit Contact</div>
     <form method="POST" id="edit-contact-form" action="">
       <div class="form-grid">
-        <div class="full">
-          <label class="form-label">Full Name *</label>
-          <input type="text" name="name" id="ec-name" class="form-input" required>
-        </div>
-        <div>
-          <label class="form-label">Title</label>
-          <input type="text" name="title" id="ec-title" class="form-input">
-        </div>
-        <div>
-          <label class="form-label">Phone</label>
-          <input type="tel" name="phone" id="ec-phone" class="form-input">
-        </div>
-        <div>
-          <label class="form-label">Email</label>
-          <input type="email" name="email" id="ec-email" class="form-input">
-        </div>
-        <div>
-          <label class="form-label">LinkedIn</label>
-          <input type="text" name="linkedin" id="ec-linkedin" class="form-input">
-        </div>
-        <div class="full">
-          <label class="form-label">Notes</label>
-          <textarea name="notes" id="ec-notes" class="form-textarea"></textarea>
-        </div>
+        <div><label class="form-label">First Name *</label><input type="text" name="first_name" id="ec-first" class="form-input" required></div>
+        <div><label class="form-label">Middle Name</label><input type="text" name="middle_name" id="ec-middle" class="form-input"></div>
+        <div><label class="form-label">Last Name</label><input type="text" name="last_name" id="ec-last" class="form-input"></div>
+        <div><label class="form-label">Title</label><input type="text" name="title" id="ec-title" class="form-input"></div>
+        <div><label class="form-label">Cell Phone</label><input type="tel" name="cell_phone" id="ec-cell" class="form-input"></div>
+        <div><label class="form-label">Business Phone</label><input type="tel" name="business_phone" id="ec-biz" class="form-input"></div>
+        <div><label class="form-label">Home Phone</label><input type="tel" name="home_phone" id="ec-home" class="form-input"></div>
+        <div><label class="form-label">Birthday</label><input type="text" name="birthday" id="ec-bday" class="form-input"></div>
+        <div><label class="form-label">Email 1</label><input type="email" name="email" id="ec-email" class="form-input"></div>
+        <div><label class="form-label">Email 2</label><input type="email" name="email2" id="ec-email2" class="form-input"></div>
+        <div><label class="form-label">LinkedIn</label><input type="text" name="linkedin" id="ec-linkedin" class="form-input"></div>
+        <div class="full"><label class="form-label">Mailing Address</label><input type="text" name="address" id="ec-addr" class="form-input"></div>
+        <div class="full"><label class="form-label">Notes</label><textarea name="notes" id="ec-notes" class="form-textarea"></textarea></div>
       </div>
       <div class="form-actions">
         <button type="button" class="btn-ghost" onclick="closeModal('edit-contact-modal')">Cancel</button>
@@ -581,16 +571,45 @@
 </div>
 
 <script>
+const CONTACTS = {
+  {% for c in contacts %}
+  {{ c.id }}: {
+    first_name: {{ (c.first_name or '')|tojson }},
+    middle_name: {{ (c.middle_name or '')|tojson }},
+    last_name: {{ (c.last_name or '')|tojson }},
+    title: {{ (c.title or '')|tojson }},
+    cell_phone: {{ (c.cell_phone or '')|tojson }},
+    business_phone: {{ (c.business_phone or '')|tojson }},
+    home_phone: {{ (c.home_phone or '')|tojson }},
+    birthday: {{ (c.birthday or '')|tojson }},
+    email: {{ (c.email or '')|tojson }},
+    email2: {{ (c.email2 or '')|tojson }},
+    linkedin: {{ (c.linkedin or '')|tojson }},
+    address: {{ (c.address or '')|tojson }},
+    notes: {{ (c.notes or '')|tojson }},
+  },
+  {% endfor %}
+};
+
 function openAddContactModal() {
   document.getElementById('add-contact-modal').classList.add('open');
 }
-function openEditContactModal(id, name, title, email, phone, linkedin, notes) {
-  document.getElementById('ec-name').value = name || '';
-  document.getElementById('ec-title').value = title || '';
-  document.getElementById('ec-email').value = email || '';
-  document.getElementById('ec-phone').value = phone || '';
-  document.getElementById('ec-linkedin').value = linkedin || '';
-  document.getElementById('ec-notes').value = notes || '';
+function openEditContactModal(id) {
+  const c = CONTACTS[id];
+  if (!c) return;
+  document.getElementById('ec-first').value = c.first_name || '';
+  document.getElementById('ec-middle').value = c.middle_name || '';
+  document.getElementById('ec-last').value = c.last_name || '';
+  document.getElementById('ec-title').value = c.title || '';
+  document.getElementById('ec-cell').value = c.cell_phone || '';
+  document.getElementById('ec-biz').value = c.business_phone || '';
+  document.getElementById('ec-home').value = c.home_phone || '';
+  document.getElementById('ec-bday').value = c.birthday || '';
+  document.getElementById('ec-email').value = c.email || '';
+  document.getElementById('ec-email2').value = c.email2 || '';
+  document.getElementById('ec-linkedin').value = c.linkedin || '';
+  document.getElementById('ec-addr').value = c.address || '';
+  document.getElementById('ec-notes').value = c.notes || '';
   document.getElementById('edit-contact-form').action = `/leads/{{ lead.id }}/contacts/${id}/edit`;
   document.getElementById('edit-contact-modal').classList.add('open');
 }
@@ -635,12 +654,16 @@ function openModal(id) {
   document.getElementById(id).classList.add('open');
 }
 
+const EMAIL_TEMPLATES = {
+  {% for t in email_templates %}
+  '{{ t.id }}': { subject: {{ t.subject|tojson }}, body: {{ t.body|tojson }} },
+  {% endfor %}
+};
 function loadEmailTemplate(id) {
-  if (!id) return;
-  const opt = document.querySelector(`#template-picker option[value="${id}"]`);
-  if (!opt) return;
-  document.getElementById('email-subject').value = opt.dataset.subject || '';
-  document.getElementById('email-body').value = opt.dataset.body || '';
+  const t = EMAIL_TEMPLATES[String(id)];
+  if (!t) return;
+  document.getElementById('email-subject').value = t.subject || '';
+  document.getElementById('email-body').value = t.body || '';
 }
 </script>
 

@@ -420,13 +420,40 @@ class LeadContact(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     lead_id = db.Column(db.Integer, db.ForeignKey('lead.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    name = db.Column(db.String(200), nullable=False)
+    # Name fields
+    name = db.Column(db.String(200), nullable=False, default='')  # legacy fallback
+    first_name = db.Column(db.String(100), default='')
+    middle_name = db.Column(db.String(100), default='')
+    last_name = db.Column(db.String(100), default='')
     title = db.Column(db.String(200), default='')
-    email = db.Column(db.String(200), default='')
-    phone = db.Column(db.String(50), default='')
+    # Phone fields
+    cell_phone = db.Column(db.String(50), default='')
+    home_phone = db.Column(db.String(50), default='')
+    business_phone = db.Column(db.String(50), default='')
+    phone = db.Column(db.String(50), default='')  # legacy
+    # Email fields
+    email = db.Column(db.String(200), default='')   # email1
+    email2 = db.Column(db.String(200), default='')
+    # Other
     linkedin = db.Column(db.String(300), default='')
+    birthday = db.Column(db.String(30), default='')
+    address = db.Column(db.String(500), default='')
     notes = db.Column(db.Text, default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    @property
+    def full_name(self):
+        parts = [self.first_name, self.middle_name, self.last_name]
+        joined = ' '.join(p for p in parts if p).strip()
+        return joined or self.name or 'Unnamed Contact'
+
+    @property
+    def primary_phone(self):
+        return self.cell_phone or self.business_phone or self.home_phone or self.phone or ''
+
+    @property
+    def primary_email(self):
+        return self.email or self.email2 or ''
 
 
 class LeadActivity(db.Model):
@@ -3000,23 +3027,33 @@ def add_lead_contact(lead_id):
     lead = Lead.query.get_or_404(lead_id)
     if lead.user_id != uid():
         return jsonify({'error': 'Access denied'}), 403
-    name = request.form.get('name', '').strip()
-    if not name:
-        flash('Contact name is required.', 'error')
+    first = request.form.get('first_name', '').strip()
+    last = request.form.get('last_name', '').strip()
+    if not first and not last:
+        flash('First or last name is required.', 'error')
         return redirect(url_for('lead_detail', lead_id=lead_id))
+    full = ' '.join(p for p in [first, last] if p)
     c = LeadContact(
         lead_id=lead_id,
         user_id=uid(),
-        name=name,
+        name=full,
+        first_name=first,
+        middle_name=request.form.get('middle_name', '').strip(),
+        last_name=last,
         title=request.form.get('title', '').strip(),
+        cell_phone=request.form.get('cell_phone', '').strip(),
+        home_phone=request.form.get('home_phone', '').strip(),
+        business_phone=request.form.get('business_phone', '').strip(),
         email=request.form.get('email', '').strip(),
-        phone=request.form.get('phone', '').strip(),
+        email2=request.form.get('email2', '').strip(),
         linkedin=request.form.get('linkedin', '').strip(),
+        birthday=request.form.get('birthday', '').strip(),
+        address=request.form.get('address', '').strip(),
         notes=request.form.get('notes', '').strip(),
     )
     db.session.add(c)
     db.session.commit()
-    flash(f'{name} added.', 'success')
+    flash(f'{full} added.', 'success')
     return redirect(url_for('lead_detail', lead_id=lead_id))
 
 # Edit contact
@@ -3027,11 +3064,19 @@ def edit_lead_contact(lead_id, contact_id):
     if c.user_id != uid():
         flash('Access denied.', 'error')
         return redirect(url_for('lead_detail', lead_id=lead_id))
-    c.name = request.form.get('name', '').strip() or c.name
+    c.first_name = request.form.get('first_name', '').strip()
+    c.middle_name = request.form.get('middle_name', '').strip()
+    c.last_name = request.form.get('last_name', '').strip()
+    c.name = ' '.join(p for p in [c.first_name, c.last_name] if p) or c.name
     c.title = request.form.get('title', '').strip()
+    c.cell_phone = request.form.get('cell_phone', '').strip()
+    c.home_phone = request.form.get('home_phone', '').strip()
+    c.business_phone = request.form.get('business_phone', '').strip()
     c.email = request.form.get('email', '').strip()
-    c.phone = request.form.get('phone', '').strip()
+    c.email2 = request.form.get('email2', '').strip()
     c.linkedin = request.form.get('linkedin', '').strip()
+    c.birthday = request.form.get('birthday', '').strip()
+    c.address = request.form.get('address', '').strip()
     c.notes = request.form.get('notes', '').strip()
     db.session.commit()
     flash('Contact updated.', 'success')
@@ -3824,6 +3869,15 @@ with app.app_context():
         'ALTER TABLE lead ADD COLUMN naics_code VARCHAR(20) DEFAULT \'\'',
         'ALTER TABLE lead_activity ADD COLUMN email_token VARCHAR(64)',
         'ALTER TABLE lead_activity ADD COLUMN opened_at DATETIME',
+        'ALTER TABLE lead_contact ADD COLUMN first_name VARCHAR(100) DEFAULT \'\'',
+        'ALTER TABLE lead_contact ADD COLUMN middle_name VARCHAR(100) DEFAULT \'\'',
+        'ALTER TABLE lead_contact ADD COLUMN last_name VARCHAR(100) DEFAULT \'\'',
+        'ALTER TABLE lead_contact ADD COLUMN cell_phone VARCHAR(50) DEFAULT \'\'',
+        'ALTER TABLE lead_contact ADD COLUMN home_phone VARCHAR(50) DEFAULT \'\'',
+        'ALTER TABLE lead_contact ADD COLUMN business_phone VARCHAR(50) DEFAULT \'\'',
+        'ALTER TABLE lead_contact ADD COLUMN email2 VARCHAR(200) DEFAULT \'\'',
+        'ALTER TABLE lead_contact ADD COLUMN birthday VARCHAR(30) DEFAULT \'\'',
+        'ALTER TABLE lead_contact ADD COLUMN address VARCHAR(500) DEFAULT \'\'',
     ]
     for _sql in _migrations:
         try:
