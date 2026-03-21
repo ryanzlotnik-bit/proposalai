@@ -161,6 +161,9 @@ Set locally in `.env`, set in Railway Variables tab for production. Never commit
 | `STRIPE_PRO_PRICE_ID` | Stripe price ID for $99/mo plan (Business) |
 | `GOOGLE_CLIENT_ID` | Google OAuth2 client ID for Calendar sync |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth2 client secret |
+| `TWILIO_ACCOUNT_SID` | Twilio account SID for SMS notifications |
+| `TWILIO_AUTH_TOKEN` | Twilio auth token |
+| `TWILIO_FROM_NUMBER` | Twilio phone number to send from (e.g. +12025551234) |
 
 **Gmail setup:** Requires a Gmail App Password (Google Account → Security → 2-Step Verification → App passwords). IMAP must be enabled in Gmail settings for draft saving.
 
@@ -219,6 +222,9 @@ Set locally in `.env`, set in Railway Variables tab for production. Never commit
 - [x] Proposal acceptance → auto-creates ScheduledJob + Google Calendar event
 - [x] Dashboard as business command center (cross-module stats)
 - [x] Feature-gated pricing (automations gated, core features free)
+
+- [x] E-signature on proposals (typed name + timestamp, stored on Proposal.signature_name/signed_at)
+- [x] SMS notifications via Twilio (proposal accepted/declined, invoice paid)
 
 ## Known issues / next up
 - Email delivery to clients still unconfirmed working in production (check Railway MAIL_USERNAME / MAIL_PASSWORD env vars)

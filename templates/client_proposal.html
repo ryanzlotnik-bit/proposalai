@@ -322,6 +322,57 @@
       font-family: 'JetBrains Mono', monospace;
     }
     .powered-by a { color: #F97316; text-decoration: none; }
+
+    /* Signature form */
+    .sig-form-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #111;
+      margin-bottom: 6px;
+      display: block;
+    }
+    .sig-form-hint {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 10px;
+    }
+    .sig-input {
+      width: 100%;
+      border: 1px solid #ddd;
+      border-bottom: 2px solid #111;
+      padding: 10px 12px;
+      font-size: 18px;
+      font-family: 'DM Sans', sans-serif;
+      font-style: italic;
+      color: #111;
+      background: #fafafa;
+      outline: none;
+      margin-bottom: 12px;
+      transition: border-color 0.15s;
+    }
+    .sig-input:focus { border-color: #F97316; background: #fff; }
+    .sig-checkbox-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 20px;
+      font-size: 12px;
+      color: #555;
+      line-height: 1.5;
+    }
+    .sig-checkbox-row input[type=checkbox] { margin-top: 2px; flex-shrink: 0; width: 16px; height: 16px; accent-color: #16a34a; cursor: pointer; }
+    .signed-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #dcfce7;
+      color: #166534;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
   </style>
 </head>
 <body>
@@ -461,8 +512,15 @@
           </div>
           <div class="sig-area">
             <div class="terms-title">Authorized Signature</div>
-            <div class="sig-line"></div>
+            <div class="sig-line" style="{% if proposal.signature_name %}border-bottom:2px solid #111;{% endif %}">
+              {% if proposal.signature_name %}
+              <span style="font-size:20px;font-style:italic;font-family:'DM Sans',sans-serif;color:#111;padding-left:4px;">{{ proposal.signature_name }}</span>
+              {% endif %}
+            </div>
             <div class="sig-name">{{ proposal.client_name }}</div>
+            {% if proposal.signed_at %}
+            <div style="font-size:11px;color:#888;margin-top:4px;">Signed {{ proposal.signed_at.strftime('%B %d, %Y at %I:%M %p') }} UTC</div>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -476,26 +534,57 @@
     {% if proposal.status not in ('accepted', 'declined') %}
     <div class="cta-section">
       <div class="cta-title">Ready to move forward?</div>
-      <div class="cta-sub">By clicking "Accept Proposal" you confirm you've reviewed the scope of work and agree to the terms above. {{ user.company_name or user.name }} will be notified immediately.</div>
-      <div class="cta-buttons">
-        <form method="POST" action="{{ url_for('public_proposal_respond', token=proposal.public_token) }}" style="display:contents;">
-          <input type="hidden" name="action" value="accepted">
+      <div class="cta-sub">Type your full name below as your electronic signature, then click "Accept Proposal." {{ user.company_name or user.name }} will be notified immediately.</div>
+
+      <form method="POST" action="{{ url_for('public_proposal_respond', token=proposal.public_token) }}" id="accept-form" onsubmit="return validateSig()">
+        <input type="hidden" name="action" value="accepted">
+        <label class="sig-form-label" for="sig-input">Your Electronic Signature</label>
+        <p class="sig-form-hint">Type your full name exactly as it appears on the proposal</p>
+        <input type="text" name="signature_name" id="sig-input" class="sig-input"
+               placeholder="{{ proposal.client_name }}"
+               autocomplete="name" spellcheck="false">
+        <div class="sig-checkbox-row">
+          <input type="checkbox" id="sig-agree" required>
+          <label for="sig-agree">I have reviewed the scope of work, pricing, and terms above. By typing my name and clicking "Accept Proposal," I agree to proceed with this project under the stated terms.</label>
+        </div>
+        <div class="cta-buttons">
           <button type="submit" class="btn-accept">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            Accept Proposal
+            Accept &amp; Sign Proposal
           </button>
-        </form>
-        <form method="POST" action="{{ url_for('public_proposal_respond', token=proposal.public_token) }}" style="display:contents;">
+        </div>
+      </form>
+
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">
+        <form method="POST" action="{{ url_for('public_proposal_respond', token=proposal.public_token) }}">
           <input type="hidden" name="action" value="declined">
-          <button type="submit" class="btn-decline">Decline</button>
+          <button type="submit" class="btn-decline">Not interested — Decline</button>
         </form>
       </div>
     </div>
+
+    <script>
+    function validateSig() {
+      var name = document.getElementById('sig-input').value.trim();
+      if (!name) {
+        alert('Please type your name to sign the proposal.');
+        document.getElementById('sig-input').focus();
+        return false;
+      }
+      return true;
+    }
+    </script>
     {% elif proposal.status == 'accepted' %}
     <div class="cta-section">
       <div class="confirmed-box">
         <div class="confirmed-icon accepted">✓</div>
         <div class="confirmed-title">Proposal Accepted</div>
+        {% if proposal.signature_name %}
+        <div class="signed-badge" style="margin:0 auto 12px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Signed by {{ proposal.signature_name }}{% if proposal.signed_at %} on {{ proposal.signed_at.strftime('%b %d, %Y') }}{% endif %}
+        </div>
+        {% endif %}
         <div class="confirmed-sub">
           {{ user.company_name or user.name }} has been notified and will be in touch shortly to schedule your project.
           {% if user.phone %}<br>Questions? Call {{ user.phone }}.{% endif %}

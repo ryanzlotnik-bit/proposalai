@@ -24,6 +24,12 @@ import string
 import secrets
 
 try:
+    from twilio.rest import Client as TwilioClient
+    TWILIO_ENABLED = True
+except ImportError:
+    TWILIO_ENABLED = False
+
+try:
     from google.oauth2.credentials import Credentials
     from google_auth_oauthlib.flow import Flow
     from googleapiclient.discovery import build
@@ -56,6 +62,31 @@ mail = Mail(app)
 stripe.api_key = ''.join(os.getenv('STRIPE_SECRET_KEY', '').split())
 
 TRIAL_DAYS = 30
+
+
+def send_sms(to_number, body):
+    """Send an SMS via Twilio in a background thread. No-op if Twilio not configured."""
+    sid = os.getenv('TWILIO_ACCOUNT_SID', '')
+    token = os.getenv('TWILIO_AUTH_TOKEN', '')
+    from_num = os.getenv('TWILIO_FROM_NUMBER', '')
+    if not (TWILIO_ENABLED and sid and token and from_num and to_number):
+        return
+    # Normalize number
+    num = ''.join(c for c in to_number if c.isdigit() or c == '+')
+    if not num:
+        return
+    if not num.startswith('+'):
+        num = '+1' + num.lstrip('1')
+
+    def _send():
+        try:
+            client = TwilioClient(sid, token)
+            client.messages.create(body=body, from_=from_num, to=num)
+        except Exception:
+            pass
+
+    threading.Thread(target=_send, daemon=True).start()
+
 
 SPECIALTIES = {
     'HVAC': ['AC Installation', 'AC Repair', 'Furnace Installation', 'Furnace Repair', 'Duct Work'],
@@ -204,6 +235,8 @@ class Proposal(db.Model):
     public_token = db.Column(db.String(64), unique=True, nullable=True)
     accepted_at = db.Column(db.DateTime, nullable=True)
     reminder_sent_at = db.Column(db.DateTime, nullable=True)
+    signature_name = db.Column(db.String(200), default='')
+    signed_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     linked_jobs = db.relationship('Job', backref='proposal', lazy=True)
 
@@ -351,6 +384,33 @@ class Client(db.Model):
     proposals = db.relationship('Proposal', backref='client', lazy=True, foreign_keys='Proposal.client_id')
     jobs = db.relationship('Job', backref='client', lazy=True, foreign_keys='Job.client_id')
     scheduled_jobs = db.relationship('ScheduledJob', backref='client', lazy=True, foreign_keys='ScheduledJob.client_id')
+
+
+LEAD_STAGES = [
+    ('unreached',  'Unreached',         '#6B7280'),
+    ('contacted',  'Contacted',         '#F59E0B'),
+    ('no_for_now', 'No For Now',        '#EF4444'),
+    ('sent_link',  'Sent Link',         '#3B82F6'),
+    ('trial',      'Trial Signup',      '#8B5CF6'),
+    ('paying',     'Paying Customer',   '#10B981'),
+    ('churned',    'Churned',           '#9CA3AF'),
+]
+LEAD_STAGE_KEYS = [s[0] for s in LEAD_STAGES]
+
+
+class Lead(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    company = db.Column(db.String(200), default='')
+    contact = db.Column(db.String(200), nullable=False)
+    phone = db.Column(db.String(50), default='')
+    email = db.Column(db.String(200), default='')
+    address = db.Column(db.String(500), default='')
+    website = db.Column(db.String(200), default='')
+    stage = db.Column(db.String(50), default='unreached')
+    notes = db.Column(db.Text, default='')
+    last_contacted_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class TeamInvite(db.Model):
@@ -1758,6 +1818,10 @@ def public_proposal_respond(token):
     new_sj_id = None
     if action == 'accepted':
         proposal.accepted_at = datetime.utcnow()
+        sig = request.form.get('signature_name', '').strip()
+        if sig:
+            proposal.signature_name = sig
+            proposal.signed_at = datetime.utcnow()
         sched_date = parse_timeline_date(proposal.timeline, date.today())
         sj = ScheduledJob(
             user_id=proposal.user_id,
@@ -1779,25 +1843,32 @@ def public_proposal_respond(token):
     if new_sj_id:
         push_to_google_calendar(proposal.user_id, new_sj_id)
     user = User.query.get(proposal.user_id)
-    # Notify contractor
+    # Notify contractor via email + SMS
     def notify():
         with app.app_context():
             p = Proposal.query.filter_by(public_token=token).first()
             u = User.query.get(p.user_id)
-            if not u or not u.email:
+            if not u:
                 return
             verb = 'ACCEPTED' if action == 'accepted' else 'DECLINED'
-            subject = f"Proposal {p.proposal_number} {verb} by {p.client_name}"
-            body = f"""<p>Hi {u.name},</p>
+            # Email
+            if u.email:
+                subject = f"Proposal {p.proposal_number} {verb} by {p.client_name}"
+                body = f"""<p>Hi {u.name},</p>
 <p><strong>{p.client_name}</strong> has <strong>{verb}</strong> proposal <strong>{p.proposal_number}</strong>
 for <strong>${p.grand_total:,.2f}</strong>.</p>
 {'<p>Time to get to work!</p>' if action == 'accepted' else '<p>Consider following up to address any concerns.</p>'}
 <p style="color:#888;font-size:12px;">— CloseTheJob</p>"""
-            try:
-                msg = Message(subject=subject, recipients=[u.email], html=body)
-                mail.send(msg)
-            except Exception:
-                pass
+                try:
+                    msg = Message(subject=subject, recipients=[u.email], html=body)
+                    mail.send(msg)
+                except Exception:
+                    pass
+            # SMS
+            if u.phone:
+                sms_verb = 'accepted' if action == 'accepted' else 'declined'
+                sms_body = f"CloseTheJob: {p.client_name} {sms_verb} proposal {p.proposal_number} (${p.grand_total:,.0f}). Log in to view."
+                send_sms(u.phone, sms_body)
     threading.Thread(target=notify, daemon=True).start()
     return redirect(url_for('public_proposal', token=token))
 
@@ -2376,6 +2447,10 @@ def invoice_pay(token):
 def invoice_success(token):
     job = Job.query.filter_by(pay_token=token).first_or_404()
     user = User.query.get_or_404(job.user_id)
+    # SMS the contractor when their invoice is paid
+    if user.phone and not job.paid_at:
+        sms_body = f"CloseTheJob: Invoice paid! {job.client_name or 'A client'} paid ${job.revenue:,.0f} for {job.job_type or 'job'}."
+        send_sms(user.phone, sms_body)
     return render_template('invoice_success.html', job=job, user=user)
 
 
@@ -2769,6 +2844,99 @@ def delete_client(client_id):
     db.session.commit()
     flash('Contact deleted.', 'success')
     return redirect(url_for('clients'))
+
+
+# ─── Sales CRM / Leads ─────────────────────────────────────────────────────────
+
+@app.route('/leads')
+@login_required
+def leads():
+    all_leads = Lead.query.filter_by(user_id=uid()).order_by(Lead.created_at.desc()).all()
+    by_stage = {s[0]: [] for s in LEAD_STAGES}
+    for lead in all_leads:
+        stage = lead.stage if lead.stage in by_stage else 'unreached'
+        by_stage[stage].append(lead)
+    stats = {
+        'total': len(all_leads),
+        'trial': len(by_stage['trial']),
+        'paying': len(by_stage['paying']),
+        'conversion': round(len(by_stage['paying']) / len(all_leads) * 100) if all_leads else 0,
+    }
+    return render_template('leads.html', by_stage=by_stage, stages=LEAD_STAGES, stats=stats, all_leads=all_leads)
+
+
+@app.route('/leads/add', methods=['POST'])
+@login_required
+def add_lead():
+    contact = request.form.get('contact', '').strip()
+    if not contact:
+        flash('Contact name is required.', 'error')
+        return redirect(url_for('leads'))
+    lead = Lead(
+        user_id=uid(),
+        contact=contact,
+        company=request.form.get('company', '').strip(),
+        phone=request.form.get('phone', '').strip(),
+        email=request.form.get('email', '').strip(),
+        address=request.form.get('address', '').strip(),
+        website=request.form.get('website', '').strip(),
+        stage=request.form.get('stage', 'unreached'),
+        notes=request.form.get('notes', '').strip(),
+    )
+    db.session.add(lead)
+    db.session.commit()
+    flash(f'{contact} added to your pipeline.', 'success')
+    return redirect(url_for('leads'))
+
+
+@app.route('/leads/<int:lead_id>/edit', methods=['POST'])
+@login_required
+def edit_lead(lead_id):
+    lead = Lead.query.get_or_404(lead_id)
+    if lead.user_id != uid():
+        return jsonify({'error': 'Access denied'}), 403
+    lead.contact = request.form.get('contact', '').strip() or lead.contact
+    lead.company = request.form.get('company', '').strip()
+    lead.phone = request.form.get('phone', '').strip()
+    lead.email = request.form.get('email', '').strip()
+    lead.address = request.form.get('address', '').strip()
+    lead.website = request.form.get('website', '').strip()
+    lead.stage = request.form.get('stage', lead.stage)
+    lead.notes = request.form.get('notes', '').strip()
+    if request.form.get('mark_contacted'):
+        lead.last_contacted_at = datetime.utcnow()
+    db.session.commit()
+    flash('Lead updated.', 'success')
+    return redirect(url_for('leads'))
+
+
+@app.route('/leads/<int:lead_id>/stage', methods=['POST'])
+@login_required
+def update_lead_stage(lead_id):
+    lead = Lead.query.get_or_404(lead_id)
+    if lead.user_id != uid():
+        return jsonify({'error': 'Access denied'}), 403
+    new_stage = request.form.get('stage', '')
+    if new_stage not in LEAD_STAGE_KEYS:
+        return jsonify({'error': 'Invalid stage'}), 400
+    lead.stage = new_stage
+    if new_stage in ('contacted', 'sent_link', 'trial', 'paying'):
+        lead.last_contacted_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'ok': True, 'stage': new_stage})
+
+
+@app.route('/leads/<int:lead_id>/delete', methods=['POST'])
+@login_required
+def delete_lead(lead_id):
+    lead = Lead.query.get_or_404(lead_id)
+    if lead.user_id != uid():
+        flash('Access denied.', 'error')
+        return redirect(url_for('leads'))
+    db.session.delete(lead)
+    db.session.commit()
+    flash('Lead removed.', 'success')
+    return redirect(url_for('leads'))
 
 
 # ─── Team Members ──────────────────────────────────────────────────────────────
@@ -3334,6 +3502,9 @@ with app.app_context():
         'ALTER TABLE "user" ADD COLUMN trial_expires_at DATETIME',
         'ALTER TABLE job ADD COLUMN service_area VARCHAR(200) DEFAULT \'\'',
         'ALTER TABLE promo_code ADD COLUMN label VARCHAR(200) DEFAULT \'\'',
+        'ALTER TABLE proposal ADD COLUMN signature_name VARCHAR(200) DEFAULT \'\'',
+        'ALTER TABLE proposal ADD COLUMN signed_at DATETIME',
+        # lead table created by db.create_all() — no ALTER needed for new tables
     ]
     for _sql in _migrations:
         try:
