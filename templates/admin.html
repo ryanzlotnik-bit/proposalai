@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Admin — CloseTheJob{% endblock %}
+
+{% block head %}
+<style>
+  .admin-table { width:100%;border-collapse:collapse; }
+  .admin-table th { text-align:left;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;padding:10px 14px;border-bottom:1px solid var(--border); }
+  .admin-table td { padding:12px 14px;font-size:13px;color:var(--text-muted);border-bottom:1px solid var(--border);vertical-align:middle; }
+  .admin-table tr:hover td { background:rgba(249,115,22,0.02); }
+  .plan-pill {
+    display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;
+    text-transform:uppercase;letter-spacing:0.06em;padding:3px 8px;border-radius:2px;
+  }
+  .pill-enterprise { background:rgba(96,165,250,0.15);color:var(--blue); }
+  .pill-pro        { background:rgba(249,115,22,0.12);color:var(--orange); }
+  .pill-starter    { background:rgba(249,115,22,0.08);color:var(--orange); }
+  .pill-trial      { background:rgba(107,104,96,0.2);color:var(--text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:1280px;margin:0 auto;padding:40px 24px;">
+
+  <div style="margin-bottom:32px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--red);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">// Admin Only</div>
+    <h1 class="font-display" style="font-size:clamp(40px,5vw,64px);color:var(--text);line-height:0.95;">User Management</h1>
+    <p style="color:var(--text-muted);font-size:14px;margin-top:8px;">{{ users|length }} total accounts</p>
+  </div>
+
+  <!-- Grant access form -->
+  <div style="background:var(--surface);border:1px solid var(--border);padding:28px;margin-bottom:32px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:20px;">Grant Plan Access</div>
+    <form method="POST" action="{{ url_for('admin_grant') }}" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+      <div style="flex:1;min-width:220px;">
+        <label class="ctj-label">User Email</label>
+        <input type="email" name="email" required class="ctj-input" placeholder="contractor@example.com" />
+      </div>
+      <div style="min-width:160px;">
+        <label class="ctj-label">Plan</label>
+        <select name="plan" class="ctj-input">
+          <option value="enterprise">Enterprise ($299)</option>
+          <option value="pro">Business ($99)</option>
+          <option value="starter">Pro ($49)</option>
+        </select>
+      </div>
+      <div style="min-width:140px;">
+        <label class="ctj-label">Expires in (days)</label>
+        <input type="number" name="expires_days" class="ctj-input" placeholder="30 — or leave blank for permanent" min="1" />
+      </div>
+      <button type="submit" class="btn-orange" style="padding:12px 20px;font-size:13px;clip-path:none;white-space:nowrap;">Grant Access →</button>
+    </form>
+    <p style="font-size:12px;color:var(--text-dim);margin-top:10px;">Leave "Expires in" blank to grant permanent access. User does not need to enter a credit card.</p>
+  </div>
+
+  <!-- User table -->
+  <div style="border:1px solid var(--border);overflow-x:auto;">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Plan</th>
+          <th>Status</th>
+          <th>Joined</th>
+          <th>Expires</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td style="color:var(--text);font-weight:600;">{{ u.name }}</td>
+          <td>{{ u.email }}</td>
+          <td>
+            <span class="plan-pill pill-{{ u.plan }}">{{ u.plan }}</span>
+          </td>
+          <td>
+            {% if u.subscription_status == 'active' %}<span style="color:var(--green);">Active</span>
+            {% elif u.subscription_status == 'trialing' %}<span style="color:var(--orange);">Trialing</span>
+            {% else %}<span style="color:var(--text-dim);">{{ u.subscription_status }}</span>{% endif %}
+          </td>
+          <td style="font-size:12px;">{{ u.created_at.strftime('%b %d, %Y') }}</td>
+          <td style="font-size:12px;">
+            {% if u.trial_expires_at %}
+              {{ u.trial_expires_at.strftime('%b %d, %Y') }}
+            {% else %}
+              <span style="color:var(--text-dim);">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if u.plan != 'trial' %}
+            <form method="POST" action="{{ url_for('admin_revoke') }}" onsubmit="return confirm('Revoke access for {{ u.email }}?');" style="display:inline;">
+              <input type="hidden" name="user_id" value="{{ u.id }}" />
+              <button type="submit" style="background:none;border:none;color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;cursor:pointer;padding:4px 8px;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-dim)'">Revoke</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}

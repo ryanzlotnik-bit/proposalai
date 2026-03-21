@@ -2902,6 +2902,60 @@ def google_disconnect():
     return redirect(url_for('profile'))
 
 
+# ─── Admin Panel ───────────────────────────────────────────────────────────────
+
+ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', '').strip().lower()
+
+def is_admin():
+    return current_user.is_authenticated and ADMIN_EMAIL and current_user.email.lower() == ADMIN_EMAIL
+
+
+@app.route('/admin')
+@login_required
+def admin_panel():
+    if not is_admin():
+        flash('Access denied.', 'error')
+        return redirect(url_for('dashboard'))
+    users = User.query.order_by(User.created_at.desc()).all()
+    return render_template('admin.html', users=users)
+
+
+@app.route('/admin/grant', methods=['POST'])
+@login_required
+def admin_grant():
+    if not is_admin():
+        return jsonify({'error': 'Access denied'}), 403
+    email = request.form.get('email', '').strip().lower()
+    plan = request.form.get('plan', 'enterprise')
+    expires_days = request.form.get('expires_days', '')
+    user = User.query.filter(db.func.lower(User.email) == email).first()
+    if not user:
+        flash(f'No account found for {email}.', 'error')
+        return redirect(url_for('admin_panel'))
+    user.plan = plan
+    user.subscription_status = 'active'
+    user.trial_expires_at = (datetime.utcnow() + timedelta(days=int(expires_days))
+                              if expires_days and expires_days.isdigit() else None)
+    db.session.commit()
+    flash(f'✓ {user.name} ({user.email}) granted {plan.capitalize()} access.', 'success')
+    return redirect(url_for('admin_panel'))
+
+
+@app.route('/admin/revoke', methods=['POST'])
+@login_required
+def admin_revoke():
+    if not is_admin():
+        return jsonify({'error': 'Access denied'}), 403
+    user_id = request.form.get('user_id', type=int)
+    user = User.query.get_or_404(user_id)
+    user.plan = 'trial'
+    user.subscription_status = 'trial'
+    user.trial_expires_at = None
+    db.session.commit()
+    flash(f'Access revoked for {user.email}.', 'success')
+    return redirect(url_for('admin_panel'))
+
+
 # ─── Enterprise: Advanced Analytics ───────────────────────────────────────────
 
 @app.route('/analytics')
