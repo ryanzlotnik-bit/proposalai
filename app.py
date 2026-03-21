@@ -2729,26 +2729,37 @@ def subscription_success():
 
 @app.route('/test-email')
 def test_email():
-    """Check email config without sending anything."""
+    """Actually attempt SMTP send and show exact error."""
+    import smtplib, ssl
     username = os.getenv('MAIL_USERNAME', '')
     password = os.getenv('MAIL_PASSWORD', '')
     lines = []
-    lines.append(f"MAIL_USERNAME set: {'YES — ' + username if username else 'NO'}")
-    lines.append(f"MAIL_PASSWORD set: {'YES (length=' + str(len(password)) + ')' if password else 'NO'}")
-    lines.append(f"MAIL_SERVER: {app.config.get('MAIL_SERVER')}")
-    lines.append(f"MAIL_PORT: {app.config.get('MAIL_PORT')}")
-    lines.append(f"DEV_AUTO_LOGIN: {os.getenv('DEV_AUTO_LOGIN', 'NOT SET')}")
-    lines.append(f"Logged in: {current_user.is_authenticated}")
-    if username and password:
-        lines.append("")
-        lines.append("Config looks OK. Make sure:")
-        lines.append("1. MAIL_PASSWORD is a Gmail App Password (not your account password)")
-        lines.append("2. IMAP is enabled: Gmail Settings → See all settings → Forwarding and POP/IMAP → Enable IMAP")
+    lines.append(f"MAIL_USERNAME: {username or 'NOT SET'}")
+    lines.append(f"MAIL_PASSWORD length: {len(password)} chars")
+    lines.append("")
+    if not username or not password:
+        lines.append("ERROR: MAIL_USERNAME or MAIL_PASSWORD not set in Railway Variables")
     else:
-        lines.append("")
-        lines.append("ACTION NEEDED: Go to Railway → your service → Variables tab and add:")
-        lines.append("  MAIL_USERNAME = your Gmail address (e.g. you@gmail.com)")
-        lines.append("  MAIL_PASSWORD = your Gmail App Password")
+        # Test SMTP
+        lines.append("Testing SMTP connection to smtp.gmail.com:587...")
+        try:
+            ctx = ssl.create_default_context()
+            with smtplib.SMTP('smtp.gmail.com', 587, timeout=15) as s:
+                s.ehlo()
+                s.starttls(context=ctx)
+                s.ehlo()
+                s.login(username, password)
+                lines.append("SMTP LOGIN: OK")
+                # Send a real test email
+                from email.mime.text import MIMEText
+                msg = MIMEText("This is a test from CloseTheJob.")
+                msg['Subject'] = 'CloseTheJob SMTP Test'
+                msg['From'] = username
+                msg['To'] = username
+                s.sendmail(username, [username], msg.as_string())
+                lines.append(f"SEND: OK — check {username} inbox")
+        except Exception as e:
+            lines.append(f"SMTP ERROR: {type(e).__name__}: {e}")
     return "<pre style='font-family:monospace;padding:40px;background:#111;color:#eee;min-height:100vh;'>" + "\n".join(lines) + "</pre>"
 
 
