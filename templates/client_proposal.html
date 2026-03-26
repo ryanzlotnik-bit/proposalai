@@ -589,6 +589,22 @@
           {{ user.company_name or user.name }} has been notified and will be in touch shortly to schedule your project.
           {% if user.phone %}<br>Questions? Call {{ user.phone }}.{% endif %}
         </div>
+        {% if proposal.deposit_pct and proposal.deposit_pct > 0 %}
+        <div style="margin-top:20px;padding:18px;background:#fff7ed;border:1px solid #fed7aa;border-radius:4px;">
+          {% if proposal.deposit_paid_at %}
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;color:#166534;font-weight:600;font-size:14px;">
+            <span style="font-size:18px;">✓</span> Deposit Paid — ${{ '{:,.2f}'.format(proposal.deposit_amount) }}
+          </div>
+          <div style="font-size:12px;color:#666;margin-top:4px;text-align:center;">Paid on {{ proposal.deposit_paid_at.strftime('%B %d, %Y') }}</div>
+          {% else %}
+          <div style="font-size:14px;font-weight:600;color:#9a3412;margin-bottom:4px;">Deposit Required to Lock In Your Date</div>
+          <div style="font-size:13px;color:#666;margin-bottom:14px;">{{ proposal.deposit_pct|int }}% deposit — ${{ '{:,.2f}'.format(proposal.deposit_amount) }}</div>
+          <a href="{{ url_for('deposit_view', token=proposal.deposit_token) }}" style="display:block;width:100%;background:#F97316;color:#000;font-weight:700;font-size:14px;padding:14px;text-align:center;text-decoration:none;border:none;cursor:pointer;">
+            Pay Deposit — ${{ '{:,.2f}'.format(proposal.deposit_amount) }} →
+          </a>
+          {% endif %}
+        </div>
+        {% endif %}
       </div>
     </div>
     {% else %}

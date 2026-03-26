@@ -533,6 +533,9 @@ class ScheduledJob(db.Model):
     invoice_on_complete = db.Column(db.Boolean, default=True)
     status = db.Column(db.String(50), default='scheduled')  # scheduled, invoiced, cancelled
     notes = db.Column(db.Text, default='')
+    recurring = db.Column(db.Boolean, default=False)
+    recurrence_type = db.Column(db.String(20), default='')  # weekly, biweekly, monthly, quarterly, yearly
+    recurrence_end_date = db.Column(db.Date, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
@@ -832,6 +835,35 @@ def build_monthly_chart_data(user_id, months=12):
     return labels, revenues, expenses_data, tips_data
 
 
+def compute_next_recurrence_date(from_date, recurrence_type):
+    """Return the next scheduled date given a recurrence type."""
+    if recurrence_type == 'weekly':
+        return from_date + timedelta(weeks=1)
+    elif recurrence_type == 'biweekly':
+        return from_date + timedelta(weeks=2)
+    elif recurrence_type == 'monthly':
+        month = from_date.month + 1
+        year = from_date.year
+        if month > 12:
+            month = 1
+            year += 1
+        day = min(from_date.day, calendar.monthrange(year, month)[1])
+        return date(year, month, day)
+    elif recurrence_type == 'quarterly':
+        month = from_date.month + 3
+        year = from_date.year
+        while month > 12:
+            month -= 12
+            year += 1
+        day = min(from_date.day, calendar.monthrange(year, month)[1])
+        return date(year, month, day)
+    elif recurrence_type == 'yearly':
+        year = from_date.year + 1
+        day = min(from_date.day, calendar.monthrange(year, from_date.month)[1])
+        return date(year, from_date.month, day)
+    return from_date + timedelta(days=30)
+
+
 def auto_invoice_past_scheduled_jobs(user_id):
     """Find scheduled jobs whose date has passed, create Job records, send invoices."""
     today = date.today()
@@ -857,7 +889,33 @@ def auto_invoice_past_scheduled_jobs(user_id):
         db.session.add(job)
         db.session.flush()  # get job.id
         sj.status = 'invoiced'
+        # Spawn next occurrence for recurring jobs
+        next_sj_id = None
+        if sj.recurring and sj.recurrence_type:
+            next_date = compute_next_recurrence_date(sj.scheduled_date, sj.recurrence_type)
+            if not sj.recurrence_end_date or next_date <= sj.recurrence_end_date:
+                next_sj = ScheduledJob(
+                    user_id=sj.user_id,
+                    client_id=sj.client_id,
+                    client_name=sj.client_name,
+                    client_email=sj.client_email,
+                    client_phone=sj.client_phone,
+                    job_type=sj.job_type,
+                    description=sj.description,
+                    scheduled_date=next_date,
+                    estimated_revenue=sj.estimated_revenue,
+                    invoice_on_complete=sj.invoice_on_complete,
+                    notes=sj.notes,
+                    recurring=True,
+                    recurrence_type=sj.recurrence_type,
+                    recurrence_end_date=sj.recurrence_end_date,
+                )
+                db.session.add(next_sj)
+                db.session.flush()
+                next_sj_id = next_sj.id
         db.session.commit()
+        if next_sj_id:
+            push_to_google_calendar(user_id, next_sj_id)
         if sj.invoice_on_complete and sj.client_email and user and user.can_auto_invoice:
             send_invoice_email(job, user)
 
@@ -2092,6 +2150,12 @@ for <strong>${p.grand_total:,.2f}</strong>.</p>
                 sms_body = f"CloseTheJob: {p.client_name} {sms_verb} proposal {p.proposal_number} (${p.grand_total:,.0f}). Log in to view."
                 send_sms(u.phone, sms_body)
     threading.Thread(target=notify, daemon=True).start()
+    # If deposit required and accepted, send client to deposit page
+    if action == 'accepted' and proposal.deposit_pct and proposal.deposit_pct > 0:
+        if not proposal.deposit_token:
+            proposal.deposit_token = secrets.token_urlsafe(20)
+            db.session.commit()
+        return redirect(url_for('deposit_view', token=proposal.deposit_token))
     return redirect(url_for('public_proposal', token=token))
 
 
@@ -2346,6 +2410,15 @@ def schedule():
             return redirect(url_for('schedule'))
         client_id_raw = request.form.get('client_id', '').strip()
         linked_client_id = int(client_id_raw) if client_id_raw.isdigit() else None
+        recurring = request.form.get('recurring') == '1'
+        recurrence_type = request.form.get('recurrence_type', '').strip() if recurring else ''
+        rec_end_raw = request.form.get('recurrence_end_date', '').strip()
+        recurrence_end_date = None
+        if recurring and rec_end_raw:
+            try:
+                recurrence_end_date = date.fromisoformat(rec_end_raw)
+            except ValueError:
+                pass
         sj = ScheduledJob(
             user_id=uid(),
             client_id=linked_client_id,
@@ -2358,6 +2431,9 @@ def schedule():
             estimated_revenue=float(request.form.get('estimated_revenue', 0) or 0),
             invoice_on_complete=bool(request.form.get('invoice_on_complete')),
             notes=request.form.get('notes', '').strip(),
+            recurring=recurring,
+            recurrence_type=recurrence_type,
+            recurrence_end_date=recurrence_end_date,
         )
         db.session.add(sj)
         db.session.commit()
@@ -4231,6 +4307,9 @@ with app.app_context():
         'ALTER TABLE lead_contact ADD COLUMN birthday VARCHAR(30) DEFAULT \'\'',
         'ALTER TABLE lead_contact ADD COLUMN address VARCHAR(500) DEFAULT \'\'',
         # LinkedEmail is a new table — db.create_all() handles it
+        'ALTER TABLE scheduled_job ADD COLUMN recurring BOOLEAN DEFAULT 0',
+        'ALTER TABLE scheduled_job ADD COLUMN recurrence_type VARCHAR(20) DEFAULT \'\'',
+        'ALTER TABLE scheduled_job ADD COLUMN recurrence_end_date DATE',
     ]
     for _sql in _migrations:
         try:

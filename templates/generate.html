@@ -6,6 +6,8 @@
 @media (max-width:768px) {
   .form-2col { grid-template-columns: 1fr !important; }
   .form-2col > * { grid-column: auto !important; }
+  .form-card { padding: 20px 16px !important; }
+  .form-h1 { font-size: 44px !important; }
 }
 </style>
 {% endblock %}
@@ -16,7 +18,7 @@
   <div style="margin-bottom:36px;">
     <a href="{{ url_for('dashboard') }}" style="font-size:12px;color:var(--text-muted);text-decoration:none;font-family:'JetBrains Mono',monospace;display:inline-flex;align-items:center;gap:6px;margin-bottom:20px;transition:color 0.15s;" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text-muted)'">← BACK</a>
     <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;">// New proposal</div>
-    <h1 class="font-display" style="font-size:56px;color:var(--text);line-height:1;">Build Your<br />Proposal.</h1>
+    <h1 class="font-display form-h1" style="font-size:56px;color:var(--text);line-height:1;">Build Your<br />Proposal.</h1>
     <p style="color:var(--text-muted);font-size:14px;margin-top:10px;">Fill in the details below — we'll write the rest.</p>
   </div>
 
@@ -38,7 +40,7 @@
     <input type="hidden" name="template_id" id="template_id_field" value="" />
 
     <!-- Section 1: Client -->
-    <div class="ctj-card" style="margin-bottom:2px;padding:28px;">
+    <div class="ctj-card form-card" style="margin-bottom:2px;padding:28px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border);">
         <div style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--border-bright);line-height:1;">01</div>
         <div>
@@ -87,7 +89,7 @@
     </div>
 
     <!-- Section 2: Job -->
-    <div class="ctj-card" style="margin-bottom:2px;padding:28px;">
+    <div class="ctj-card form-card" style="margin-bottom:2px;padding:28px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border);">
         <div style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--border-bright);line-height:1;">02</div>
         <div>
@@ -160,7 +162,7 @@
     </div>
 
     <!-- Section 3: Costs -->
-    <div class="ctj-card" style="margin-bottom:2px;padding:28px;">
+    <div class="ctj-card form-card" style="margin-bottom:2px;padding:28px;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
         <div style="display:flex;align-items:center;gap:12px;">
           <div style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--border-bright);line-height:1;">03</div>
@@ -221,7 +223,7 @@
     </div>
 
     <!-- Section 4: Pricing -->
-    <div class="ctj-card" style="margin-bottom:28px;padding:28px;">
+    <div class="ctj-card form-card" style="margin-bottom:28px;padding:28px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border);">
         <div style="font-family:'Bebas Neue',cursive;font-size:32px;color:var(--border-bright);line-height:1;">04</div>
         <div>

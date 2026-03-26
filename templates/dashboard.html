@@ -179,19 +179,21 @@
 @media (max-width:768px) {
   .dash-main-grid { grid-template-columns: 1fr !important; }
   .action-grid { grid-template-columns: 1fr 1fr !important; }
-  .stat-tile .stat-value { font-size: 32px !important; }
+  .stat-tile .stat-value { font-size: 28px !important; }
+  .stat-tile { padding: 16px !important; }
+  .dash-h1 { font-size: 44px !important; }
 }
 </style>
 {% endblock %}
 
 {% block content %}
-<div style="max-width:1280px;margin:0 auto;padding:40px 24px;" class="mob-page">
+<div style="max-width:1280px;margin:0 auto;padding:40px 24px;" class="mob-page dash-wrap">
 
   <!-- Header -->
   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:32px;flex-wrap:wrap;">
     <div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">// Command Center</div>
-      <h1 class="font-display" style="font-size:clamp(40px,5vw,60px);color:var(--text);line-height:1;">{{ current_user.name.split()[0] }}'s<br />Business.</h1>
+      <h1 class="font-display dash-h1" style="font-size:clamp(40px,5vw,60px);color:var(--text);line-height:1;">{{ current_user.name.split()[0] }}'s<br />Business.</h1>
       <p style="color:var(--text-muted);font-size:12px;margin-top:8px;font-family:'JetBrains Mono',monospace;">
         {{ today.strftime('%A, %B %d').upper() }} ·
         {% if current_user.is_subscribed %}{{ current_user.plan_display.upper() }} PLAN

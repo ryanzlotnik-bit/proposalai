@@ -234,7 +234,7 @@
         </div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:14px;font-weight:600;color:var(--text);">{{ j.client_name }}</div>
-          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">{{ j.job_type or 'Job' }}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">{{ j.job_type or 'Job' }}{% if j.recurring %} <span style="color:var(--blue);">↻</span>{% endif %}</div>
           {% if j.estimated_revenue %}
           <div style="font-size:13px;color:var(--green);font-weight:600;margin-top:4px;">${{ "{:,.0f}".format(j.estimated_revenue) }}</div>
           {% endif %}
@@ -438,6 +438,32 @@
             <div style="font-size:11px;color:var(--text-muted);">Jobs will invoice themselves when the date passes. <a href="{{ url_for('pricing') }}" style="color:var(--orange);">Upgrade to Pro →</a></div>
           </div>
           {% endif %}
+          <!-- Recurring toggle -->
+          <div class="fin-field" style="grid-column:1/-1;display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border-bright);">
+            <input type="checkbox" name="recurring" id="recurringCheck" value="1" onchange="toggleRecurring(this.checked)" style="width:16px;height:16px;accent-color:var(--orange);cursor:pointer;margin-top:2px;" />
+            <label for="recurringCheck" style="font-size:13px;color:var(--text);cursor:pointer;">
+              Recurring job
+              <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-top:2px;">Auto re-schedules after each job completes</div>
+            </label>
+          </div>
+          <div id="recurringFields" style="display:none;grid-column:1/-1;display:none;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;padding-top:4px;">
+              <div class="fin-field">
+                <label class="ctj-label">Repeat Every</label>
+                <select name="recurrence_type" id="recurrence_type" class="ctj-input">
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Every 2 Weeks</option>
+                  <option value="monthly" selected>Monthly</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              </div>
+              <div class="fin-field">
+                <label class="ctj-label">End Date <span style="color:var(--text-dim);">(optional)</span></label>
+                <input type="date" name="recurrence_end_date" class="ctj-input" />
+              </div>
+            </div>
+          </div>
         </div>
         <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end;">
           <button type="button" class="btn-ghost" onclick="document.getElementById('scheduleModal').classList.remove('active')">Cancel</button>
@@ -463,6 +489,8 @@ const ALL_JOBS = [
     status: {{ j.status | tojson }},
     invoice: {{ 'true' if j.invoice_on_complete else 'false' }},
     email: {{ (j.client_email or '') | tojson }},
+    recurring: {{ 'true' if j.recurring else 'false' }},
+    recurrence_type: {{ (j.recurrence_type or '') | tojson }},
   },
   {% endfor %}
 ];
@@ -544,7 +572,7 @@ function renderCalendar() {
     jobs.slice(0, maxShow).forEach(j => {
       const chip = document.createElement('span');
       chip.className = `cal-job-chip ${j.status}`;
-      chip.textContent = j.client + (j.job_type ? ` · ${j.job_type}` : '');
+      chip.textContent = (j.recurring ? '↻ ' : '') + j.client + (j.job_type ? ` · ${j.job_type}` : '');
       chip.title = `${j.client} — $${j.revenue.toLocaleString()}`;
       chip.addEventListener('mouseenter', e => showTooltip(e, j));
       chip.addEventListener('mouseleave', hideTooltip);
@@ -578,6 +606,7 @@ function showTooltip(e, job) {
     <div style="font-size:11px;color:var(--green);font-family:'JetBrains Mono',monospace;">$${job.revenue.toLocaleString('en-US',{minimumFractionDigits:2})}</div>
     ${job.email ? `<div style="font-size:10px;color:var(--text-muted);margin-top:4px;">${job.email}</div>` : ''}
     <div style="margin-top:6px;font-size:10px;font-family:'JetBrains Mono',monospace;color:${job.status==='invoiced'?'var(--green)':job.status==='cancelled'?'var(--red)':'var(--orange)'};">${job.status.toUpperCase()}</div>
+    ${job.recurring ? `<div style="font-size:10px;color:var(--blue);font-family:'JetBrains Mono',monospace;margin-top:2px;">↻ RECURRING · ${job.recurrence_type.toUpperCase()}</div>` : ''}
   `;
   tip.classList.add('visible');
   positionTooltip(e);
@@ -623,6 +652,11 @@ function togglePast() {
 // ── Init ─────────────────────────────────────────────────────────────────────
 renderCalendar();
 countThisWeek();
+
+// ── Recurring toggle ─────────────────────────────────────────────────────────
+function toggleRecurring(checked) {
+  document.getElementById('recurringFields').style.display = checked ? 'block' : 'none';
+}
 
 // ── Schedule modal client picker ──────────────────────────────────────────────
 function fillSchedClient(sel) {
