@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
@@ -1559,6 +1559,72 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/demo', methods=['GET', 'POST'])
+def demo():
+    if request.method == 'POST':
+        if session.get('demo_generated'):
+            flash('Create a free account to generate unlimited proposals.', 'info')
+            return redirect(url_for('register'))
+
+        company_name = request.form.get('company_name', '').strip() or 'Your Company'
+        trade_type   = request.form.get('trade_type', 'General Contractor').strip()
+        job_desc     = request.form.get('job_description', '').strip()
+        client_name  = request.form.get('client_name', '').strip() or 'Sample Client'
+        labor_hours  = float(request.form.get('labor_hours', 8) or 8)
+        labor_rate   = float(request.form.get('labor_rate', 75) or 75)
+
+        job_data = {
+            'client_name': client_name,
+            'client_address': '123 Main St',
+            'client_email': '',
+            'client_phone': '',
+            'job_type': trade_type,
+            'job_description': job_desc,
+            'labor_hours': labor_hours,
+            'labor_rate': labor_rate,
+            'timeline': '1–2 weeks',
+            'warranty': '1 year on labor and materials',
+            'notes': '',
+            'explicit_costs': [],
+            'service_details': {},
+        }
+        user_data = {
+            'name': 'Demo Contractor',
+            'company_name': company_name,
+            'trade_type': trade_type,
+            'phone': '(555) 000-0000',
+            'license_number': '',
+        }
+
+        try:
+            content = call_claude_for_proposal(job_data, user_data)
+        except Exception as e:
+            flash(f'Error generating demo: {str(e)}', 'error')
+            return render_template('demo.html', form_data=request.form)
+
+        session['demo_generated'] = True
+        session['demo_proposal'] = {
+            'content': content,
+            'job_data': job_data,
+            'user_data': user_data,
+        }
+        return redirect(url_for('demo_preview'))
+
+    return render_template('demo.html', form_data={})
+
+
+@app.route('/demo/preview')
+def demo_preview():
+    demo_data = session.get('demo_proposal')
+    if not demo_data:
+        return redirect(url_for('demo'))
+    return render_template('demo_preview.html',
+                           content=demo_data['content'],
+                           job_data=demo_data['job_data'],
+                           user_data=demo_data['user_data'],
+                           today=date.today().strftime('%B %d, %Y'))
+
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
@@ -1944,7 +2010,8 @@ def generate():
         except Exception as e:
             flash(f'Error generating proposal: {str(e)}', 'error')
             clients = Client.query.filter_by(user_id=uid()).order_by(Client.name).all()
-            return render_template('generate.html', form_data=job_data, cost_templates=cost_templates, allowed_job_types=current_user.allowed_job_types, clients=clients)
+            templates = ProposalTemplate.query.filter_by(user_id=uid()).order_by(ProposalTemplate.name).all()
+            return render_template('generate.html', form_data=job_data, cost_templates=cost_templates, allowed_job_types=current_user.allowed_job_types, clients=clients, templates=templates)
 
         # Auto-upsert client in CRM — find by email, then name, else create new
         client_id_form = request.form.get('client_id', '').strip()

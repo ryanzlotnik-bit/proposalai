@@ -620,7 +620,18 @@
     </div>
     {% endif %}
 
-    {% if not user.can_use_branding %}<div class="powered-by" style="font-size:10px;color:#bbb;text-align:center;padding:12px;">Powered by CloseTheJob</div>{% endif %}
+    {% if not user.can_use_branding %}
+    <div style="text-align:center;margin-top:28px;padding:16px 20px;border-top:1px solid #e5e5e5;">
+      <a href="https://closethejobapp.com?ref=proposal" target="_blank" rel="noopener"
+         style="display:inline-flex;align-items:center;gap:7px;text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:11px;color:#999;transition:color 0.15s;"
+         onmouseover="this.style.color='#F97316'" onmouseout="this.style.color='#999'">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F97316" stroke-width="2.5">
+          <path d="M9 12h6m-6 4h6M5 5h14l2 2v12l-2 2H5l-2-2V7l2-2z"/>
+        </svg>
+        Proposal created with <strong style="color:#F97316;font-weight:700;">CloseTheJob</strong>
+      </a>
+    </div>
+    {% endif %}
   </div>
 
 </body>

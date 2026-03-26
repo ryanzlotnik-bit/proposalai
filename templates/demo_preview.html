@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Your Demo Proposal — CloseTheJob</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: #f4f4f0;
+      color: #111;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      padding-bottom: 140px;
+    }
+
+    /* Top bar */
+    .top-bar {
+      background: #111;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .top-bar-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+    }
+    .logo-icon {
+      width: 28px; height: 28px;
+      background: #F97316;
+      display: flex; align-items: center; justify-content: center;
+      clip-path: polygon(0 0, 90% 0, 100% 10%, 100% 100%, 10% 100%, 0 90%);
+      flex-shrink: 0;
+    }
+    .logo-text {
+      font-family: 'Bebas Neue', cursive;
+      font-size: 18px;
+      color: #fff;
+      letter-spacing: 0.04em;
+    }
+    .logo-text span { color: #F97316; }
+    .demo-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: #F97316;
+      border: 1px solid rgba(249,115,22,0.4);
+      padding: 3px 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    /* Demo notice banner */
+    .demo-notice {
+      background: #F97316;
+      padding: 10px 20px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .demo-notice a {
+      background: #000;
+      color: #fff;
+      font-size: 12px;
+      padding: 5px 14px;
+      text-decoration: none;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .demo-notice a:hover { background: #222; }
+
+    /* Main content */
+    .page-wrap {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+
+    /* Proposal card */
+    .prop-card {
+      background: #fff;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+      overflow: hidden;
+      position: relative;
+    }
+    .prop-card::before {
+      content: 'DEMO';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-35deg);
+      font-family: 'Bebas Neue', cursive;
+      font-size: 140px;
+      color: rgba(249,115,22,0.04);
+      letter-spacing: 0.1em;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 0;
+    }
+    .prop-header { background: #1a1a1a; position: relative; z-index: 1; }
+    .prop-header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 20px 24px 16px;
+      gap: 12px;
+    }
+    .prop-company { font-size: 18px; font-weight: 700; color: #fff; }
+    .prop-meta { font-size: 11px; color: #888; margin-top: 3px; }
+    .prop-ref { text-align: right; font-size: 11px; color: #888; flex-shrink: 0; }
+    .prop-ref strong { display: block; color: #fff; font-size: 13px; margin-bottom: 3px; }
+    .prop-header-title { background: #F97316; padding: 12px 24px; }
+    .prop-header-title h1 {
+      font-family: 'Bebas Neue', cursive;
+      font-size: 24px;
+      color: #fff;
+      letter-spacing: 0.06em;
+    }
+
+    .prop-body { padding: 20px 24px; position: relative; z-index: 1; }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 520px) { .info-grid { grid-template-columns: 1fr; } }
+    .info-box { border: 1px solid #e5e5e5; }
+    .info-box-hd {
+      background: #F97316;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .info-box-bd { padding: 10px; }
+    .info-row {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 4px;
+      font-size: 12px;
+      margin-bottom: 4px;
+      color: #444;
+    }
+    .info-row span:first-child { font-weight: 600; color: #111; }
+
+    .sec-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: #111;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #e5e5e5;
+      margin-bottom: 10px;
+    }
+    .desc-text {
+      font-size: 13px;
+      color: #444;
+      line-height: 1.7;
+      margin-bottom: 20px;
+    }
+
+    .est-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-bottom: 20px;
+    }
+    .est-table th {
+      background: #F97316;
+      color: #fff;
+      font-weight: 700;
+      padding: 7px 10px;
+      text-align: left;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .est-table th:last-child { text-align: right; }
+    .est-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid #eee;
+      color: #333;
+      vertical-align: top;
+    }
+    .est-table td:last-child { text-align: right; font-weight: 600; }
+    .est-table td:nth-child(2), .est-table td:nth-child(3) { text-align: center; color: #666; }
+    .section-row td {
+      background: #f7f7f7;
+      font-weight: 700;
+      color: #111;
+      padding: 5px 10px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .total-row td {
+      background: #F97316;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 10px;
+      border: none;
+    }
+    .total-row td:last-child { text-align: right; }
+    @media (max-width: 520px) {
+      .est-table th:nth-child(2), .est-table th:nth-child(3),
+      .est-table td:nth-child(2), .est-table td:nth-child(3) { display: none; }
+    }
+
+    .terms-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #e5e5e5;
+    }
+    @media (max-width: 520px) { .terms-grid { grid-template-columns: 1fr; } }
+    .terms-title { font-size: 12px; font-weight: 700; color: #111; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .terms-item {
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 5px;
+      padding-left: 12px;
+      position: relative;
+      line-height: 1.5;
+    }
+    .terms-item::before { content: '•'; position: absolute; left: 0; color: #F97316; }
+    .sig-area { text-align: center; }
+    .sig-line { border-bottom: 1px solid #d0d0d0; margin: 36px 0 8px; }
+    .sig-name { font-size: 12px; font-weight: 600; color: #111; }
+
+    .prop-footer {
+      background: #1a1a1a;
+      color: #888;
+      text-align: center;
+      font-size: 11px;
+      padding: 10px 20px;
+      font-family: 'JetBrains Mono', monospace;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Sticky sign-up CTA */
+    .signup-cta {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: #111;
+      border-top: 2px solid #F97316;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      z-index: 100;
+      flex-wrap: wrap;
+    }
+    .cta-text { }
+    .cta-text strong { display: block; font-size: 15px; color: #fff; font-weight: 700; margin-bottom: 2px; }
+    .cta-text span { font-size: 12px; color: #888; }
+    .cta-actions { display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+    .btn-cta-primary {
+      background: #F97316;
+      color: #000;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 12px 24px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      clip-path: polygon(0 0, 96% 0, 100% 20%, 100% 100%, 4% 100%, 0 80%);
+      transition: background 0.15s;
+      white-space: nowrap;
+    }
+    .btn-cta-primary:hover { background: #FB923C; }
+    .btn-cta-secondary {
+      color: #888;
+      font-size: 13px;
+      text-decoration: none;
+      white-space: nowrap;
+      transition: color 0.15s;
+    }
+    .btn-cta-secondary:hover { color: #ccc; }
+
+    /* Powered by */
+    .powered-by {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 11px;
+      color: #aaa;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .powered-by a { color: #F97316; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <a href="{{ url_for('index') }}" class="top-bar-logo">
+      <div class="logo-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2.5">
+          <path d="M9 12h6m-6 4h6M5 5h14l2 2v12l-2 2H5l-2-2V7l2-2z"/>
+        </svg>
+      </div>
+      <span class="logo-text">Close<span>The</span>Job</span>
+    </a>
+    <span class="demo-badge">Demo Proposal</span>
+  </div>
+
+  <!-- Demo notice -->
+  <div class="demo-notice">
+    This is a live AI-generated proposal. Sign up free to send it.
+    <a href="{{ url_for('register') }}">Create Free Account →</a>
+  </div>
+
+  <div class="page-wrap">
+    <div class="prop-card">
+      <div class="prop-header">
+        <div class="prop-header-top">
+          <div>
+            <div class="prop-company">{{ user_data.company_name }}</div>
+            <div class="prop-meta">{{ user_data.trade_type }}</div>
+          </div>
+          <div class="prop-ref">
+            <strong>DEMO-001</strong>
+            <span>{{ today }}</span><br>
+            <span>Valid: 30 days</span>
+          </div>
+        </div>
+        <div class="prop-header-title">
+          <h1>{{ job_data.job_type }} Estimate</h1>
+        </div>
+      </div>
+
+      <div class="prop-body">
+        <!-- Info grid -->
+        <div class="info-grid">
+          <div class="info-box">
+            <div class="info-box-hd">Prepared For</div>
+            <div class="info-box-bd">
+              <div class="info-row"><span>Name:</span><span>{{ job_data.client_name }}</span></div>
+              <div class="info-row"><span>Address:</span><span>{{ job_data.client_address }}</span></div>
+            </div>
+          </div>
+          <div class="info-box">
+            <div class="info-box-hd">Project Details</div>
+            <div class="info-box-bd">
+              <div class="info-row"><span>Valid:</span><span>{{ content.get('validity_period','30 days') }}</span></div>
+              <div class="info-row"><span>Timeline:</span><span>{{ content.get('project_timeline', job_data.timeline) }}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scope -->
+        <div class="sec-label">Scope of Work</div>
+        <div class="desc-text">{{ content.get('executive_summary', job_data.job_description) }}</div>
+
+        {% if content.get('scope_of_work') %}
+        <ul style="margin:-10px 0 20px;padding-left:20px;">
+          {% for item in content.get('scope_of_work', []) %}
+          <li style="font-size:13px;color:#444;line-height:1.7;margin-bottom:4px;">{{ item }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+
+        <!-- Estimate table -->
+        <table class="est-table">
+          <thead>
+            <tr>
+              <th style="width:45%;">Description</th>
+              <th style="width:15%;text-align:center;">Qty</th>
+              <th style="width:20%;text-align:center;">Rate</th>
+              <th style="width:20%;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if content.get('materials_list') and content.get('materials_list')|length > 0 %}
+            <tr class="section-row"><td colspan="4">Materials</td></tr>
+            {% for mat in content.get('materials_list', []) %}
+            <tr>
+              <td style="padding-left:16px;">{{ mat.get('name','') }}</td>
+              <td style="text-align:center;">{{ mat.get('quantity','') }} {{ mat.get('unit','') }}</td>
+              <td style="text-align:center;">${{ '{:,.2f}'.format(mat.get('unit_cost',0)) }}</td>
+              <td>${{ '{:,.2f}'.format(mat.get('total',0)) }}</td>
+            </tr>
+            {% endfor %}
+            {% endif %}
+
+            {% if content.get('labor_description') %}
+            <tr class="section-row"><td colspan="4">Labor</td></tr>
+            <tr>
+              <td style="padding-left:16px;">{{ content.get('labor_description') }}</td>
+              <td style="text-align:center;">{{ content.get('labor_hours', job_data.labor_hours) }} hrs</td>
+              <td style="text-align:center;">${{ '{:,.0f}'.format(content.get('labor_rate', job_data.labor_rate)) }}/hr</td>
+              <td>${{ '{:,.2f}'.format(content.get('labor_total', job_data.labor_hours * job_data.labor_rate)) }}</td>
+            </tr>
+            {% endif %}
+
+            <tr class="total-row">
+              <td colspan="3">Total Estimate</td>
+              <td>${{ '{:,.2f}'.format(content.get('grand_total', 0)) }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Terms + Signature -->
+        <div class="terms-grid">
+          <div>
+            <div class="terms-title">Terms & Conditions</div>
+            {% if content.get('payment_terms') %}
+            <div class="terms-item">{{ content.get('payment_terms') }}</div>
+            {% endif %}
+            {% if content.get('warranty_terms') %}
+            <div class="terms-item">{{ content.get('warranty_terms') }}</div>
+            {% endif %}
+            {% if content.get('closing_statement') %}
+            <div class="terms-item">{{ content.get('closing_statement') }}</div>
+            {% endif %}
+          </div>
+          <div class="sig-area">
+            <div class="terms-title">Client Signature</div>
+            <div class="sig-line"></div>
+            <div class="sig-name">{{ job_data.client_name }}</div>
+            <div style="font-size:11px;color:#aaa;margin-top:4px;">Signed electronically via CloseTheJob</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="prop-footer">
+        {{ user_data.company_name }}
+      </div>
+    </div>
+
+    <div class="powered-by">
+      Powered by <a href="{{ url_for('index') }}">CloseTheJob</a>
+    </div>
+  </div>
+
+  <!-- Sticky sign-up CTA -->
+  <div class="signup-cta">
+    <div class="cta-text">
+      <strong>Your proposal is ready to send.</strong>
+      <span>Sign up free — no credit card needed. Send this in 60 seconds.</span>
+    </div>
+    <div class="cta-actions">
+      <a href="{{ url_for('demo') }}" class="btn-cta-secondary">Try Again</a>
+      <a href="{{ url_for('register') }}" class="btn-cta-primary">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Create Free Account →
+      </a>
+    </div>
+  </div>
+
+</body>
+</html>

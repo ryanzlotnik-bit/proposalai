@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+{% block title %}Try a Live Proposal — CloseTheJob{% endblock %}
+
+{% block head %}
+<style>
+  .demo-wrap {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 60px 24px 80px;
+  }
+  .demo-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--orange);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .demo-eyebrow::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--orange);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+  .demo-heading {
+    font-family: 'Bebas Neue', cursive;
+    font-size: clamp(40px, 6vw, 72px);
+    color: var(--text);
+    line-height: 0.95;
+    margin-bottom: 12px;
+  }
+  .demo-heading span { color: var(--orange); }
+  .demo-sub {
+    font-size: 15px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    margin-bottom: 40px;
+  }
+  .demo-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 32px;
+  }
+  .form-group { margin-bottom: 20px; }
+  .form-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+  }
+  .form-input, .form-select, .form-textarea {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    border-color: var(--orange);
+  }
+  .form-select { cursor: pointer; }
+  .form-textarea { resize: vertical; min-height: 100px; line-height: 1.55; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media(max-width:520px) { .form-row { grid-template-columns: 1fr; } }
+  .demo-note {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 5px;
+    line-height: 1.5;
+  }
+  .btn-demo-submit {
+    width: 100%;
+    background: var(--orange);
+    color: #000;
+    font-weight: 700;
+    font-size: 15px;
+    padding: 16px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    clip-path: polygon(0 0, 97% 0, 100% 12%, 100% 100%, 3% 100%, 0 88%);
+    transition: background 0.15s;
+    margin-top: 8px;
+    letter-spacing: 0.03em;
+  }
+  .btn-demo-submit:hover { background: #FB923C; }
+  .already-used {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 24px;
+    text-align: center;
+  }
+
+  /* Loading overlay */
+  #loading-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(12,12,12,0.92);
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+  #loading-overlay.active { display: flex; }
+  .loading-spinner {
+    width: 48px; height: 48px;
+    border: 3px solid rgba(249,115,22,0.2);
+    border-top-color: var(--orange);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text {
+    font-family: 'Bebas Neue', cursive;
+    font-size: 28px;
+    color: var(--text);
+    letter-spacing: 0.06em;
+  }
+  .loading-sub {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div id="loading-overlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Generating Your Proposal</div>
+  <div class="loading-sub">// Claude AI is writing your scope, materials, and pricing...</div>
+</div>
+
+<div class="demo-wrap">
+  <div class="demo-eyebrow">// Live Demo</div>
+  <h1 class="demo-heading">See a real<br /><span>AI proposal</span></h1>
+  <p class="demo-sub">No sign-up needed. Fill in a few details and watch CloseTheJob generate a professional proposal in under 60 seconds.</p>
+
+  {% if session.get('demo_generated') %}
+  <div class="already-used">
+    <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:8px;">You already generated a demo proposal.</div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">Create a free account to generate unlimited proposals, schedule jobs, and get paid faster.</p>
+    <a href="{{ url_for('demo_preview') }}" style="display:inline-block;background:var(--surface-2);border:1px solid var(--border);color:var(--text-muted);font-size:13px;padding:10px 20px;text-decoration:none;margin-right:8px;">View My Demo →</a>
+    <a href="{{ url_for('register') }}" class="btn-demo-submit" style="display:inline-flex;width:auto;padding:10px 24px;clip-path:none;">Start Free Account →</a>
+  </div>
+  {% else %}
+  <div class="demo-card">
+    <form method="POST" action="{{ url_for('demo') }}" id="demo-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Your Trade</label>
+          <select name="trade_type" class="form-select" required>
+            {% for t in [
+              'General Contractor','Plumbing','Electrical','HVAC','Roofing',
+              'Flooring','Painting','Landscaping','Carpentry','Masonry',
+              'Concrete','Drywall','Insulation','Siding','Windows & Doors'
+            ] %}
+            <option value="{{ t }}" {% if form_data.get('trade_type') == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Your Company Name</label>
+          <input type="text" name="company_name" class="form-input" placeholder="e.g. Smith Plumbing Co." value="{{ form_data.get('company_name','') }}">
+          <div class="demo-note">Optional — appears on the proposal header</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Describe the Job</label>
+        <textarea name="job_description" class="form-textarea" placeholder="e.g. Replace water heater in basement. Remove old 40-gallon tank, install new 50-gallon gas unit, update connections and strapping to code." required>{{ form_data.get('job_description','') }}</textarea>
+        <div class="demo-note">The more detail you give, the better the proposal. A few sentences is plenty.</div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Client Name</label>
+          <input type="text" name="client_name" class="form-input" placeholder="e.g. John Smith" value="{{ form_data.get('client_name','') }}">
+          <div class="demo-note">Optional — who the proposal is for</div>
+        </div>
+        <div class="form-group" style="display:flex;gap:12px;">
+          <div style="flex:1;">
+            <label class="form-label">Labor Hours</label>
+            <input type="number" name="labor_hours" class="form-input" value="{{ form_data.get('labor_hours', 8) }}" min="1" max="200" step="0.5">
+          </div>
+          <div style="flex:1;">
+            <label class="form-label">$/Hour</label>
+            <input type="number" name="labor_rate" class="form-input" value="{{ form_data.get('labor_rate', 85) }}" min="25" max="500" step="5">
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-demo-submit" id="submit-btn">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Generate My Proposal
+      </button>
+    </form>
+  </div>
+  {% endif %}
+
+  <div style="text-align:center;margin-top:24px;font-size:12px;color:var(--text-muted);">
+    Already have an account? <a href="{{ url_for('login') }}" style="color:var(--orange);">Sign in →</a>
+  </div>
+</div>
+
+<script>
+document.getElementById('demo-form') && document.getElementById('demo-form').addEventListener('submit', function() {
+  document.getElementById('loading-overlay').classList.add('active');
+});
+</script>
+
+{% endblock %}

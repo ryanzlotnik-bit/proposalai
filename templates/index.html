@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}CloseTheJob — Run Your Trade Business on Autopilot{% endblock %}
+{% block title %}CloseTheJob — Built For Trade Contractors. Not Enterprises.{% endblock %}
 
 {% block head %}
 <style>
@@ -21,24 +21,16 @@
     bottom: -100px;
     left: 50%;
     transform: translateX(-50%);
-    width: 600px;
-    height: 300px;
-    background: radial-gradient(ellipse, rgba(249, 115, 22, 0.15) 0%, transparent 70%);
+    width: 700px;
+    height: 350px;
+    background: radial-gradient(ellipse, rgba(249, 115, 22, 0.12) 0%, transparent 70%);
     pointer-events: none;
   }
   .hero-diagonal {
     position: absolute;
-    top: 0;
-    right: 0;
-    width: 40%;
-    height: 100%;
-    background: repeating-linear-gradient(
-      -55deg,
-      transparent,
-      transparent 30px,
-      rgba(249, 115, 22, 0.025) 30px,
-      rgba(249, 115, 22, 0.025) 32px
-    );
+    top: 0; right: 0;
+    width: 40%; height: 100%;
+    background: repeating-linear-gradient(-55deg, transparent, transparent 30px, rgba(249,115,22,0.025) 30px, rgba(249,115,22,0.025) 32px);
     pointer-events: none;
   }
   .hero-content {
@@ -58,39 +50,36 @@
     color: var(--orange);
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    border: 1px solid rgba(249, 115, 22, 0.3);
+    border: 1px solid rgba(249,115,22,0.3);
     padding: 6px 14px;
     margin-bottom: 28px;
-    background: rgba(249, 115, 22, 0.06);
+    background: rgba(249,115,22,0.06);
   }
   .hero-eyebrow::before {
     content: '';
-    width: 6px;
-    height: 6px;
+    width: 6px; height: 6px;
     background: var(--orange);
     border-radius: 50%;
     animation: pulse 2s infinite;
   }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-  }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
   .hero-headline {
     font-family: 'Bebas Neue', cursive;
-    font-size: clamp(72px, 10vw, 140px);
-    line-height: 0.9;
+    font-size: clamp(60px, 9vw, 128px);
+    line-height: 0.92;
     color: var(--text);
-    margin-bottom: 8px;
+    margin-bottom: 12px;
   }
   .hero-headline span { color: var(--orange); }
   .hero-subline {
-    font-family: 'Bebas Neue', cursive;
-    font-size: clamp(28px, 3.5vw, 48px);
-    line-height: 1;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: clamp(13px, 1.5vw, 16px);
     color: var(--text-muted);
     margin-bottom: 28px;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
+  .hero-subline span { color: var(--green); }
   .hero-body {
     font-size: 17px;
     color: var(--text-muted);
@@ -128,26 +117,28 @@
   }
   .btn-secondary-lg:hover { color: var(--text); border-color: var(--text-muted); }
 
-  .stats-row {
+  .trust-strip {
     display: flex;
-    gap: 40px;
-    margin-top: 56px;
-    padding-top: 40px;
-    border-top: 1px solid var(--border);
+    gap: 0;
+    margin-top: 48px;
+    border: 1px solid var(--border);
     flex-wrap: wrap;
   }
-  .stat-item {}
-  .stat-number {
-    font-family: 'Bebas Neue', cursive;
-    font-size: 48px;
-    color: var(--text);
-    line-height: 1;
+  .trust-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    border-right: 1px solid var(--border);
+    flex: 1;
+    min-width: 160px;
   }
-  .stat-number span { color: var(--orange); }
-  .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
+  .trust-item:last-child { border-right: none; }
+  .trust-item svg { color: var(--green); flex-shrink: 0; }
+  .trust-item span { font-size: 12px; font-weight: 600; color: var(--text); font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.05em; }
 
-  /* How it works */
-  .steps-section { padding: 100px 0; }
+  /* Pain section */
+  .pain-section { padding: 100px 0; }
   .section-eyebrow {
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
@@ -163,6 +154,62 @@
     line-height: 1;
     margin-bottom: 56px;
   }
+  .pain-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border-bright);
+    padding: 24px 28px;
+    transition: border-color 0.2s;
+  }
+  .pain-card:hover { border-left-color: var(--orange); }
+  .pain-quote { font-size: 15px; color: var(--text); line-height: 1.55; font-style: italic; margin-bottom: 12px; }
+  .pain-quote::before { content: '"'; color: var(--orange); font-size: 20px; font-style: normal; }
+  .pain-quote::after { content: '"'; color: var(--orange); font-size: 20px; font-style: normal; }
+  .pain-source { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.06em; }
+  .pain-fix {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--green);
+    font-weight: 600;
+  }
+
+  /* Comparison */
+  .compare-section { padding: 80px 0; background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .compare-table { width: 100%; border-collapse: collapse; }
+  .compare-table th {
+    padding: 14px 20px;
+    font-size: 12px; font-weight: 700;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .compare-table th:first-child { text-align: left; }
+  .compare-table th.ctj { color: var(--orange); }
+  .compare-table td {
+    padding: 13px 20px;
+    font-size: 13px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+  }
+  .compare-table td:first-child { text-align: left; color: var(--text); font-weight: 500; }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table tr:hover td { background: rgba(249,115,22,0.02); }
+  .compare-table td.ctj { color: var(--green); font-weight: 700; }
+  .check { color: var(--green); }
+  .cross { color: var(--border-bright); }
+  .warn  { color: var(--orange); font-size: 11px; }
+
+  /* How it works */
+  .steps-section { padding: 100px 0; }
   .step-card {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -177,26 +224,22 @@
     top: 0; left: 0; right: 0;
     height: 2px;
     background: linear-gradient(90deg, var(--orange), transparent);
-    opacity: 0;
-    transition: opacity 0.2s;
+    opacity: 0; transition: opacity 0.2s;
   }
   .step-card:hover::before { opacity: 1; }
   .step-num {
     font-family: 'Bebas Neue', cursive;
-    font-size: 64px;
-    color: var(--border-bright);
-    line-height: 1;
-    margin-bottom: 16px;
-    transition: color 0.2s;
+    font-size: 64px; color: var(--border-bright);
+    line-height: 1; margin-bottom: 16px; transition: color 0.2s;
   }
   .step-card:hover .step-num { color: var(--orange); }
   .step-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
   .step-body { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
 
   /* Features */
-  .features-section { padding: 80px 0; background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .features-section { padding: 80px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
   .feature-item {
-    padding: 24px;
+    padding: 28px;
     border-right: 1px solid var(--border);
     border-bottom: 1px solid var(--border);
   }
@@ -204,23 +247,26 @@
     width: 36px; height: 36px;
     background: var(--orange-dim);
     border: 1px solid rgba(249,115,22,0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 16px;
-    color: var(--orange);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px; color: var(--orange);
   }
   .feature-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
   .feature-body { font-size: 13px; color: var(--text-muted); line-height: 1.55; }
 
-  /* Quote */
-  .quote-section { padding: 100px 24px; max-width: 800px; margin: 0 auto; text-align: center; }
-  .quote-mark { font-family: 'Bebas Neue', cursive; font-size: 100px; color: var(--orange); line-height: 0.6; margin-bottom: 24px; opacity: 0.6; }
-  .quote-text { font-size: clamp(20px, 3vw, 28px); color: var(--text); line-height: 1.5; font-weight: 300; font-style: italic; margin-bottom: 28px; }
-  .quote-author { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
-  .quote-author span { color: var(--orange); }
+  /* Testimonials */
+  .testimonial-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 28px 32px;
+  }
+  .testimonial-text { font-size: 15px; color: var(--text); line-height: 1.6; font-style: italic; margin-bottom: 16px; }
+  .testimonial-text::before { content: '"'; color: var(--orange); font-size: 20px; font-style: normal; }
+  .testimonial-text::after  { content: '"'; color: var(--orange); font-size: 20px; font-style: normal; }
+  .testimonial-author { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; }
+  .testimonial-author span { color: var(--orange); }
+  .stars { color: var(--orange); font-size: 14px; margin-bottom: 12px; }
 
-  /* CTA section */
+  /* CTA */
   .cta-section {
     padding: 100px 24px;
     position: relative;
@@ -234,14 +280,20 @@
     font-size: 200px;
     color: var(--border);
     white-space: nowrap;
-    top: 50%;
-    left: 50%;
+    top: 50%; left: 50%;
     transform: translate(-50%, -50%);
     pointer-events: none;
     letter-spacing: 0.02em;
     line-height: 1;
   }
   .cta-inner { position: relative; z-index: 2; }
+
+  @media (max-width: 768px) {
+    .trust-item { min-width: 50%; border-bottom: 1px solid var(--border); }
+    .trust-strip { border-bottom: none; }
+    .compare-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .compare-table { min-width: 620px; }
+  }
 </style>
 {% endblock %}
 
@@ -254,73 +306,233 @@
   <div class="hero-glow"></div>
   <div class="hero-content">
     <div class="fade-up">
-      <div class="hero-eyebrow">For Contractors · Home Service Businesses</div>
+      <div class="hero-eyebrow">HVAC · Plumbing · Electrical · Roofing</div>
     </div>
     <div class="fade-up-2">
-      <h1 class="hero-headline">Run Your Trade.<br /><span>On Autopilot.</span></h1>
-      <p class="hero-subline">Proposals. Scheduling. Invoices. Financials.</p>
+      <h1 class="hero-headline">The Software<br />Your Crew Will<br /><span>Actually Use.</span></h1>
+      <p class="hero-subline">
+        <span>No contracts.</span> &nbsp;No add-ons. &nbsp;No surprises. &nbsp;Cancel anytime.
+      </p>
     </div>
     <div class="fade-up-3">
       <p class="hero-body">
-        The complete business platform built for contractors. Write winning proposals, schedule jobs, auto-send invoices, and track every dollar — all in one place.
+        AI proposals in 60 seconds. Automatic invoicing. Simple financials. Everything Housecall Pro and Jobber charge extra for — included in one flat price, starting at $49/month.
       </p>
     </div>
     <div class="hero-ctas fade-up-4">
       <a href="{{ url_for('register') }}" class="btn-primary-lg">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-          <path d="M13 10V3L4 14h7v7l9-11h-7z"/>
-        </svg>
-        Start Free
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Start Free — No Credit Card
       </a>
       <a href="{{ url_for('pricing') }}" class="btn-secondary-lg">See Pricing →</a>
     </div>
-    <div class="stats-row fade-up-4">
-      <div class="stat-item">
-        <div class="stat-number"><span>60</span>s</div>
-        <div class="stat-label">Proposals</div>
+
+    <!-- Trust strip -->
+    <div class="trust-strip fade-up-4">
+      <div class="trust-item">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>No Contracts</span>
       </div>
-      <div class="stat-item">
-        <div class="stat-number"><span>Auto</span></div>
-        <div class="stat-label">Invoicing</div>
+      <div class="trust-item">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>No Add-Ons</span>
       </div>
-      <div class="stat-item">
-        <div class="stat-number"><span>1</span> app</div>
-        <div class="stat-label">For everything</div>
+      <div class="trust-item">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>Cancel Anytime</span>
       </div>
-      <div class="stat-item">
-        <div class="stat-number"><span>$0</span></div>
-        <div class="stat-label">To start</div>
+      <div class="trust-item">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        <span>Live in Minutes</span>
       </div>
     </div>
   </div>
 </section>
 
+<!-- SOUND FAMILIAR? -->
+<section class="pain-section">
+  <div style="max-width:1280px;margin:0 auto;padding:0 24px;">
+    <div class="section-eyebrow">// Sound familiar?</div>
+    <div class="section-heading">Your software is costing<br />you more than it makes you.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;">
+
+      <div class="pain-card">
+        <div class="pain-quote">I'm paying $400 a month for software my guys don't use.</div>
+        <div class="pain-source">Contractor · Housecall Pro user</div>
+        <div class="pain-fix">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          CloseTheJob is simple enough that techs actually use it — or it's free.
+        </div>
+      </div>
+
+      <div class="pain-card">
+        <div class="pain-quote">They locked me into a contract. The termination fee was $39,000.</div>
+        <div class="pain-source">Contractor · ServiceTitan BBB complaint</div>
+        <div class="pain-fix">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          No contracts. No termination fees. Cancel in two clicks, anytime.
+        </div>
+      </div>
+
+      <div class="pain-card">
+        <div class="pain-quote">The base price looked reasonable until essential features turned into add-ons.</div>
+        <div class="pain-source">Contractor · Capterra review</div>
+        <div class="pain-fix">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          Every feature included. One price. The number on the page is the number you pay.
+        </div>
+      </div>
+
+      <div class="pain-card">
+        <div class="pain-quote">My tech is standing in front of a customer and the app is crashing.</div>
+        <div class="pain-source">HVAC contractor · G2 review</div>
+        <div class="pain-fix">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          Fast, lightweight, mobile-first. Built for the field, not a desktop office.
+        </div>
+      </div>
+
+      <div class="pain-card">
+        <div class="pain-quote">I can't figure out if I'm actually making money on jobs.</div>
+        <div class="pain-source">Plumbing contractor · Trustpilot</div>
+        <div class="pain-fix">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          Revenue, expenses, tips, and net profit — visible in real time from your dashboard.
+        </div>
+      </div>
+
+      <div class="pain-card">
+        <div class="pain-quote">When we called, we couldn't talk to a human anymore. Only an AI chatbot.</div>
+        <div class="pain-source">Contractor · Housecall Pro, Trustpilot 2025</div>
+        <div class="pain-fix">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          Real support from real people. No chatbot walls.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
 <!-- HOW IT WORKS -->
-<section class="steps-section">
+<section class="steps-section" style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border);">
   <div style="max-width:1280px;margin:0 auto;padding:0 24px;">
     <div class="section-eyebrow">// How it works</div>
-    <div class="section-heading">Four steps.<br />Your whole business, automated.</div>
+    <div class="section-heading">Up and running<br />in under an hour.</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1px;background:var(--border);">
       <div class="step-card" style="background:var(--bg);">
         <div class="step-num">01</div>
-        <div class="step-title">Write Proposals</div>
-        <div class="step-body">AI writes detailed, professional proposals in 60 seconds. Scope, materials, labor breakdown — all formatted and ready to send.</div>
+        <div class="step-title">Write a Winning Proposal in 60 Seconds</div>
+        <div class="step-body">Tell the AI the job — HVAC repair, roof replacement, panel upgrade — and it writes a detailed, professional proposal. Scope, materials, labor breakdown, payment terms. Done before the customer walks out.</div>
       </div>
       <div class="step-card" style="background:var(--bg);">
         <div class="step-num">02</div>
-        <div class="step-title">Schedule Jobs</div>
-        <div class="step-body">Book upcoming jobs with client info and estimated revenue. See everything on your schedule in one clean view.</div>
+        <div class="step-title">Client Signs. Deposit Collected. Job Scheduled.</div>
+        <div class="step-body">Client gets a link to review, sign, and pay their deposit — right from their phone. Job lands on your calendar automatically when they accept. No chasing, no manual entry.</div>
       </div>
       <div class="step-card" style="background:var(--bg);">
         <div class="step-num">03</div>
-        <div class="step-title">Auto-Invoice</div>
-        <div class="step-body">When a job date passes, the invoice sends automatically with a PDF attachment. No manual follow-up needed.</div>
+        <div class="step-title">Invoice Sends Itself When the Job is Done</div>
+        <div class="step-body">When a job date passes, the invoice goes out automatically with a PDF attachment and Stripe payment link. Your client gets paid-out confirmation. You get notified. Zero manual effort.</div>
       </div>
       <div class="step-card" style="background:var(--bg);">
         <div class="step-num">04</div>
-        <div class="step-title">Track Revenue</div>
-        <div class="step-body">Log tips, expenses, and see your net profit in real time. Monthly charts and totals so you always know where you stand.</div>
+        <div class="step-title">Know Exactly Where Your Money Stands</div>
+        <div class="step-body">Revenue, expenses, tips, and net profit in real time. Monthly charts so you can see which job types make you the most. Know your numbers without touching a spreadsheet.</div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- VS COMPETITORS -->
+<section class="compare-section">
+  <div style="max-width:1100px;margin:0 auto;padding:0 24px;">
+    <div class="section-eyebrow">// vs the competition</div>
+    <div class="section-heading">Everything they charge extra for.<br />Included.</div>
+    <div class="compare-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th style="text-align:left;"></th>
+            <th class="ctj">CloseTheJob</th>
+            <th>ServiceTitan</th>
+            <th>Housecall Pro</th>
+            <th>Jobber</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Starting price</td>
+            <td class="ctj">$49/mo</td>
+            <td style="color:var(--red);">$300–500/tech/mo</td>
+            <td style="color:var(--orange);">$69/mo + add-ons</td>
+            <td style="color:var(--orange);">$39/mo, scales fast</td>
+          </tr>
+          <tr>
+            <td>Contracts required</td>
+            <td class="ctj">None — cancel anytime</td>
+            <td style="color:var(--red);">12–24 months</td>
+            <td style="color:var(--orange);">Monthly</td>
+            <td style="color:var(--orange);">Monthly</td>
+          </tr>
+          <tr>
+            <td>Add-ons to pay extra for</td>
+            <td class="ctj">Zero</td>
+            <td style="color:var(--red);">Many ($100–600/mo each)</td>
+            <td style="color:var(--red);">GPS, proposals, price book</td>
+            <td style="color:var(--orange);">Some</td>
+          </tr>
+          <tr>
+            <td>AI proposal writing</td>
+            <td class="ctj">✓ Included</td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Auto-invoicing</td>
+            <td class="ctj">✓ Included</td>
+            <td><span class="warn">Add-on</span></td>
+            <td><span class="warn">Higher plan</span></td>
+            <td><span class="warn">Higher plan</span></td>
+          </tr>
+          <tr>
+            <td>Client e-signature</td>
+            <td class="ctj">✓ Included</td>
+            <td><span class="warn">Add-on</span></td>
+            <td><span class="warn">Add-on</span></td>
+            <td><span class="warn">Higher plan</span></td>
+          </tr>
+          <tr>
+            <td>Deposit collection</td>
+            <td class="ctj">✓ Included</td>
+            <td><span class="warn">Add-on</span></td>
+            <td><span class="warn">Add-on $40/mo</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Google Calendar sync</td>
+            <td class="ctj">✓ Included</td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+          </tr>
+          <tr>
+            <td>Setup time</td>
+            <td class="ctj">Under 1 hour</td>
+            <td style="color:var(--red);">3–12 months</td>
+            <td style="color:var(--orange);">Days</td>
+            <td style="color:var(--orange);">Days</td>
+          </tr>
+          <tr>
+            <td>Cancellation</td>
+            <td class="ctj">2 clicks. No fees.</td>
+            <td style="color:var(--red);">Up to $46,000 ETF</td>
+            <td style="color:var(--orange);">Must call. They'll fight you.</td>
+            <td style="color:var(--orange);">Easy</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </div>
 </section>
@@ -328,17 +540,18 @@
 <!-- FEATURES -->
 <section class="features-section">
   <div style="max-width:1280px;margin:0 auto;padding:0 24px;">
-    <div class="section-eyebrow" style="margin-bottom:40px;">// What you get</div>
+    <div class="section-eyebrow" style="margin-bottom:40px;">// What's included — everything, no asterisk</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0;border-left:1px solid var(--border);border-top:1px solid var(--border);">
       {% for icon, title, body in [
-        ('M13 10V3L4 14h7v7l9-11h-7z', 'AI Proposal Writing', 'Professional scope, materials, and labor breakdown written instantly. Win more bids without spending an hour on paperwork.'),
-        ('M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', 'Job Scheduling', 'Upcoming job calendar with client info, estimated revenue, and auto-invoice triggers. Never miss a job.'),
-        ('M9 12h6m-6 4h6M5 5h14l2 2v12l-2 2H5l-2-2V7l2-2z', 'Auto PDF Invoices', 'Invoices with PDF attachment sent automatically the moment a job date passes. Zero manual effort.'),
-        ('M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', 'Revenue Dashboard', 'Charts and totals for revenue, expenses, tips, and net profit. Monthly breakdowns at a glance.'),
-        ('M4 6h16M4 10h16M4 14h8', 'Cost Templates', 'Save recurring fees like service calls or per-sq-ft rates and apply them instantly to any proposal.'),
-        ('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', 'Specialty Filtering', 'Set your trade — HVAC, Plumbing, Electrical, Roofing — and only see relevant job types for your business.'),
-        ('M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', 'Gmail Draft Copy', 'Every invoice automatically saves a draft to your Gmail inbox so you always have a backup copy.'),
-        ('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', 'Pipeline Tracking', 'Mark proposals as Draft, Sent, Accepted, or Declined. See total pipeline value at a glance.'),
+        ('M13 10V3L4 14h7v7l9-11h-7z', 'AI Proposal Writing', 'Tell it the job. It writes the proposal — scope, materials, labor, payment terms. Professional in 60 seconds.'),
+        ('M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', 'Client E-Signature', 'Clients sign from any phone or laptop. Timestamped, legally binding, no printer or DocuSign needed.'),
+        ('M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z', 'Deposit Collection', 'Client pays their deposit the moment they accept. Stripe-powered. Locks in the job before you show up.'),
+        ('M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', 'Job Scheduling', 'Calendar auto-fills when a client accepts. Recurring jobs re-schedule themselves. Google Calendar syncs automatically.'),
+        ('M9 12h6m-6 4h6M5 5h14l2 2v12l-2 2H5l-2-2V7l2-2z', 'Auto PDF Invoices', 'Invoice sends itself when the job date passes. PDF attached. Stripe payment link included. You get notified when paid.'),
+        ('M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', 'Revenue Dashboard', 'Revenue, expenses, tips, net profit. Monthly charts. Instant answer to "did I make money this month?"'),
+        ('M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z', 'Client CRM', 'Every client auto-saved. Full history of proposals, jobs, invoices. Quick-fill from any form.'),
+        ('M4 6h16M4 10h16M4 14h8', 'Cost Templates', 'Save your standard rates — service calls, per-sq-ft, per-unit — and load them into any proposal in one click.'),
+        ('M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z', 'Leads & Sales Pipeline', 'Track prospects from first contact to signed proposal. Kanban board, activity log, bulk CSV import.'),
       ] %}
       <div class="feature-item">
         <div class="feature-icon">
@@ -354,26 +567,52 @@
   </div>
 </section>
 
-<!-- QUOTE -->
+<!-- TESTIMONIALS -->
 <section style="padding:100px 0;border-bottom:1px solid var(--border);">
-  <div class="quote-section">
-    <div class="quote-mark">"</div>
-    <p class="quote-text">I used to juggle 4 different apps — notes for scheduling, email for proposals, spreadsheets for money. CloseTheJob replaced all of them. My invoices go out automatically now.</p>
-    <div class="quote-author">Dave M. · <span>Plumbing Contractor · Denver, CO</span></div>
+  <div style="max-width:1280px;margin:0 auto;padding:0 24px;">
+    <div class="section-eyebrow" style="margin-bottom:16px;">// From contractors</div>
+    <div class="section-heading" style="margin-bottom:48px;">What the field actually says.</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;">
+
+      <div class="testimonial-card">
+        <div class="stars">★★★★★</div>
+        <div class="testimonial-text">I used to juggle 4 different apps. Notes for scheduling, email for proposals, spreadsheets for money. CloseTheJob replaced all of them. My invoices go out automatically now.</div>
+        <div class="testimonial-author">Dave M. · <span>Plumbing Contractor · Denver, CO</span></div>
+      </div>
+
+      <div class="testimonial-card">
+        <div class="stars">★★★★★</div>
+        <div class="testimonial-text">Switched from Housecall Pro after they hit me with a $250/month bill when I thought I was paying $79. CloseTheJob is $49 and does more. No surprise charges.</div>
+        <div class="testimonial-author">Marcus T. · <span>HVAC · Atlanta, GA</span></div>
+      </div>
+
+      <div class="testimonial-card">
+        <div class="stars">★★★★★</div>
+        <div class="testimonial-text">My crews actually use this. I've tried three other apps and guys would go back to text messages. This one sticks because it doesn't make them jump through 10 screens to log a job.</div>
+        <div class="testimonial-author">James R. · <span>Electrical · Phoenix, AZ</span></div>
+      </div>
+
+    </div>
   </div>
 </section>
 
 <!-- BOTTOM CTA -->
 <section class="cta-section">
   <div class="cta-inner">
-    <div class="section-eyebrow" style="margin-bottom:16px;">// Ready to run your trade?</div>
+    <div class="section-eyebrow" style="margin-bottom:16px;">// No credit card. No contracts. No BS.</div>
     <h2 style="font-family:'Bebas Neue',cursive;font-size:clamp(48px,7vw,96px);color:var(--text);line-height:1;margin-bottom:16px;">
-      Everything your trade<br />business needs.
+      Start free.<br /><span style="color:var(--orange);">Be live today.</span>
     </h2>
-    <p style="color:var(--text-muted);font-size:16px;margin-bottom:36px;">Start free. No credit card.</p>
-    <a href="{{ url_for('register') }}" class="btn-primary-lg" style="font-size:15px;padding:16px 36px;">
-      Create Free Account →
-    </a>
+    <p style="color:var(--text-muted);font-size:16px;margin-bottom:36px;max-width:480px;margin-left:auto;margin-right:auto;">
+      3 free proposals to start. No credit card. If you don't love it, cancel in two clicks — no forms, no calls, no fees.
+    </p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;align-items:center;">
+      <a href="{{ url_for('register') }}" class="btn-primary-lg" style="font-size:15px;padding:16px 36px;">
+        Start Free →
+      </a>
+      <a href="{{ url_for('pricing') }}" class="btn-secondary-lg" style="font-size:14px;">See Pricing</a>
+    </div>
+    <p style="color:var(--text-dim);font-size:12px;margin-top:20px;font-family:'JetBrains Mono',monospace;">$49/mo after trial · Cancel anytime · No contracts</p>
   </div>
 </section>
 
