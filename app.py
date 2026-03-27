@@ -1704,11 +1704,12 @@ def admin_users():
     if current_user.email.lower() not in ADMIN_EMAILS:
         return redirect(url_for('dashboard'))
     users = User.query.order_by(User.created_at.desc()).all()
-    proposal_counts = {}
-    job_counts = {}
-    for u in users:
-        proposal_counts[u.id] = Proposal.query.filter_by(user_id=u.id).count()
-        job_counts[u.id] = Job.query.filter_by(user_id=u.id).count()
+    # Single aggregation queries instead of N+1
+    from sqlalchemy import func
+    prop_rows = db.session.query(Proposal.user_id, func.count(Proposal.id)).group_by(Proposal.user_id).all()
+    job_rows = db.session.query(Job.user_id, func.count(Job.id)).group_by(Job.user_id).all()
+    proposal_counts = {uid: cnt for uid, cnt in prop_rows}
+    job_counts = {uid: cnt for uid, cnt in job_rows}
     total = len(users)
     paid = sum(1 for u in users if u.plan in ('starter', 'pro', 'enterprise'))
     trial = sum(1 for u in users if u.plan == 'trial')

@@ -72,10 +72,10 @@
               {% endif %}
             </td>
             <td style="padding:14px 16px;text-align:center;font-size:14px;color:var(--text);">
-              {{ proposal_counts[u.id] }}
+              {{ proposal_counts.get(u.id, 0) }}
             </td>
             <td style="padding:14px 16px;text-align:center;font-size:14px;color:var(--text);">
-              {{ job_counts[u.id] }}
+              {{ job_counts.get(u.id, 0) }}
             </td>
             <td style="padding:14px 16px;font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">
               {% if u.created_at %}
