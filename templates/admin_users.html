@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Admin — Users{% endblock %}
+
+{% block content %}
+<div style="max-width:1100px;margin:0 auto;padding:40px 24px;">
+
+  <div style="margin-bottom:32px;">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--orange);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px;">// Admin Panel</div>
+    <h1 class="font-display" style="font-size:48px;color:var(--text);line-height:1;">All Users</h1>
+  </div>
+
+  <!-- Stats strip -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px;">
+    <div class="ctj-card" style="padding:20px;text-align:center;">
+      <div style="font-size:36px;font-family:'Bebas Neue',sans-serif;color:var(--text);">{{ total }}</div>
+      <div style="font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;">Total Users</div>
+    </div>
+    <div class="ctj-card" style="padding:20px;text-align:center;">
+      <div style="font-size:36px;font-family:'Bebas Neue',sans-serif;color:var(--green);">{{ paid }}</div>
+      <div style="font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;">Paid</div>
+    </div>
+    <div class="ctj-card" style="padding:20px;text-align:center;">
+      <div style="font-size:36px;font-family:'Bebas Neue',sans-serif;color:var(--orange);">{{ trial }}</div>
+      <div style="font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;text-transform:uppercase;">Free / Trial</div>
+    </div>
+  </div>
+
+  <!-- User table -->
+  <div class="ctj-card" style="padding:0;overflow:hidden;">
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--surface-2);">
+            <th style="padding:14px 20px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:400;">Name / Company</th>
+            <th style="padding:14px 16px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:400;">Email</th>
+            <th style="padding:14px 16px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:400;">Plan</th>
+            <th style="padding:14px 16px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:400;">Proposals</th>
+            <th style="padding:14px 16px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:400;">Jobs</th>
+            <th style="padding:14px 16px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);text-transform:uppercase;font-weight:400;">Signed Up</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr style="border-bottom:1px solid rgba(255,255,255,0.04);{% if loop.last %}border-bottom:none;{% endif %}">
+            <td style="padding:14px 20px;">
+              <div style="font-size:14px;color:var(--text);font-weight:500;">{{ u.name }}</div>
+              {% if u.company_name %}
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">{{ u.company_name }}</div>
+              {% endif %}
+              {% if u.trade_type %}
+              <div style="font-size:11px;color:var(--text-muted);margin-top:2px;font-family:'JetBrains Mono',monospace;">{{ u.trade_type }}</div>
+              {% endif %}
+            </td>
+            <td style="padding:14px 16px;">
+              <a href="mailto:{{ u.email }}" style="font-size:13px;color:var(--blue);text-decoration:none;">{{ u.email }}</a>
+              {% if u.phone %}
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">{{ u.phone }}</div>
+              {% endif %}
+            </td>
+            <td style="padding:14px 16px;">
+              {% if u.plan in ('starter', 'pro', 'enterprise') %}
+              <span style="display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;background:rgba(74,222,128,0.12);color:var(--green);border:1px solid rgba(74,222,128,0.25);">
+                {{ u.plan }}
+              </span>
+              {% else %}
+              <span style="display:inline-block;padding:3px 10px;border-radius:4px;font-size:11px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;background:rgba(249,115,22,0.1);color:var(--orange);border:1px solid rgba(249,115,22,0.2);">
+                free
+              </span>
+              {% endif %}
+              {% if u.subscription_status == 'trialing' %}
+              <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">trialing</div>
+              {% endif %}
+            </td>
+            <td style="padding:14px 16px;text-align:center;font-size:14px;color:var(--text);">
+              {{ proposal_counts[u.id] }}
+            </td>
+            <td style="padding:14px 16px;text-align:center;font-size:14px;color:var(--text);">
+              {{ job_counts[u.id] }}
+            </td>
+            <td style="padding:14px 16px;font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">
+              {% if u.created_at %}
+              {{ u.created_at.strftime('%b %d, %Y') }}
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="6" style="padding:40px;text-align:center;color:var(--text-muted);font-size:14px;">No users yet.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1696,6 +1696,32 @@ def logout():
     return redirect(url_for('index'))
 
 
+ADMIN_EMAILS = {'ryanzlotnik@gmail.com'}
+
+@app.route('/admin/users')
+@login_required
+def admin_users():
+    if current_user.email.lower() not in ADMIN_EMAILS:
+        return redirect(url_for('dashboard'))
+    users = User.query.order_by(User.created_at.desc()).all()
+    proposal_counts = {}
+    job_counts = {}
+    for u in users:
+        proposal_counts[u.id] = Proposal.query.filter_by(user_id=u.id).count()
+        job_counts[u.id] = Job.query.filter_by(user_id=u.id).count()
+    total = len(users)
+    paid = sum(1 for u in users if u.plan in ('starter', 'pro', 'enterprise'))
+    trial = sum(1 for u in users if u.plan == 'trial')
+    return render_template('admin_users.html',
+        users=users,
+        proposal_counts=proposal_counts,
+        job_counts=job_counts,
+        total=total,
+        paid=paid,
+        trial=trial,
+    )
+
+
 @app.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
     if current_user.is_authenticated:
