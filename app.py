@@ -4431,7 +4431,7 @@ with app.app_context():
         'ALTER TABLE scheduled_job ADD COLUMN recurrence_type VARCHAR(20) DEFAULT \'\'',
         'ALTER TABLE scheduled_job ADD COLUMN recurrence_end_date DATE',
         'ALTER TABLE "user" ADD COLUMN pw_reset_token VARCHAR(100)',
-        'ALTER TABLE "user" ADD COLUMN pw_reset_expires DATETIME',
+        'ALTER TABLE "user" ADD COLUMN pw_reset_expires TIMESTAMP',
     ]
     for _sql in _migrations:
         try:
