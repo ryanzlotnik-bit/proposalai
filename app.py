@@ -282,6 +282,8 @@ class User(db.Model, UserMixin):
     subscription_status = db.Column(db.String(50), default='trial')
     stripe_customer_id = db.Column(db.String(200), default='')
     stripe_subscription_id = db.Column(db.String(200), default='')
+    pw_reset_token = db.Column(db.String(100), nullable=True)
+    pw_reset_expires = db.Column(db.DateTime, nullable=True)
     plan = db.Column(db.String(50), default='trial')  # trial, starter, pro, enterprise
     trial_expires_at = db.Column(db.DateTime, nullable=True)
     specialty = db.Column(db.String(200), default='')   # comma-separated specialties
@@ -1692,6 +1694,57 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('index'))
+
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        user = User.query.filter_by(email=email).first()
+        # Always show success message — don't reveal if email exists
+        if user:
+            token = secrets.token_urlsafe(32)
+            user.pw_reset_token = token
+            user.pw_reset_expires = datetime.utcnow() + timedelta(hours=1)
+            db.session.commit()
+            reset_url = url_for('reset_password', token=token, _external=True)
+            body = f"""<p>Hi {user.name},</p>
+<p>You requested a password reset for your CloseTheJob account.</p>
+<p><a href="{reset_url}" style="background:#F97316;color:#000;padding:12px 24px;text-decoration:none;font-weight:700;display:inline-block;">Reset My Password →</a></p>
+<p>This link expires in 1 hour. If you didn't request this, ignore this email.</p>
+<p style="color:#888;font-size:12px;">— CloseTheJob</p>"""
+            send_email_sendgrid(user.email, 'Reset your CloseTheJob password', body)
+        flash('If that email is in our system, a reset link is on its way.', 'success')
+        return redirect(url_for('forgot_password'))
+    return render_template('forgot_password.html')
+
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    user = User.query.filter_by(pw_reset_token=token).first()
+    if not user or not user.pw_reset_expires or user.pw_reset_expires < datetime.utcnow():
+        flash('This reset link is invalid or has expired. Please request a new one.', 'error')
+        return redirect(url_for('forgot_password'))
+    if request.method == 'POST':
+        password = request.form.get('password', '')
+        confirm = request.form.get('confirm_password', '')
+        if len(password) < 8:
+            flash('Password must be at least 8 characters.', 'error')
+            return render_template('reset_password.html', token=token)
+        if password != confirm:
+            flash('Passwords do not match.', 'error')
+            return render_template('reset_password.html', token=token)
+        user.password = bcrypt.generate_password_hash(password).decode('utf-8')
+        user.pw_reset_token = None
+        user.pw_reset_expires = None
+        db.session.commit()
+        flash('Password updated! You can now log in.', 'success')
+        return redirect(url_for('login'))
+    return render_template('reset_password.html', token=token)
 
 
 @app.route('/dashboard')
@@ -4377,6 +4430,8 @@ with app.app_context():
         'ALTER TABLE scheduled_job ADD COLUMN recurring BOOLEAN DEFAULT 0',
         'ALTER TABLE scheduled_job ADD COLUMN recurrence_type VARCHAR(20) DEFAULT \'\'',
         'ALTER TABLE scheduled_job ADD COLUMN recurrence_end_date DATE',
+        'ALTER TABLE "user" ADD COLUMN pw_reset_token VARCHAR(100)',
+        'ALTER TABLE "user" ADD COLUMN pw_reset_expires DATETIME',
     ]
     for _sql in _migrations:
         try:
