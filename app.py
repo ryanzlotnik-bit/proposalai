@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
@@ -47,6 +48,7 @@ except ImportError:
 load_dotenv()
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///proposalai.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
