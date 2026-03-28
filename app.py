@@ -23,6 +23,8 @@ import json
 import random
 import string
 import secrets
+import hashlib
+import base64
 
 try:
     from twilio.rest import Client as TwilioClient
@@ -4154,11 +4156,18 @@ def gmail_auth():
         }
         flow = Flow.from_client_config(config, scopes=['https://mail.google.com/'])
         flow.redirect_uri = url_for('gmail_callback', _external=True)
+        code_verifier = secrets.token_urlsafe(32)
+        code_challenge = base64.urlsafe_b64encode(
+            hashlib.sha256(code_verifier.encode('ascii')).digest()
+        ).rstrip(b'=').decode('ascii')
         auth_url, state = flow.authorization_url(
             access_type='offline', prompt='consent',
             login_hint=current_user.email,
+            code_challenge=code_challenge,
+            code_challenge_method='S256',
         )
         session['gmail_oauth_state'] = state
+        session['gmail_code_verifier'] = code_verifier
         return redirect(auth_url)
     except Exception:
         flash('Could not start Gmail connection.', 'error')
@@ -4183,7 +4192,8 @@ def gmail_callback():
         }
         flow = Flow.from_client_config(config, scopes=['https://mail.google.com/'])
         flow.redirect_uri = url_for('gmail_callback', _external=True)
-        flow.fetch_token(code=request.args.get('code'))
+        code_verifier = session.pop('gmail_code_verifier', None)
+        flow.fetch_token(code=request.args.get('code'), code_verifier=code_verifier)
         creds = flow.credentials
         # Get the connected email via userinfo endpoint
         try:
