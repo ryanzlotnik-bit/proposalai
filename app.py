@@ -4154,9 +4154,12 @@ def gmail_auth():
         }
         flow = Flow.from_client_config(config, scopes=['https://mail.google.com/'])
         flow.redirect_uri = url_for('gmail_callback', _external=True)
+        code_verifier = secrets.token_urlsafe(96)
+        session['gmail_code_verifier'] = code_verifier
         auth_url, state = flow.authorization_url(
             access_type='offline', prompt='consent',
             login_hint=current_user.email,
+            code_verifier=code_verifier,
         )
         session['gmail_oauth_state'] = state
         return redirect(auth_url)
@@ -4184,7 +4187,7 @@ def gmail_callback():
         flow = Flow.from_client_config(config, scopes=['https://mail.google.com/'])
         flow.redirect_uri = url_for('gmail_callback', _external=True)
         flow.fetch_token(code=request.args.get('code'),
-                         authorization_response=request.url.replace('http://', 'https://'))
+                         code_verifier=session.pop('gmail_code_verifier', None))
         creds = flow.credentials
         # Get the connected email via userinfo endpoint
         try:
