@@ -201,12 +201,12 @@ def send_sms(to_number, body):
 
 def _get_fresh_gmail_token(user):
     """Return a fresh Gmail OAuth access token for the user, refreshing if needed.
-    Returns (access_token, gmail_email) or (None, None) if not configured.
+    Returns (access_token, gmail_email, error) or (None, None, error_str) if not configured.
     """
     if not GOOGLE_CALENDAR_ENABLED:
-        return None, None
+        return None, None, 'Google integration not configured'
     if not user.gmail_refresh_token or not user.gmail_email:
-        return None, None
+        return None, None, 'Gmail not connected'
     try:
         creds = Credentials(
             token=user.gmail_access_token,
@@ -222,30 +222,31 @@ def _get_fresh_gmail_token(user):
             if creds.expiry:
                 user.gmail_token_expiry = creds.expiry.timestamp()
             db.session.commit()
-        return creds.token, user.gmail_email
-    except Exception:
-        return None, None
+        return creds.token, user.gmail_email, None
+    except Exception as e:
+        return None, None, str(e)
 
 
 def _imap_connect(user=None):
     """Open an IMAP4_SSL connection to Gmail.
     If user has connected Gmail via OAuth, uses their personal token (XOAUTH2).
     Falls back to env-var App Password credentials for backwards compatibility.
-    Returns None if not configured.
+    Returns (connection, error_str) — connection is None on failure.
     """
     import base64
     # Per-user OAuth path
     if user is not None and getattr(user, 'gmail_refresh_token', None):
-        token, gmail_email = _get_fresh_gmail_token(user)
-        if token and gmail_email:
-            try:
-                auth_string = f"user={gmail_email}\x01auth=Bearer {token}\x01\x01"
-                auth_b64 = base64.b64encode(auth_string.encode()).decode()
-                M = imaplib.IMAP4_SSL('imap.gmail.com', 993)
-                M.authenticate('XOAUTH2', lambda x: auth_b64)
-                return M
-            except Exception:
-                return None
+        token, gmail_email, token_err = _get_fresh_gmail_token(user)
+        if not token:
+            return None, token_err or 'Failed to get Gmail token'
+        try:
+            auth_string = f"user={gmail_email}\x01auth=Bearer {token}\x01\x01"
+            auth_b64 = base64.b64encode(auth_string.encode()).decode()
+            M = imaplib.IMAP4_SSL('imap.gmail.com', 993)
+            M.authenticate('XOAUTH2', lambda x: auth_b64)
+            return M, None
+        except Exception as e:
+            return None, f'IMAP auth failed: {e}'
     # Fallback: env-var App Password (admin / single-tenant legacy mode)
     imap_user = os.getenv('IMAP_USERNAME', '')
     imap_pw   = os.getenv('IMAP_PASSWORD', '')
@@ -255,13 +256,13 @@ def _imap_connect(user=None):
         if fallback_user and fallback_user != 'apikey' and not fallback_pw.startswith('SG.'):
             imap_user, imap_pw = fallback_user, fallback_pw
     if not imap_user or not imap_pw:
-        return None
+        return None, 'Gmail not connected. Go to Profile → Connect Gmail Inbox.'
     try:
         M = imaplib.IMAP4_SSL('imap.gmail.com', 993)
         M.login(imap_user, imap_pw)
-        return M
-    except Exception:
-        return None
+        return M, None
+    except Exception as e:
+        return None, f'IMAP login failed: {e}'
 
 
 def _decode_header(h):
@@ -3711,9 +3712,9 @@ def crm_email_messages():
     """AJAX: fetch message list from IMAP."""
     folder = request.args.get('folder', 'INBOX')
     limit = int(request.args.get('limit', 40))
-    M = _imap_connect(current_user)
+    M, imap_err = _imap_connect(current_user)
     if not M:
-        return jsonify({'error': 'Gmail not connected. Go to Profile → Connect Gmail Inbox.', 'messages': []})
+        return jsonify({'error': imap_err or 'Gmail not connected. Go to Profile → Connect Gmail Inbox.', 'messages': []})
     try:
         folder_map = {
             'INBOX': 'INBOX',
@@ -3752,9 +3753,9 @@ def crm_email_messages():
 def crm_email_message(msg_uid):
     """AJAX: fetch a single full message."""
     folder = request.args.get('folder', 'INBOX')
-    M = _imap_connect(current_user)
+    M, imap_err = _imap_connect(current_user)
     if not M:
-        return jsonify({'error': 'Gmail not connected. Go to Profile → Connect Gmail Inbox.'})
+        return jsonify({'error': imap_err or 'Gmail not connected. Go to Profile → Connect Gmail Inbox.'})
     try:
         folder_map = {
             'INBOX': 'INBOX',
