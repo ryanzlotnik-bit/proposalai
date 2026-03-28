@@ -31,11 +31,18 @@ except ImportError:
 
 try:
     from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request as GoogleRequest
     from google_auth_oauthlib.flow import Flow
     from googleapiclient.discovery import build
     GOOGLE_CALENDAR_ENABLED = True
 except ImportError:
     GOOGLE_CALENDAR_ENABLED = False
+
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+    SCHEDULER_ENABLED = True
+except ImportError:
+    SCHEDULER_ENABLED = False
 
 load_dotenv()
 
@@ -188,26 +195,66 @@ def send_sms(to_number, body):
     threading.Thread(target=_send, daemon=True).start()
 
 
-def _imap_connect():
-    """Open an IMAP4_SSL connection to Gmail. Returns None if not configured.
-    Uses IMAP_USERNAME / IMAP_PASSWORD env vars. These must be your real Gmail
-    address and a Gmail App Password — NOT the SendGrid 'apikey' / API key used
-    for outbound sending. Falls back to MAIL_USERNAME / MAIL_PASSWORD only if
-    IMAP_USERNAME is not set and MAIL_USERNAME doesn't look like a SendGrid key.
+def _get_fresh_gmail_token(user):
+    """Return a fresh Gmail OAuth access token for the user, refreshing if needed.
+    Returns (access_token, gmail_email) or (None, None) if not configured.
     """
-    user = os.getenv('IMAP_USERNAME', '')
-    pw   = os.getenv('IMAP_PASSWORD', '')
-    # Fallback: use MAIL_* only if they look like real Gmail credentials
-    if not user:
+    if not GOOGLE_CALENDAR_ENABLED:
+        return None, None
+    if not user.gmail_refresh_token or not user.gmail_email:
+        return None, None
+    try:
+        creds = Credentials(
+            token=user.gmail_access_token,
+            refresh_token=user.gmail_refresh_token,
+            token_uri='https://oauth2.googleapis.com/token',
+            client_id=os.getenv('GOOGLE_CLIENT_ID'),
+            client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+            scopes=['https://mail.google.com/'],
+        )
+        if not creds.valid:
+            creds.refresh(GoogleRequest())
+            user.gmail_access_token = creds.token
+            if creds.expiry:
+                user.gmail_token_expiry = creds.expiry.timestamp()
+            db.session.commit()
+        return creds.token, user.gmail_email
+    except Exception:
+        return None, None
+
+
+def _imap_connect(user=None):
+    """Open an IMAP4_SSL connection to Gmail.
+    If user has connected Gmail via OAuth, uses their personal token (XOAUTH2).
+    Falls back to env-var App Password credentials for backwards compatibility.
+    Returns None if not configured.
+    """
+    import base64
+    # Per-user OAuth path
+    if user is not None and getattr(user, 'gmail_refresh_token', None):
+        token, gmail_email = _get_fresh_gmail_token(user)
+        if token and gmail_email:
+            try:
+                auth_string = f"user={gmail_email}\x01auth=Bearer {token}\x01\x01"
+                auth_b64 = base64.b64encode(auth_string.encode()).decode()
+                M = imaplib.IMAP4_SSL('imap.gmail.com', 993)
+                M.authenticate('XOAUTH2', lambda x: auth_b64)
+                return M
+            except Exception:
+                return None
+    # Fallback: env-var App Password (admin / single-tenant legacy mode)
+    imap_user = os.getenv('IMAP_USERNAME', '')
+    imap_pw   = os.getenv('IMAP_PASSWORD', '')
+    if not imap_user:
         fallback_user = os.getenv('MAIL_USERNAME', '')
         fallback_pw   = os.getenv('MAIL_PASSWORD', '')
         if fallback_user and fallback_user != 'apikey' and not fallback_pw.startswith('SG.'):
-            user, pw = fallback_user, fallback_pw
-    if not user or not pw:
+            imap_user, imap_pw = fallback_user, fallback_pw
+    if not imap_user or not imap_pw:
         return None
     try:
         M = imaplib.IMAP4_SSL('imap.gmail.com', 993)
-        M.login(user, pw)
+        M.login(imap_user, imap_pw)
         return M
     except Exception:
         return None
@@ -318,6 +365,10 @@ class User(db.Model, UserMixin):
     google_access_token = db.Column(db.Text, nullable=True)
     google_refresh_token = db.Column(db.Text, nullable=True)
     google_token_expiry = db.Column(db.Float, nullable=True)
+    gmail_access_token = db.Column(db.Text, nullable=True)
+    gmail_refresh_token = db.Column(db.Text, nullable=True)
+    gmail_token_expiry = db.Column(db.Float, nullable=True)
+    gmail_email = db.Column(db.String(200), nullable=True)
     logo_url = db.Column(db.Text, nullable=True)
     brand_color = db.Column(db.String(7), default='#F97316')
     team_owner_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
@@ -394,6 +445,10 @@ class User(db.Model, UserMixin):
     @property
     def effective_brand_color(self):
         return self.brand_color or '#F97316'
+
+    @property
+    def gmail_configured(self):
+        return bool(self.gmail_refresh_token and self.gmail_email)
 
 
 class Proposal(db.Model):
@@ -2995,6 +3050,7 @@ def subscription_success():
 
 
 @app.route('/test-email')
+@login_required
 def test_email():
     """Test SendGrid HTTP API email sending and show result."""
     username = os.getenv('MAIL_USERNAME', '')
@@ -3637,10 +3693,12 @@ def crm_email_inbox():
     leads = Lead.query.filter_by(user_id=uid()).order_by(Lead.company).all()
     contacts = LeadContact.query.filter_by(user_id=uid()).order_by(LeadContact.last_name).all()
     linked = LinkedEmail.query.filter_by(user_id=uid()).order_by(LinkedEmail.linked_at.desc()).limit(200).all()
-    mail_configured = bool(os.getenv('MAIL_USERNAME') and os.getenv('MAIL_PASSWORD'))
+    gmail_configured = current_user.gmail_configured
+    google_configured = bool(os.getenv('GOOGLE_CLIENT_ID'))
     return render_template('crm_email.html', leads=leads, contacts=contacts,
-                           linked=linked, mail_configured=mail_configured,
-                           my_email=os.getenv('MAIL_USERNAME', ''))
+                           linked=linked, gmail_configured=gmail_configured,
+                           google_configured=google_configured,
+                           my_email=current_user.gmail_email or '')
 
 
 @app.route('/crm/email/messages')
@@ -3649,9 +3707,9 @@ def crm_email_messages():
     """AJAX: fetch message list from IMAP."""
     folder = request.args.get('folder', 'INBOX')
     limit = int(request.args.get('limit', 40))
-    M = _imap_connect()
+    M = _imap_connect(current_user)
     if not M:
-        return jsonify({'error': 'Email not configured. Set MAIL_USERNAME and MAIL_PASSWORD.', 'messages': []})
+        return jsonify({'error': 'Gmail not connected. Go to Profile → Connect Gmail Inbox.', 'messages': []})
     try:
         folder_map = {
             'INBOX': 'INBOX',
@@ -3690,9 +3748,9 @@ def crm_email_messages():
 def crm_email_message(msg_uid):
     """AJAX: fetch a single full message."""
     folder = request.args.get('folder', 'INBOX')
-    M = _imap_connect()
+    M = _imap_connect(current_user)
     if not M:
-        return jsonify({'error': 'Email not configured'})
+        return jsonify({'error': 'Gmail not connected. Go to Profile → Connect Gmail Inbox.'})
     try:
         folder_map = {
             'INBOX': 'INBOX',
@@ -4071,6 +4129,90 @@ def google_disconnect():
     current_user.google_token_expiry = None
     db.session.commit()
     flash('Google Calendar disconnected.', 'success')
+    return redirect(url_for('profile'))
+
+
+# ─── Gmail OAuth (per-user inbox) ──────────────────────────────────────────────
+
+@app.route('/auth/gmail')
+@login_required
+def gmail_auth():
+    if not GOOGLE_CALENDAR_ENABLED or not os.getenv('GOOGLE_CLIENT_ID'):
+        flash('Google integration is not configured.', 'warning')
+        return redirect(url_for('profile'))
+    try:
+        config = {
+            'web': {
+                'client_id': os.getenv('GOOGLE_CLIENT_ID'),
+                'client_secret': os.getenv('GOOGLE_CLIENT_SECRET'),
+                'auth_uri': 'https://accounts.google.com/o/oauth2/auth',
+                'token_uri': 'https://oauth2.googleapis.com/token',
+                'redirect_uris': [url_for('gmail_callback', _external=True)],
+            }
+        }
+        flow = Flow.from_client_config(config, scopes=['https://mail.google.com/'])
+        flow.redirect_uri = url_for('gmail_callback', _external=True)
+        auth_url, state = flow.authorization_url(
+            access_type='offline', prompt='consent',
+            login_hint=current_user.email,
+        )
+        session['gmail_oauth_state'] = state
+        return redirect(auth_url)
+    except Exception:
+        flash('Could not start Gmail connection.', 'error')
+        return redirect(url_for('profile'))
+
+
+@app.route('/auth/gmail/callback')
+@login_required
+def gmail_callback():
+    if not GOOGLE_CALENDAR_ENABLED or not os.getenv('GOOGLE_CLIENT_ID'):
+        flash('Google integration is not configured.', 'warning')
+        return redirect(url_for('profile'))
+    try:
+        config = {
+            'web': {
+                'client_id': os.getenv('GOOGLE_CLIENT_ID'),
+                'client_secret': os.getenv('GOOGLE_CLIENT_SECRET'),
+                'auth_uri': 'https://accounts.google.com/o/oauth2/auth',
+                'token_uri': 'https://oauth2.googleapis.com/token',
+                'redirect_uris': [url_for('gmail_callback', _external=True)],
+            }
+        }
+        flow = Flow.from_client_config(config, scopes=['https://mail.google.com/'],
+                                        state=session.get('gmail_oauth_state'))
+        flow.redirect_uri = url_for('gmail_callback', _external=True)
+        flow.fetch_token(code=request.args.get('code'))
+        creds = flow.credentials
+        # Get the email address from the token's id_token or userinfo
+        import google.oauth2.id_token as id_token_module
+        try:
+            id_info = id_token_module.verify_oauth2_token(
+                creds.id_token, GoogleRequest(), os.getenv('GOOGLE_CLIENT_ID'))
+            gmail_email = id_info.get('email', current_user.email)
+        except Exception:
+            gmail_email = current_user.email
+        current_user.gmail_access_token = creds.token
+        if creds.refresh_token:
+            current_user.gmail_refresh_token = creds.refresh_token
+        current_user.gmail_token_expiry = creds.expiry.timestamp() if creds.expiry else None
+        current_user.gmail_email = gmail_email
+        db.session.commit()
+        flash(f'Gmail inbox connected as {gmail_email}. You can now read your emails in the CRM.', 'success')
+    except Exception as e:
+        flash('Failed to connect Gmail. Please try again.', 'error')
+    return redirect(url_for('profile'))
+
+
+@app.route('/auth/gmail/disconnect', methods=['POST'])
+@login_required
+def gmail_disconnect():
+    current_user.gmail_access_token = None
+    current_user.gmail_refresh_token = None
+    current_user.gmail_token_expiry = None
+    current_user.gmail_email = None
+    db.session.commit()
+    flash('Gmail inbox disconnected.', 'success')
     return redirect(url_for('profile'))
 
 
@@ -4491,6 +4633,10 @@ with app.app_context():
         'ALTER TABLE scheduled_job ADD COLUMN recurrence_end_date DATE',
         'ALTER TABLE "user" ADD COLUMN pw_reset_token VARCHAR(100)',
         'ALTER TABLE "user" ADD COLUMN pw_reset_expires TIMESTAMP',
+        'ALTER TABLE "user" ADD COLUMN gmail_access_token TEXT',
+        'ALTER TABLE "user" ADD COLUMN gmail_refresh_token TEXT',
+        'ALTER TABLE "user" ADD COLUMN gmail_token_expiry FLOAT',
+        'ALTER TABLE "user" ADD COLUMN gmail_email VARCHAR(200)',
     ]
     for _sql in _migrations:
         try:
@@ -4498,6 +4644,31 @@ with app.app_context():
             db.session.commit()
         except Exception:
             db.session.rollback()
+
+# ─── Background Scheduler ──────────────────────────────────────────────────────
+# Runs automations for every user every hour so they don't depend on visiting
+# the dashboard. Idempotent — safe to run multiple times.
+
+def _run_auto_jobs_all_users():
+    with app.app_context():
+        try:
+            users = User.query.with_entities(User.id).all()
+            for (user_id,) in users:
+                try:
+                    auto_invoice_past_scheduled_jobs(user_id)
+                    auto_send_followup_reminders(user_id)
+                    auto_send_payment_reminders(user_id)
+                    auto_send_review_requests(user_id)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+if SCHEDULER_ENABLED:
+    _scheduler = BackgroundScheduler(daemon=True)
+    _scheduler.add_job(_run_auto_jobs_all_users, 'interval', hours=1,
+                       id='auto_jobs_all_users', misfire_grace_time=300)
+    _scheduler.start()
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5001))

@@ -323,11 +323,18 @@
 {% endblock %}
 
 {% block content %}
-{% if not mail_configured %}
+{% if not gmail_configured %}
 <div style="max-width:900px;margin:60px auto;padding:0 24px;">
-  <div style="background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--orange);padding:24px 28px;">
-    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;">Email not connected</div>
-    <p style="font-size:13px;color:var(--text-muted);line-height:1.6;">Add <code style="background:var(--surface-2);padding:2px 6px;color:var(--orange);">MAIL_USERNAME</code> and <code style="background:var(--surface-2);padding:2px 6px;color:var(--orange);">MAIL_PASSWORD</code> to your <code style="background:var(--surface-2);padding:2px 6px;color:var(--orange);">.env</code> file to connect Gmail. Use a Gmail App Password (not your account password). Enable IMAP in Gmail settings.</p>
+  <div style="background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--orange);padding:24px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+    <div>
+      <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;">Connect your Gmail inbox</div>
+      <p style="font-size:13px;color:var(--text-muted);line-height:1.6;">Connect your Gmail account to read and send emails directly from the CRM. Your inbox stays private — only you see your emails.</p>
+    </div>
+    {% if google_configured %}
+    <a href="{{ url_for('gmail_auth') }}" class="btn-orange" style="padding:10px 22px;font-size:13px;clip-path:none;white-space:nowrap;">Connect Gmail →</a>
+    {% else %}
+    <span style="font-size:12px;color:var(--text-muted);">Requires GOOGLE_CLIENT_ID to be configured.</span>
+    {% endif %}
   </div>
 </div>
 {% endif %}
@@ -803,10 +810,10 @@ function formatMsgDate(dateStr) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
-  {% if mail_configured %}
+  {% if gmail_configured %}
   loadFolder('INBOX');
   {% else %}
-  document.getElementById('email-list-body').innerHTML = '<div class="email-list-loading">Email not configured.</div>';
+  document.getElementById('email-list-body').innerHTML = '<div class="email-list-loading">Connect your Gmail inbox to get started.</div>';
   {% endif %}
 });
 </script>

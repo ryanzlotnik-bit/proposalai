@@ -159,6 +159,35 @@
     </form>
   </div>
 
+  <!-- Gmail Inbox Integration -->
+  <div class="ctj-card" style="padding:28px;margin-top:24px;">
+    <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);">// Gmail Inbox (CRM)</div>
+    {% if current_user.gmail_configured %}
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="width:8px;height:8px;background:var(--green);border-radius:50%;display:inline-block;"></span>
+          <span style="font-size:14px;font-weight:600;color:var(--text);">Connected — {{ current_user.gmail_email }}</span>
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);">Your Gmail inbox is available in the CRM email tab.</p>
+      </div>
+      <form method="POST" action="{{ url_for('gmail_disconnect') }}" style="margin:0;">
+        <button type="submit" class="btn-ghost" style="padding:8px 18px;font-size:12px;" onclick="return confirm('Disconnect Gmail inbox?')">Disconnect</button>
+      </form>
+    </div>
+    {% elif google_configured %}
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+      <div>
+        <div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px;">Connect your Gmail inbox</div>
+        <p style="font-size:12px;color:var(--text-muted);">Read and send emails from inside the CRM. Your inbox stays private — only you see your emails.</p>
+      </div>
+      <a href="{{ url_for('gmail_auth') }}" class="btn-orange" style="padding:10px 22px;font-size:13px;clip-path:none;">Connect Gmail →</a>
+    </div>
+    {% else %}
+    <p style="font-size:13px;color:var(--text-muted);">Gmail inbox requires <code style="background:var(--surface-2);padding:2px 6px;font-family:'JetBrains Mono',monospace;font-size:11px;">GOOGLE_CLIENT_ID</code> and <code style="background:var(--surface-2);padding:2px 6px;font-family:'JetBrains Mono',monospace;font-size:11px;">GOOGLE_CLIENT_SECRET</code> to be configured.</p>
+    {% endif %}
+  </div>
+
   <!-- Google Calendar Integration -->
   <div class="ctj-card" style="padding:28px;margin-top:24px;">
     <div style="font-size:11px;color:var(--orange);font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border);">// Google Calendar Sync</div>
