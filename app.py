@@ -4181,17 +4181,18 @@ def gmail_callback():
                 'redirect_uris': [url_for('gmail_callback', _external=True)],
             }
         }
-        flow = Flow.from_client_config(config, scopes=['https://mail.google.com/'],
-                                        state=session.get('gmail_oauth_state'))
+        flow = Flow.from_client_config(config, scopes=['https://mail.google.com/'])
         flow.redirect_uri = url_for('gmail_callback', _external=True)
-        flow.fetch_token(code=request.args.get('code'))
+        flow.fetch_token(code=request.args.get('code'),
+                         authorization_response=request.url.replace('http://', 'https://'))
         creds = flow.credentials
-        # Get the email address from the token's id_token or userinfo
-        import google.oauth2.id_token as id_token_module
+        # Get the connected email via userinfo endpoint
         try:
-            id_info = id_token_module.verify_oauth2_token(
-                creds.id_token, GoogleRequest(), os.getenv('GOOGLE_CLIENT_ID'))
-            gmail_email = id_info.get('email', current_user.email)
+            userinfo_resp = http_requests.get(
+                'https://www.googleapis.com/oauth2/v2/userinfo',
+                headers={'Authorization': f'Bearer {creds.token}'}
+            )
+            gmail_email = userinfo_resp.json().get('email', current_user.email)
         except Exception:
             gmail_email = current_user.email
         current_user.gmail_access_token = creds.token
@@ -4202,7 +4203,7 @@ def gmail_callback():
         db.session.commit()
         flash(f'Gmail inbox connected as {gmail_email}. You can now read your emails in the CRM.', 'success')
     except Exception as e:
-        flash('Failed to connect Gmail. Please try again.', 'error')
+        flash(f'Failed to connect Gmail: {e}', 'error')
     return redirect(url_for('profile'))
 
 
