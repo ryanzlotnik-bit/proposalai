@@ -44,13 +44,20 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-pro
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///proposalai.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# Session cookie security — SameSite=Lax prevents CSRF on cross-site POST requests
+# without requiring explicit CSRF tokens on every form.
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+# Only send cookie over HTTPS in production (Railway sets PORT != 5001)
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('RAILWAY_ENVIRONMENT') is not None
+
 # Mail config — set MAIL_USERNAME and MAIL_PASSWORD in .env
 app.config['MAIL_SERVER']   = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
 app.config['MAIL_PORT']     = int(os.getenv('MAIL_PORT', 587))
 app.config['MAIL_USE_TLS']  = True
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME', '')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD', '')
-app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME', '')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER', '') or os.getenv('MAIL_USERNAME', '')
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
@@ -75,16 +82,19 @@ def dev_check():
         "",
         "--- IMAP Test ---",
     ]
-    user = os.getenv('MAIL_USERNAME', '')
-    pw = os.getenv('MAIL_PASSWORD', '')
-    if not user or not pw:
-        lines.append("IMAP: MAIL_USERNAME or MAIL_PASSWORD not set")
+    imap_user = os.getenv('IMAP_USERNAME', '') or (
+        os.getenv('MAIL_USERNAME', '') if os.getenv('MAIL_USERNAME', '') != 'apikey' else '')
+    imap_pw = os.getenv('IMAP_PASSWORD', '') or (
+        os.getenv('MAIL_PASSWORD', '') if not os.getenv('MAIL_PASSWORD', '').startswith('SG.') else '')
+    lines.append(f"IMAP_USERNAME={imap_user or '(not set)'}")
+    if not imap_user or not imap_pw:
+        lines.append("IMAP: credentials not configured — set IMAP_USERNAME + IMAP_PASSWORD")
     else:
         try:
             import imaplib as _imap
             M = _imap.IMAP4_SSL('imap.gmail.com', 993)
-            M.login(user, pw)
-            lines.append(f"IMAP: LOGIN OK as {user}")
+            M.login(imap_user, imap_pw)
+            lines.append(f"IMAP: LOGIN OK as {imap_user}")
             M.logout()
         except Exception as e:
             lines.append(f"IMAP ERROR: {type(e).__name__}: {e}")
@@ -125,11 +135,16 @@ def send_email_sendgrid(to_addr, subject, html_body, from_addr=None):
         from_addr = os.getenv('MAIL_DEFAULT_SENDER', '') or os.getenv('MAIL_USERNAME', '')
     if not from_addr:
         return False, 'No from address configured (set MAIL_DEFAULT_SENDER or MAIL_USERNAME)'
+    from_name = os.getenv('MAIL_FROM_NAME', 'CloseTheJob')
     payload = {
         'personalizations': [{'to': [{'email': to_addr}]}],
-        'from': {'email': from_addr},
+        'from': {'email': from_addr, 'name': from_name},
         'subject': subject,
         'content': [{'type': 'text/html', 'value': html_body}],
+        'headers': {
+            'List-Unsubscribe': f'<mailto:{from_addr}?subject=unsubscribe>',
+            'X-Mailer': 'CloseTheJob',
+        },
     }
     headers = {
         'Authorization': f'Bearer {api_key}',
@@ -174,9 +189,20 @@ def send_sms(to_number, body):
 
 
 def _imap_connect():
-    """Open an IMAP4_SSL connection to Gmail. Returns None if not configured."""
-    user = os.getenv('MAIL_USERNAME', '')
-    pw = os.getenv('MAIL_PASSWORD', '')
+    """Open an IMAP4_SSL connection to Gmail. Returns None if not configured.
+    Uses IMAP_USERNAME / IMAP_PASSWORD env vars. These must be your real Gmail
+    address and a Gmail App Password — NOT the SendGrid 'apikey' / API key used
+    for outbound sending. Falls back to MAIL_USERNAME / MAIL_PASSWORD only if
+    IMAP_USERNAME is not set and MAIL_USERNAME doesn't look like a SendGrid key.
+    """
+    user = os.getenv('IMAP_USERNAME', '')
+    pw   = os.getenv('IMAP_PASSWORD', '')
+    # Fallback: use MAIL_* only if they look like real Gmail credentials
+    if not user:
+        fallback_user = os.getenv('MAIL_USERNAME', '')
+        fallback_pw   = os.getenv('MAIL_PASSWORD', '')
+        if fallback_user and fallback_user != 'apikey' and not fallback_pw.startswith('SG.'):
+            user, pw = fallback_user, fallback_pw
     if not user or not pw:
         return None
     try:
@@ -787,6 +813,9 @@ def parse_timeline_date(timeline_str, base_date=None):
     m = re.search(r'(\d+)\s*week', s)
     if m:
         return base_date + timedelta(weeks=int(m.group(1)))
+    m = re.search(r'(\d+)\s*month', s)
+    if m:
+        return base_date + timedelta(days=30 * int(m.group(1)))
     if 'next week' in s:
         return base_date + timedelta(days=7)
     if 'next month' in s:
@@ -1350,8 +1379,11 @@ def send_invoice_email(job, user):
     # Pass IDs only — ORM objects cannot be used across thread boundaries
     job_id = job.id
     user_id = user.id
-    username = app.config.get('MAIL_USERNAME', '')
-    password = app.config.get('MAIL_PASSWORD', '')
+    # IMAP draft saving uses dedicated Gmail credentials (not the SendGrid API key)
+    username = os.getenv('IMAP_USERNAME', '') or (
+        app.config.get('MAIL_USERNAME', '') if app.config.get('MAIL_USERNAME', '') != 'apikey' else '')
+    password = os.getenv('IMAP_PASSWORD', '') or (
+        app.config.get('MAIL_PASSWORD', '') if not app.config.get('MAIL_PASSWORD', '').startswith('SG.') else '')
 
     def do_send():
         with app.app_context():

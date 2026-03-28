@@ -157,34 +157,6 @@
 
 </div>
 
-<!-- New Template Modal -->
-<div id="modal-new" class="modal-overlay" onclick="if(event.target===this)closeModal('new')">
-  <div class="modal-box">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
-      <div style="font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--text);font-weight:700;">New Template</div>
-      <button onclick="closeModal('new')" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">×</button>
-    </div>
-    <form method="POST" action="{{ url_for('create_template') }}">
-      {{ _template_fields(None) }}
-      <button type="submit" class="btn-use" style="width:100%;justify-content:center;padding:13px;margin-top:24px;">Save Template →</button>
-    </form>
-  </div>
-</div>
-
-<!-- Edit Template Modal -->
-<div id="modal-edit" class="modal-overlay" onclick="if(event.target===this)closeModal('edit')">
-  <div class="modal-box">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
-      <div style="font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--text);font-weight:700;">Edit Template</div>
-      <button onclick="closeModal('edit')" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">×</button>
-    </div>
-    <form id="edit-form" method="POST">
-      <div id="edit-fields"></div>
-      <button type="submit" class="btn-use" style="width:100%;justify-content:center;padding:13px;margin-top:24px;">Save Changes →</button>
-    </form>
-  </div>
-</div>
-
 {% macro _template_fields(t) %}
 <div style="display:grid;gap:14px;">
   <div>
@@ -244,6 +216,34 @@
   </div>
 </div>
 {% endmacro %}
+
+<!-- New Template Modal -->
+<div id="modal-new" class="modal-overlay" onclick="if(event.target===this)closeModal('new')">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--text);font-weight:700;">New Template</div>
+      <button onclick="closeModal('new')" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">×</button>
+    </div>
+    <form method="POST" action="{{ url_for('create_template') }}">
+      {{ _template_fields(None) }}
+      <button type="submit" class="btn-use" style="width:100%;justify-content:center;padding:13px;margin-top:24px;">Save Template →</button>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Template Modal -->
+<div id="modal-edit" class="modal-overlay" onclick="if(event.target===this)closeModal('edit')">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--text);font-weight:700;">Edit Template</div>
+      <button onclick="closeModal('edit')" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;">×</button>
+    </div>
+    <form id="edit-form" method="POST">
+      <div id="edit-fields"></div>
+      <button type="submit" class="btn-use" style="width:100%;justify-content:center;padding:13px;margin-top:24px;">Save Changes →</button>
+    </form>
+  </div>
+</div>
 
 <script>
 function openModal(id) {
